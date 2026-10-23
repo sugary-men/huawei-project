@@ -1,7 +1,11 @@
+import { SourceCitation } from './RagModels'
+
 export interface AgentMessage {
   role: string
   content: string
   meta: string
+  sources?: SourceCitation[]
+  status?: string
 }
 
 export interface FeatureDefinition {
