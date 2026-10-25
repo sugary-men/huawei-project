@@ -1,5 +1,11 @@
 export class ApiConfig {
-  static readonly baseUrl: string = 'https://api.example.com/v1'
-  static readonly requestTimeoutMs: number = 15000
-  static readonly modelProvider: string = 'MODEL_PROVIDER_TO_BE_CONFIGURED'
+  static readonly requestTimeoutMs: number = 90000
+  static readonly maxHistoryMessages: number = 12
+  static readonly maxMessageChars: number = 4000
+}
+
+export interface AgentApiSettings {
+  baseUrl: string
+  model: string
+  apiKey: string
 }

@@ -1,4 +1,5 @@
 import { SourceCitation } from './RagModels'
+import { ChatAttachment } from './AttachmentModels'
 
 export interface AgentMessage {
   role: string
@@ -6,6 +7,11 @@ export interface AgentMessage {
   meta: string
   sources?: SourceCitation[]
   status?: string
+  renderRevision?: number
+  thinkingStartedAt?: number
+  thinkingDurationMs?: number
+  phase?: string
+  attachments?: ChatAttachment[]
 }
 
 export interface FeatureDefinition {

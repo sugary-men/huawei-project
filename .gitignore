@@ -1,6 +1,7 @@
 /node_modules
 /oh_modules
 /local.properties
+/entry/src/main/resources/rawfile/local_api.json
 /.idea
 **/build
 /.hvigor

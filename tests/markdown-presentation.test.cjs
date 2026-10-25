@@ -1,0 +1,41 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const ts = require(process.argv[2] || 'typescript');
+const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/MarkdownParser.ets'), 'utf8');
+const exportsObject = {};
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
+  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: exportsObject });
+const parser = exportsObject.MarkdownParser;
+const plain = value => JSON.parse(JSON.stringify(value));
+const document = '## 四、关键交付物清单\n\n1. **一页简历**（量化成果）\n2. **项目 STAR 卡**：`code`\n\n---\n\n> 引用 **资料**\n\n| 参数 | 说明 |\n| :--- | ---: |\n| 城市 | 杭州 \\| 上海 |\n\n```ts\nconst title = "## 原样保留";\n```';
+const blocks = parser.parse(document);
+assert.deepEqual(plain(blocks.map(b => b.kind)), ['heading', 'list', 'list', 'divider', 'quote', 'table', 'code']);
+assert.equal(blocks[0].text, '四、关键交付物清单');
+assert.equal(blocks[0].level, 2);
+assert.equal(blocks[1].prefix, '1.');
+assert.equal(parser.inline(blocks[1].text)[0].bold, true);
+assert.equal(parser.inline(blocks[1].text).map(r => r.text).join(''), '一页简历（量化成果）');
+assert.equal(blocks[5].rows[1].cells[1], '杭州 | 上海');
+assert.equal(blocks[6].text, 'const title = "## 原样保留";');
+assert.equal(blocks[6].language, 'ts');
+assert.equal(parser.parse('- [x] 完成')[0].prefix, '☑');
+assert.equal(parser.parse('```\n**原样保留')[0].text, '**原样保留');
+assert.equal(parser.inline('\\*原样\\*')[0].text, '*原样*');
+assert.equal(parser.inline('a_b_c')[0].text, 'a_b_c');
+assert.equal(parser.inline('`a|b`')[0].code, true);
+assert.deepEqual(plain(parser.cells('| `a|b` | 说明 |')), ['`a|b`', '说明']);
+assert.equal(parser.inline('**粗体**、*斜体*、~~删除~~').filter(r => r.bold || r.italic || r.strike).length, 3);
+assert.equal(parser.inline('[来源](https://example.com)')[0].link, true);
+assert.equal(parser.inline('[1]')[0].text, '[1]', 'citation markers must remain literal');
+assert.deepEqual(plain(parser.answer('<summary>先确认目标。</summary>\n## 计划\n答案')), {
+  summary: '先确认目标。', body: '## 计划\n答案', summarizing: false
+});
+assert.equal(parser.answer('<summary>正在生成摘要').summarizing, true);
+assert.equal(parser.answer('<summ').body, '');
+assert.equal(parser.answer('## 思路摘要\n先确认目标。\n\n---\n\n## 计划\n答案').body, '## 计划\n答案');
+assert.equal(parser.answer('## 思路摘要\n先确认目标。\n\n## 计划\n答案').body, '## 计划\n答案');
+assert.equal(parser.answer('普通答案').body, '普通答案');
+assert.equal(parser.parse('<script>alert(1)</script>')[0].text, '<script>alert(1)</script>', 'HTML must remain inert text');
+console.log('PASS: Markdown blocks, inline styles, tables, escaped text, streaming code fences, summary separation, legacy history.');

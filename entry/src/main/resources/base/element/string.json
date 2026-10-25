@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "microphone_reason",
+      "value": "用于将你主动录入的语音识别为聊天文字"
+    },
+    {
       "name": "module_desc",
       "value": "module description"
     },

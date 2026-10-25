@@ -1,31 +1,63 @@
 import { FEATURE_CATALOG } from '../config/FeatureCatalog'
 import { ActionItem, AgentMessage, FeatureDefinition } from '../models/AppModels'
 import { AgentService } from '../services/AgentService'
-import { SessionService } from '../services/SessionService'
+import { SessionService, ChatSession, SessionSummary } from '../services/SessionService'
 import { ToolService } from '../services/ToolService'
 import { KnowledgeChunk, RetrievalOptions, RetrievalResult, SourceCitation } from '../models/RagModels'
 import { IntegrationService } from '../services/IntegrationService'
 import { RagConfig } from '../config/RagConfig'
 import { demoKnowledgeIndex, MemoryKnowledgeRepository } from '../services/KnowledgeService'
 import { ChatService } from '../services/ChatService'
-import { StreamSink, ModuleAdapter, ModuleItem, ModuleResult } from '../models/IntegrationModels'
+import { AgentGateway, StreamSink, ModuleAdapter, ModuleItem, ModuleResult, VoiceObserver } from '../models/IntegrationModels'
+import { ApiConfig } from '../config/ApiConfig'
+import { common } from '@kit.AbilityKit'
+import { LocalAgentConfigService } from '../services/LocalAgentConfigService'
+import { AgentAnswer } from '../components/AgentAnswer'
+import { AttachmentService } from '../services/AttachmentService'
+import { ChatAttachment } from '../models/AttachmentModels'
+import { MarkdownParser } from '../services/MarkdownParser'
 
 class ChatStreamSink implements StreamSink {
   private cancelled: () => boolean
   private receive: (delta: string) => void
-  constructor(cancelled: () => boolean, receive: (delta: string) => void) {
+  private progress: (phase: string) => void
+  constructor(cancelled: () => boolean, receive: (delta: string) => void, progress: (phase: string) => void) {
     this.cancelled = cancelled
     this.receive = receive
+    this.progress = progress
   }
   isCancelled(): boolean { return this.cancelled() }
   onDelta(delta: string): void { this.receive(delta) }
+  onProgress(phase: string): void { this.progress(phase) }
+}
+
+class ChatVoiceObserver implements VoiceObserver {
+  private partial: (text: string) => void
+  private complete: (text: string) => void
+  private error: (message: string) => void
+  constructor(partial: (text: string) => void, complete: (text: string) => void, error: (message: string) => void) {
+    this.partial = partial
+    this.complete = complete
+    this.error = error
+  }
+  onPartial(text: string): void { this.partial(text) }
+  onComplete(text: string): void { this.complete(text) }
+  onError(message: string): void { this.error(message) }
 }
 
 @Entry
 @Component
 struct Index {
   @State activeFeature: string = 'home'
-  @State activeSession: string = '秋招冲刺计划'
+  @State activeSession: string = ''
+  @State sessions: SessionSummary[] = []
+  @State storageNotice: string = ''
+  @State expandedThoughts: string[] = []
+  @State draftAttachments: ChatAttachment[] = []
+  @State attachmentBusy: boolean = false
+  private importSerial: number = 0
+  private voiceDraft: string = ''
+  private voiceFinished: boolean = false
   @State inputText: string = ''
   @State thinking: boolean = false
   @State sideExpanded: boolean = true
@@ -52,16 +84,21 @@ struct Index {
   @State moduleNotice: string = ''
   @State moduleItems: ModuleItem[] = []
   @State moduleInput: string = ''
+  @State apiSettingsVisible: boolean = false
+  @State apiBaseUrl: string = ''
+  @State apiModel: string = ''
+  @State apiKey: string = ''
+  @State apiConfigured: boolean = false
+  @State apiNotice: string = ''
   private requestSerial: number = 0
   private searchSerial: number = 0
   private voiceSerial: number = 0
   private speechSerial: number = 0
   private actionSerial: number = 0
-  private contextBySession: Map<string, SourceCitation[]> = new Map<string, SourceCitation[]>()
+  private activeGateway: AgentGateway | undefined = undefined
+  private readonly chatScroller: Scroller = new Scroller()
   private minScore: number = 0.20
   private topK: number = 4
-
-  private readonly sessions: string[] = ['秋招冲刺计划', '本周学习规划', '9 月消费复盘']
 
   private selectedFeature(): FeatureDefinition {
     const feature = FEATURE_CATALOG.find((item: FeatureDefinition) => item.id === this.activeFeature)
@@ -69,12 +106,33 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    IntegrationService.initializeVoice(this.getUIContext().getHostContext() as common.UIAbilityContext)
     this.refreshKnowledge()
-    this.messages = SessionService.loadMessages(this.activeSession)
+    const session = SessionService.current() || SessionService.create('home', '新对话', AgentService.greeting('home'))
+    this.restoreSession(session)
+    this.apiBaseUrl = IntegrationService.agentSettings.baseUrl
+    this.apiModel = IntegrationService.agentSettings.model
+    this.apiKey = IntegrationService.agentSettings.apiKey
+    this.apiConfigured = this.apiBaseUrl.length > 0 && this.apiModel.length > 0
+    this.loadLocalAgentConfig()
+  }
+
+  private async loadLocalAgentConfig(): Promise<void> {
+    if (IntegrationService.agentSettings.baseUrl.length > 0) return
+    const settings = await LocalAgentConfigService.load(this.getUIContext().getHostContext() as common.UIAbilityContext)
+    if (settings === undefined || IntegrationService.agentSettings.baseUrl.length > 0) return
+    IntegrationService.configureAgent(settings)
+    this.apiBaseUrl = settings.baseUrl
+    this.apiModel = settings.model
+    this.apiKey = settings.apiKey
+    this.apiConfigured = true
+    this.apiNotice = '已从本地配置文件加载模型设置。'
   }
 
   aboutToDisappear(): void {
+    this.importSerial++
     this.stopReply()
+    this.persistSession()
     this.searchSerial++
     this.actionSerial++
     this.cancelVoice()
@@ -110,6 +168,29 @@ struct Index {
     return options
   }
 
+  private saveAgentApi(): void {
+    const baseUrl = this.apiBaseUrl.trim()
+    const model = this.apiModel.trim()
+    if (!baseUrl.startsWith('https://') && !baseUrl.startsWith('http://')) {
+      this.apiNotice = '服务地址需以 https:// 或 http:// 开头。'
+      return
+    }
+    if (model.length === 0) {
+      this.apiNotice = '请填写模型名称，例如 qwen-plus 或 gpt-4o-mini。'
+      return
+    }
+    IntegrationService.configureAgent({ baseUrl: baseUrl, model: model, apiKey: this.apiKey })
+    this.apiConfigured = true
+    this.apiNotice = '已保存配置。新发送的消息将由该模型生成。'
+    this.apiSettingsVisible = false
+    this.notice = '外部模型已配置；发送消息后会将问题、对话历史和已选资料发送到该服务。'
+  }
+
+  private toggleApiSettings(): void {
+    this.apiNotice = ''
+    this.apiSettingsVisible = !this.apiSettingsVisible
+  }
+
   private async searchKnowledge(): Promise<void> {
     if (!this.knowledgeQuery.trim()) { this.notice = '请输入检索问题。'; return }
     const token = ++this.searchSerial
@@ -134,12 +215,11 @@ struct Index {
     this.selectedContext = exists
       ? this.selectedContext.filter((item: SourceCitation) => item.chunkId !== source.chunkId)
       : [...this.selectedContext, source]
+    this.persistSession()
   }
 
   private toggleContextPicker(): void {
-    this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseInOut }, () => {
-      this.contextPickerVisible = !this.contextPickerVisible
-    })
+    this.contextPickerVisible = !this.contextPickerVisible
   }
 
   private async runModule(action: string): Promise<void> {
@@ -172,9 +252,37 @@ struct Index {
     }
   }
 
+  private async pickAttachments(photos: boolean): Promise<void> {
+    if (this.thinking || this.recording || this.voiceBusy || this.attachmentBusy) return
+    const token = ++this.importSerial
+    const session = this.activeSession
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    this.attachmentBusy = true
+    try {
+      const files = await AttachmentService.pick(context, photos, AttachmentService.maxFiles - this.draftAttachments.length)
+      if (token !== this.importSerial || session !== this.activeSession) {
+        files.forEach((item: ChatAttachment) => AttachmentService.removeDraft(item, context.filesDir))
+        return
+      }
+      this.draftAttachments = [...this.draftAttachments, ...files]
+      if (files.length > 0) this.notice = files.some((item: ChatAttachment) => item.truncated)
+        ? '附件已添加。较长文档将只提供前 12000 个字符给模型。'
+        : files.some((item: ChatAttachment) => item.kind === 'image') ? '图片已添加，发送后由当前模型处理；图片理解需要模型支持视觉。' : '附件已添加，发送后模型可读取其文字。'
+    } catch (error) {
+      if (token === this.importSerial) this.notice = (error as Error).message || '附件导入失败，请重新选择。'
+    } finally { if (token === this.importSerial) this.attachmentBusy = false }
+  }
+
+  private removeAttachment(id: string): void {
+    const attachment = this.draftAttachments.find((item: ChatAttachment) => item.id === id)
+    if (attachment === undefined) return
+    AttachmentService.removeDraft(attachment, (this.getUIContext().getHostContext() as common.UIAbilityContext).filesDir)
+    this.draftAttachments = this.draftAttachments.filter((item: ChatAttachment) => item.id !== id)
+  }
+
   private async toggleVoice(): Promise<void> {
-    if (this.voiceBusy || this.thinking) return
-    const token = ++this.voiceSerial
+    if (this.voiceBusy || this.thinking || this.attachmentBusy) return
+    const token = this.recording ? this.voiceSerial : ++this.voiceSerial
     const stopping = this.recording
     this.voiceBusy = true
     try {
@@ -182,12 +290,37 @@ struct Index {
         const transcript = await IntegrationService.voice.stop()
         if (token === this.voiceSerial) {
           this.recording = false
-          this.inputText = transcript.slice(0, 2000)
+          this.inputText = `${this.voiceDraft}${this.voiceDraft && transcript ? ' ' : ''}${transcript}`.slice(0, 4000)
           this.notice = transcript ? '识别完成，请核对后再发送。' : '未识别到文字，请重试。'
         }
       } else {
-        await IntegrationService.voice.start()
-        if (token === this.voiceSerial) { this.recording = true; this.notice = '录音中，结束后可以核对识别文字。' }
+        this.stopSpeech()
+        this.voiceDraft = this.inputText
+        this.voiceFinished = false
+        const uiContext = this.getUIContext()
+        const observer: VoiceObserver = new ChatVoiceObserver((text: string): void => {
+            uiContext.runScopedTask(() => {
+              if (token === this.voiceSerial) this.inputText = `${this.voiceDraft}${this.voiceDraft && text ? ' ' : ''}${text}`.slice(0, 4000)
+            })
+          },
+          (text: string): void => {
+            uiContext.runScopedTask(() => {
+              if (token !== this.voiceSerial) return
+              this.voiceFinished = true
+              this.inputText = `${this.voiceDraft}${this.voiceDraft && text ? ' ' : ''}${text}`.slice(0, 4000)
+              this.recording = false
+              this.voiceBusy = false
+              this.notice = text ? '识别完成，请核对后再发送。' : '未识别到文字，请靠近麦克风重试。'
+            })
+          },
+          (message: string): void => {
+            uiContext.runScopedTask(() => {
+              if (token === this.voiceSerial) { this.voiceFinished = true; this.recording = false; this.voiceBusy = false; this.notice = message }
+            })
+          }
+        )
+        await IntegrationService.voice.start(observer)
+        if (token === this.voiceSerial && !this.voiceFinished) { this.recording = true; this.notice = '录音中，结束后可以核对识别文字。' }
       }
     } catch (error) {
       if (token === this.voiceSerial) { this.recording = false; this.notice = (error as Error).message || '语音输入暂不可用。' }
@@ -207,7 +340,9 @@ struct Index {
     if (this.speaking) { this.stopSpeech(); return }
     const token = ++this.speechSerial
     this.speaking = true
-    try { await IntegrationService.voice.speak(content.slice(0, 8000)) }
+    const text = MarkdownParser.parse(MarkdownParser.answer(content).body).map((block) =>
+      MarkdownParser.inline(block.text).map((run) => run.text).join('')).join('\n')
+    try { await IntegrationService.voice.speak(text.slice(0, 8000)) }
     catch (error) { if (token === this.speechSerial) this.notice = (error as Error).message || '语音播报暂不可用。' }
     finally { if (token === this.speechSerial) this.speaking = false }
   }
@@ -215,15 +350,62 @@ struct Index {
   private stopReply(): void {
     this.requestSerial++
     if (!this.thinking) return
+    this.activeGateway?.cancel()
+    this.activeGateway = undefined
     const last = this.messages.length - 1
     this.updateReply(last, this.messages[last].content || '已停止生成。', '已停止', 'stopped', this.messages[last].sources || [])
     this.thinking = false
     SessionService.saveMessages(this.activeSession, this.messages)
   }
 
-  private updateReply(position: number, content: string, meta: string, status: string, sources: SourceCitation[]): void {
+  private updateReply(position: number, content: string, meta: string, status: string, sources: SourceCitation[], phase: string = ''): void {
     this.messages = this.messages.map((item: AgentMessage, index: number): AgentMessage => index === position
-      ? { role: 'agent', content: content, meta: meta, status: status, sources: sources } : item)
+      ? { role: 'agent', content: content, meta: meta, status: status, sources: sources,
+        renderRevision: (item.renderRevision || 0) + 1, thinkingStartedAt: item.thinkingStartedAt,
+        thinkingDurationMs: status === 'complete' || status === 'error' || status === 'stopped'
+          ? (item.thinkingStartedAt === undefined ? undefined : Date.now() - item.thinkingStartedAt) : item.thinkingDurationMs,
+        phase: phase || (status === 'streaming' ? 'answering' : item.phase) } : item)
+    SessionService.saveMessages(this.activeSession, this.messages, false)
+  }
+
+  private toggleThought(position: number): void {
+    const id = `${this.activeSession}-${position}`
+    this.expandedThoughts = this.expandedThoughts.includes(id)
+      ? this.expandedThoughts.filter((item: string) => item !== id) : [...this.expandedThoughts, id]
+  }
+
+  private persistSession(): void {
+    SessionService.saveDetails(this.activeSession, this.selectedContext, this.progress)
+    SessionService.saveMessages(this.activeSession, this.messages)
+    this.sessions = SessionService.list()
+    this.storageNotice = SessionService.storageNotice
+  }
+
+  private restoreSession(session: ChatSession): void {
+    this.importSerial++
+    this.attachmentBusy = false
+    const filesDir = (this.getUIContext().getHostContext() as common.UIAbilityContext).filesDir
+    this.draftAttachments.forEach((item: ChatAttachment) => AttachmentService.removeDraft(item, filesDir))
+    this.draftAttachments = []
+    this.activeSession = session.id
+    this.activeFeature = session.featureId
+    this.messages = session.messages
+    this.selectedContext = session.context
+    this.progress = session.progress
+    this.inputText = ''
+    this.contextPickerVisible = false
+    this.moduleInput = ''
+    this.moduleItems = []
+    this.moduleNotice = ''
+    this.expandedSourceId = ''
+    this.notice = ''
+    SessionService.activate(session.id)
+    this.sessions = SessionService.list()
+    this.storageNotice = SessionService.storageNotice
+    const sessionId = session.id
+    setTimeout(() => {
+      if (this.activeSession === sessionId) this.chatScroller.scrollEdge(Edge.Bottom)
+    }, 50)
   }
 
   private steps(): ActionItem[] {
@@ -237,100 +419,157 @@ struct Index {
 
   private chooseFeature(feature: FeatureDefinition): void {
     this.stopReply()
-    SessionService.saveMessages(this.activeSession, this.messages)
+    this.persistSession()
     this.cancelVoice()
     this.stopSpeech()
-    this.contextBySession.set(this.activeSession, this.selectedContext.slice())
     this.actionSerial++
     this.actionBusy = false
-    this.activeFeature = feature.id
-    this.activeSession = feature.name
-    this.selectedContext = this.contextBySession.get(this.activeSession) || []
-    this.contextPickerVisible = false
-    this.moduleInput = ''
-    this.moduleItems = []
-    this.moduleNotice = ''
-    this.progress = 1
-    this.messages = SessionService.loadMessages(this.activeSession)
-    if (this.messages.length === 0) this.messages = AgentService.greeting(feature.id)
-    this.notice = ''
+    this.restoreSession(SessionService.latestForFeature(feature.id) ||
+      SessionService.create(feature.id, feature.name, AgentService.greeting(feature.id)))
   }
 
   private openSession(session: string): void {
     if (session === this.activeSession) return
+    const saved = SessionService.get(session)
+    if (saved === undefined) return
     this.stopReply()
-    SessionService.saveMessages(this.activeSession, this.messages)
-    this.contextBySession.set(this.activeSession, this.selectedContext.slice())
+    this.persistSession()
     this.cancelVoice()
     this.stopSpeech()
-    this.activeFeature = 'home'
-    this.activeSession = session
-    this.selectedContext = this.contextBySession.get(session) || []
-    this.contextPickerVisible = false
-    this.messages = SessionService.loadMessages(session)
-    if (this.messages.length === 0) this.messages = AgentService.greeting('home')
-    this.notice = ''
+    this.actionSerial++
+    this.actionBusy = false
+    this.restoreSession(saved)
+  }
+
+  private sessionTime(timestamp: number): string {
+    const date = new Date(timestamp)
+    const month = `${date.getMonth() + 1}`.padStart(2, '0')
+    const day = `${date.getDate()}`.padStart(2, '0')
+    const hour = `${date.getHours()}`.padStart(2, '0')
+    const minute = `${date.getMinutes()}`.padStart(2, '0')
+    return `${date.getFullYear()}/${month}/${day} ${hour}:${minute}`
+  }
+
+  private async confirmDeleteSession(id: string): Promise<void> {
+    const session = SessionService.get(id)
+    if (session === undefined) return
+    let confirmed = false
+    try {
+      const result = await this.getUIContext().getPromptAction().showDialog({ title: '删除会话',
+        message: `删除“${session.title}”及其本地消息和附件？删除后无法撤销。`,
+        buttons: [{ text: '取消', color: '#657165' }, { text: '删除', color: '#B34F42' }] })
+      confirmed = result.index === 1
+    } catch (_error) { return }
+    if (!confirmed) return
+    const active = id === this.activeSession
+    if (active) {
+      this.stopReply()
+      this.cancelVoice()
+      this.stopSpeech()
+      this.actionSerial++
+      this.actionBusy = false
+    }
+    if (!SessionService.remove(id)) {
+      this.storageNotice = SessionService.storageNotice || '删除失败，请重试。'
+      return
+    }
+    this.expandedThoughts = this.expandedThoughts.filter((item: string) => !item.startsWith(`${id}-`))
+    if (active) this.restoreSession(SessionService.current() || SessionService.create('home', '新对话', AgentService.greeting('home')))
+    else { this.sessions = SessionService.list(); this.storageNotice = SessionService.storageNotice }
   }
 
   private createChat(): void {
     this.stopReply()
-    SessionService.saveMessages(this.activeSession, this.messages)
+    this.persistSession()
     this.cancelVoice()
     this.stopSpeech()
-    this.contextBySession.set(this.activeSession, this.selectedContext.slice())
-    this.activeFeature = 'home'
-    this.activeSession = '新对话'
-    this.selectedContext = []
-    this.contextPickerVisible = false
-    this.progress = 1
-    this.messages = AgentService.greeting('home')
+    this.actionSerial++
+    this.actionBusy = false
+    this.restoreSession(SessionService.create('home', '新对话', AgentService.greeting('home')))
   }
 
   private sendMessage(prompt: string): void {
-    const message = prompt.trim()
-    if (message.length === 0 || this.thinking || this.recording || this.voiceBusy) return
+    const message = prompt.trim() || (this.draftAttachments.length > 0 ? '请分析这些附件。' : '')
+    if (message.length === 0 || this.thinking || this.recording || this.voiceBusy || this.attachmentBusy) return
     const token = ++this.requestSerial
-    const session = this.activeSession
+    const uiContext = this.getUIContext()
     const featureId = this.activeFeature
     const history = this.messages.slice()
     const gateway = IntegrationService.agent
+    this.activeGateway = gateway
     const attachedContext = this.selectedContext.slice()
-    this.messages = [...this.messages, { role: 'user', content: message, meta: '现在' }]
-    this.messages = [...this.messages, { role: 'agent', content: '', meta: '正在检索资料', status: 'loading', sources: [] }]
+    const attachments = this.draftAttachments.slice()
+    this.draftAttachments = []
+    this.messages = [...this.messages, { role: 'user', content: message, meta: '现在', attachments: attachments }]
+    this.messages = [...this.messages, { role: 'agent', content: '', meta: '正在检索资料', status: 'loading',
+      sources: [], thinkingStartedAt: Date.now(), phase: 'retrieving' }]
     const replyIndex = this.messages.length - 1
     this.inputText = ''
     this.notice = ''
     this.thinking = true
+    this.persistSession()
+    // Wait for the new bubbles to be laid out before revealing the pending reply.
+    setTimeout(() => {
+      uiContext.runScopedTask(() => {
+        if (token === this.requestSerial) this.chatScroller.scrollEdge(Edge.Bottom)
+      })
+    }, 50)
     let content = ''
     let sources: SourceCitation[] = []
     const timeout = setTimeout(() => {
-      if (token !== this.requestSerial) return
-      this.requestSerial++
-      this.thinking = false
-      this.updateReply(replyIndex, content || '响应超时，请重试。', '响应超时', 'error', sources)
-      SessionService.saveMessages(session, this.messages)
-    }, 30000)
+      uiContext.runScopedTask(() => {
+        if (token !== this.requestSerial) return
+        gateway.cancel()
+        this.requestSerial++
+        this.activeGateway = undefined
+        this.thinking = false
+        const timeoutMessage = `等待 ${gateway.name} 返回超过 ${ApiConfig.requestTimeoutMs / 1000} 秒，请检查设备网络和模型服务后重试。`
+        this.updateReply(replyIndex, content || timeoutMessage, '响应超时', 'error', sources)
+        this.notice = timeoutMessage
+        this.persistSession()
+      })
+    }, ApiConfig.requestTimeoutMs + 3000)
     const sink: StreamSink = new ChatStreamSink((): boolean => token !== this.requestSerial, (delta: string): void => {
-      if (token !== this.requestSerial) return
-      content = (content + delta).slice(0, 16000)
-      this.updateReply(replyIndex, content, `${gateway.name} · 生成中`, 'streaming', sources)
+      uiContext.runScopedTask(() => {
+        if (token !== this.requestSerial) return
+        content = (content + delta).slice(0, 16000)
+        this.updateReply(replyIndex, content, `${gateway.name} · 正在流式生成`, 'streaming', sources)
+      })
+    }, (phase: string): void => {
+      uiContext.runScopedTask(() => {
+        if (token !== this.requestSerial) return
+        this.updateReply(replyIndex, content, `${gateway.name} · 正在分析`, 'loading', sources, phase)
+      })
     })
     ChatService.reply(message, featureId, history, this.retrievalOptions(), IntegrationService.rag(), gateway, sink,
       (result: RetrievalResult): void => {
-        if (token !== this.requestSerial) return
-        sources = result.sources
-        this.notice = result.notice
-        this.updateReply(replyIndex, '', `${gateway.name} · ${sources.length} 条参考资料`, 'loading', sources)
-      }, attachedContext).then(() => {
-        if (token === this.requestSerial) this.updateReply(replyIndex, content || '服务未返回内容，请重试。', gateway.name, content ? 'complete' : 'error', sources)
+        uiContext.runScopedTask(() => {
+          if (token !== this.requestSerial) return
+          sources = result.sources
+          this.notice = result.notice
+          this.updateReply(replyIndex, '', `${gateway.name} · ${sources.length} 条参考资料`, 'loading', sources, 'connecting')
+        })
+      }, attachedContext, attachments).then(() => {
+        uiContext.runScopedTask(() => {
+          if (token === this.requestSerial) this.updateReply(replyIndex, content || '服务未返回内容，请重试。', gateway.name, content ? 'complete' : 'error', sources)
+        })
       }).catch((error: Error) => {
-        if (token === this.requestSerial) this.updateReply(replyIndex, content || '服务暂不可用，请重试。', '生成失败', 'error', sources)
+        uiContext.runScopedTask(() => {
+          if (token === this.requestSerial) {
+            const reason = error.message || '连接模型服务失败，请检查配置和网络。'
+            this.updateReply(replyIndex, content || `生成失败：${reason}`, '生成失败', 'error', sources)
+            this.notice = reason
+          }
+        })
       }).finally(() => {
         clearTimeout(timeout)
-        if (token === this.requestSerial) {
-          this.thinking = false
-          SessionService.saveMessages(session, this.messages)
-        }
+        uiContext.runScopedTask(() => {
+          if (token === this.requestSerial) {
+            this.thinking = false
+            this.activeGateway = undefined
+            this.persistSession()
+          }
+        })
       })
   }
 
@@ -344,6 +583,7 @@ struct Index {
         : '流程已进入最后一步。完成后会生成一份可回看的总结报告，并保存到当前项目。'
       this.messages = [...this.messages, { role: 'agent', content: nextText, meta: '工具调用完成 · 现在' }]
       this.thinking = false
+      this.persistSession()
     }, 650)
   }
 
@@ -494,6 +734,64 @@ struct Index {
   }
 
   @Builder
+  ApiSettingsContent() {
+    Column({ space: 9 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('连接外部模型').fontSize(17).fontWeight(FontWeight.Medium).fontColor('#252723')
+          Text('兼容 OpenAI Chat Completions API').fontSize(12).fontColor('#777A72')
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        Text('关闭').fontSize(12).fontColor('#777A72').padding(8).onClick(() => this.toggleApiSettings())
+      }.width('100%')
+      TextInput({ text: this.apiBaseUrl, placeholder: '服务地址，例如 https://api.example.com/v1' })
+        .height(44).backgroundColor('#FFFFFF').borderRadius(9).padding({ left: 12, right: 8 })
+        .onChange((value: string) => this.apiBaseUrl = value)
+      TextInput({ text: this.apiModel, placeholder: '模型名称，例如 qwen-plus、deepseek-chat' })
+        .height(44).backgroundColor('#FFFFFF').borderRadius(9).padding({ left: 12, right: 8 })
+        .onChange((value: string) => this.apiModel = value)
+      TextInput({ text: this.apiKey, placeholder: 'API Key（无鉴权服务可留空）' })
+        .type(InputType.Password).height(44).backgroundColor('#FFFFFF').borderRadius(9).padding({ left: 12, right: 8 })
+        .onChange((value: string) => this.apiKey = value)
+      Text('问题、近期对话和已选资料会发送给你填写的服务商。也可用本地文件 rawfile/local_api.json 配置；它已加入 Git 忽略，但会打入安装包，请勿公开分发含 Key 的安装包。')
+        .fontSize(11).fontColor('#777A72').lineHeight(18).width('100%')
+      if (this.apiNotice.length > 0) {
+        Text(this.apiNotice).fontSize(12).fontColor('#88551A').lineHeight(18).width('100%')
+          .padding(9).backgroundColor('#FFF6E8').borderRadius(8)
+      }
+      Row({ space: 8 }) {
+        Button('保存并使用').height(44).fontSize(13).fontColor('#F7F8F3').backgroundColor('#356B58')
+          .onClick(() => this.saveAgentApi())
+        if (this.apiConfigured) {
+          Button('清除配置').height(44).fontSize(12).fontColor('#596159').backgroundColor('#ECEDE8')
+            .onClick(() => {
+              this.apiBaseUrl = ''
+              this.apiModel = ''
+              this.apiKey = ''
+              IntegrationService.configureAgent({ baseUrl: '', model: '', apiKey: '' })
+              this.apiConfigured = false
+              this.apiNotice = '已清除外部模型配置。'
+            })
+        }
+      }.width('100%')
+    }.width('100%').alignItems(HorizontalAlign.Start).padding(14).backgroundColor('#F3F5EF').borderRadius(12)
+  }
+
+  @Builder
+  ContextSheet() {
+    Column({ space: 12 }) {
+      Row() {
+        Text('添加上下文').fontSize(21).fontWeight(FontWeight.Medium).fontColor('#252723')
+        Blank()
+        Button('完成').fontSize(13).height(40).fontColor('#F7F8F3').backgroundColor('#356B58')
+          .accessibilityText('完成并关闭上下文弹窗').onClick(() => this.contextPickerVisible = false)
+      }.width('100%')
+      Text(`已加入 ${this.selectedContext.length} 条资料，仅用于当前对话`).fontSize(12).fontColor('#7C897D').width('100%')
+      Divider().color('#E0E6DD')
+      Scroll() { this.KnowledgeContent() }.width('100%').layoutWeight(1).scrollBar(BarState.Auto)
+    }.width('100%').height('100%').padding(22).backgroundColor('#F7F9F4')
+  }
+
+  @Builder
   KnowledgeContent() {
     Column({ space: 12 }) {
       Row() {
@@ -632,22 +930,45 @@ struct Index {
         Row({ space: 9 }) { Text('C').fontSize(17).fontWeight(FontWeight.Bold).fontColor('#151614').width(32).height(32).textAlign(TextAlign.Center).padding({ top: 6 }).backgroundColor('#D4F56A').borderRadius(9); Text('CampusPilot').fontSize(16).fontWeight(FontWeight.Medium).fontColor('#F5F5F0'); Blank(); Text('‹').fontSize(24).fontColor('#B5B6B0').width(24).height(32).textAlign(TextAlign.Center).padding({ top: 1 }).onClick(() => this.toggleLeftPanel()) }.width('100%').margin({ bottom: 20 })
         Button('＋  新建对话').width('100%').height(42).fontSize(14).fontWeight(FontWeight.Medium).fontColor('#151614').backgroundColor('#D4F56A').borderRadius(10).onClick(() => this.createChat())
         Row({ space: 7 }) { Text('⌕').fontSize(17).fontColor('#AFB0AB'); Text('搜索对话和记忆').fontSize(12).fontColor('#8B8C88') }.width('100%').height(38).padding({ left: 10 }).margin({ top: 12, bottom: 12 }).backgroundColor('#292A27').borderRadius(9)
-        Scroll() {
-          Column() {
-            Row() { Text('工作区').fontSize(11).fontWeight(FontWeight.Medium).fontColor('#80817D'); Blank(); Text(this.sideExpanded ? '⌃' : '⌄').fontSize(13).fontColor('#9B9C96').rotate({ angle: this.sideExpanded ? 0 : 180 }) }.width('100%').height(28).padding({ left: 2, right: 7 }).onClick(() => this.toggleWorkspace())
+        Column() {
+          Scroll() {
+            Column() {
+            Row() { Text('工作区').fontSize(11).fontWeight(FontWeight.Medium).fontColor('#80817D'); Blank(); Text('⌃').fontSize(13).fontColor('#9B9C96').rotate({ angle: this.sideExpanded ? 0 : 180 }) }.width('100%').height(28).padding({ left: 2, right: 7 }).onClick(() => this.toggleWorkspace())
             if (this.sideExpanded) {
               ForEach(FEATURE_CATALOG, (feature: FeatureDefinition) => {
                 Row({ space: 10 }) { Text(feature.icon).fontSize(16).fontColor(this.activeFeature === feature.id ? '#D4F56A' : '#A5A6A1').width(20).textAlign(TextAlign.Center); Text(feature.name).fontSize(13).fontColor(this.activeFeature === feature.id ? '#F5F5F0' : '#C7C8C3').fontWeight(this.activeFeature === feature.id ? FontWeight.Medium : FontWeight.Regular).layoutWeight(1) }
                 .width('100%').height(40).padding({ left: 8, right: 6 }).margin({ bottom: 2 }).backgroundColor(this.activeFeature === feature.id ? '#30312D' : '#1D1E1B').borderRadius(8).onClick(() => this.chooseFeature(feature))
               }, (feature: FeatureDefinition) => feature.id)
             }
-            Row() { Text('最近对话').fontSize(11).fontWeight(FontWeight.Medium).fontColor('#80817D'); Blank(); Text(this.recentsExpanded ? '⌃' : '⌄').fontSize(13).fontColor('#9B9C96').rotate({ angle: this.recentsExpanded ? 0 : 180 }) }.width('100%').height(28).padding({ left: 2, right: 7 }).margin({ top: 14 }).onClick(() => this.toggleRecents())
-            if (this.recentsExpanded) {
-              ForEach(this.sessions, (session: string) => { Text(session).fontSize(12).fontColor(this.activeSession === session ? '#F0F0E9' : '#A6A7A2').width('100%').height(33).padding({ left: 9, top: 8 }).margin({ bottom: 1 }).backgroundColor(this.activeSession === session ? '#292A27' : '#1D1E1B').borderRadius(7).onClick(() => this.openSession(session)) }, (session: string) => session)
-            }
-          }.width('100%').padding({ right: 10 }).justifyContent(FlexAlign.Start)
-        }.layoutWeight(1).width('108%').margin({ right: -14 }).align(Alignment.TopStart).scrollBar(BarState.Auto)
-        Text('●  本地演示 · 数据未上传').fontSize(11).fontColor('#8B8C88').width('100%').padding({ top: 9, bottom: 4 })
+            }.width('100%').justifyContent(FlexAlign.Start)
+          }.height(this.sideExpanded ? '55%' : 28).width('100%').align(Alignment.TopStart).scrollBar(BarState.Auto)
+        Row() { Text('最近对话').fontSize(11).fontWeight(FontWeight.Medium).fontColor('#80817D'); Blank(); Text('⌃').fontSize(13).fontColor('#9B9C96').rotate({ angle: this.recentsExpanded ? 0 : 180 }) }.width('100%').height(28).padding({ left: 2, right: 7 }).margin({ top: 10 }).onClick(() => this.toggleRecents())
+          Scroll() {
+            Column() {
+              ForEach(this.sessions, (session: SessionSummary) => {
+                Row({ space: 3 }) {
+                  Column({ space: 4 }) {
+                    Text(session.title).fontSize(12).fontColor(this.activeSession === session.id ? '#F0F0E9' : '#B9BBB4')
+                      .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+                    Text(this.sessionTime(session.updatedAt)).fontSize(10).fontColor('#82877D').width('100%')
+                  }.layoutWeight(1).height(54).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Start)
+                    .accessibilityText(`历史对话：${session.title}，最近消息 ${this.sessionTime(session.updatedAt)}`)
+                    .onClick(() => this.openSession(session.id))
+                  Button({ type: ButtonType.Normal }) {
+                    Image($r('app.media.ic_more_horizontal')).width(20).height(20)
+                  }.width(32).height(44).padding(0).borderRadius(8).backgroundColor('#34372F')
+                    .accessibilityText(`会话操作：${session.title}`)
+                    .bindMenu([{ value: '删除会话', action: () => this.confirmDeleteSession(session.id) }])
+                }.width('100%').padding({ left: 9, right: 4 }).margin({ bottom: 3 })
+                  .backgroundColor(this.activeSession === session.id ? '#292A27' : '#1D1E1B').borderRadius(7)
+              }, (session: SessionSummary) => `${session.id}-${session.title}-${session.updatedAt}`)
+            }.width('100%').justifyContent(FlexAlign.Start)
+          }.height(this.recentsExpanded ? 'calc(45% - 38vp)' : 0).width('100%')
+            .align(Alignment.TopStart).scrollBar(BarState.Auto).clip(true)
+            .opacity(this.recentsExpanded ? 1 : 0)
+          Blank().layoutWeight(1)
+        }.layoutWeight(1).width('100%').justifyContent(FlexAlign.Start)
+        Text(this.apiConfigured ? '●  外部模型已配置' : '●  尚未连接外部模型').fontSize(11).fontColor('#8B8C88').width('100%').padding({ top: 9, bottom: 4 })
         }.width('100%').height('100%').padding(14)
         } else {
           Column({ space: 14 }) {
@@ -661,13 +982,13 @@ struct Index {
         Row() {
           Column({ space: 3 }) { Text(this.selectedFeature().name).fontSize(18).fontWeight(FontWeight.Medium).fontColor('#242521'); Text(this.selectedFeature().description).fontSize(11).fontColor('#85867E') }.alignItems(HorizontalAlign.Start)
           Blank()
-          Text(this.contextPickerVisible ? '关闭资料' : '＋ 上下文').fontSize(12).fontColor('#575951')
+          Text('＋ 上下文').fontSize(12).fontColor('#575951')
             .padding({ left: 10, right: 10, top: 8, bottom: 8 }).backgroundColor('#EFEFEA').borderRadius(8)
             .accessibilityText(this.contextPickerVisible ? '关闭课程资料选择' : '为当前对话添加课程资料')
             .onClick(() => this.toggleContextPicker())
           Text(this.isTaskPanelVisible ? '☷' : '☰').fontSize(18).fontColor('#55564F').margin({ left: 12 }).padding(7).onClick(() => this.toggleTaskPanel())
         }.width('100%').height(68).padding({ left: 26, right: 20 }).backgroundColor('#FBFBF8').border({ width: { bottom: 1 }, color: '#E5E5DF' })
-        Scroll() {
+        Scroll(this.chatScroller) {
           Column({ space: 15 }) {
             if (this.activeFeature === 'home') { this.DashboardContent() }
             else if (this.activeFeature === 'career') { this.CareerContent() }
@@ -679,14 +1000,28 @@ struct Index {
               Text(this.notice).fontSize(12).fontColor('#88551A').lineHeight(19).width('100%')
                 .padding(10).backgroundColor('#FFF6E8').borderRadius(9)
             }
-            if (this.contextPickerVisible) { this.KnowledgeContent() }
-            Row({ space: 8 }) { Text('✦').fontSize(13).fontColor('#356B58'); Text('Agent 已载入当前工作区记忆；外部工具调用前会征求确认。').fontSize(12).fontColor('#596159') }.width('100%').padding(11).backgroundColor('#EFF6F0').borderRadius(10)
+            if (this.storageNotice.length > 0) {
+              Text(this.storageNotice).fontSize(12).fontColor('#88551A').width('100%')
+                .padding(10).backgroundColor('#FFF6E8').borderRadius(9)
+            }
+            if (this.apiSettingsVisible) { this.ApiSettingsContent() }
+            Row({ space: 8 }) { Text('✦').fontSize(13).fontColor('#356B58'); Text('回答会结合当前对话和你主动加入的课程资料。').fontSize(12).fontColor('#596159') }.width('100%').padding(11).backgroundColor('#EFF6F0').borderRadius(10)
             ForEach(this.messages, (message: AgentMessage, index: number) => {
               Row() {
-                if (message.role === 'agent') { Text('C').fontSize(12).fontWeight(FontWeight.Bold).fontColor('#151614').width(27).height(27).textAlign(TextAlign.Center).padding({ top: 5 }).backgroundColor('#D4F56A').borderRadius(8).margin({ right: 9 }) }
                 Column({ space: 5 }) {
-                  Text(message.role === 'agent' ? 'CampusPilot' : '你').fontSize(11).fontColor('#82837C')
-                  Text(message.content).fontSize(15).fontColor('#292A27').lineHeight(23).copyOption(CopyOptions.InApp)
+                  ForEach(message.attachments || [], (attachment: ChatAttachment) => {
+                    if (attachment.kind === 'image') {
+                      Image(`file://${attachment.path}`).width('100%').height(160).objectFit(ImageFit.Contain).borderRadius(8)
+                    }
+                    Text(`${attachment.kind === 'image' ? '▧' : '▤'} ${attachment.name}${attachment.truncated ? ' · 部分内容' : ''}`)
+                      .fontSize(12).fontColor('#5C7160').maxLines(2).width('100%')
+                  }, (attachment: ChatAttachment) => attachment.id)
+                  if (message.role === 'agent') {
+                    AgentAnswer({ message: message, expanded: this.expandedThoughts.includes(`${this.activeSession}-${index}`),
+                      onToggle: () => this.toggleThought(index) })
+                  } else {
+                    Text(message.content).fontSize(15).fontColor('#292A27').lineHeight(23).copyOption(CopyOptions.InApp)
+                  }
                   Text(message.meta).fontSize(10).fontColor('#9A9B94')
                   ForEach(message.sources || [], (source: SourceCitation) => {
                     Column({ space: 5 }) {
@@ -703,11 +1038,34 @@ struct Index {
                   }
                 }.alignItems(HorizontalAlign.Start).width('80%').padding(13).backgroundColor(message.role === 'agent' ? '#FFFFFF' : '#E9F3EB').borderRadius(13)
               }.width('100%').justifyContent(message.role === 'agent' ? FlexAlign.Start : FlexAlign.End)
-            }, (message: AgentMessage, index: number) => `${message.role}-${index}`)
-            if (this.thinking) { Text('CampusPilot 正在分析并规划下一步…').fontSize(13).fontColor('#666861').padding(10).backgroundColor('#F2F3EE').borderRadius(9) }
+            // ForEach reuses nodes with unchanged keys. Replacing an interface object alone
+            // does not refresh its captured fields, so include the reply revision in its key.
+            }, (message: AgentMessage, index: number) => `${this.activeSession}-${message.role}-${index}-${message.renderRevision || 0}`)
           }.width('100%').padding({ left: 26, right: 26, top: 2, bottom: 20 })
         }.layoutWeight(1).width('100%').scrollBar(BarState.Off)
         Column({ space: 7 }) {
+          if (this.draftAttachments.length > 0) {
+            Scroll() {
+              Row({ space: 8 }) {
+                ForEach(this.draftAttachments, (attachment: ChatAttachment) => {
+                  Row({ space: 7 }) {
+                    if (attachment.kind === 'image') { Image(`file://${attachment.path}`).width(44).height(44).objectFit(ImageFit.Cover).borderRadius(6) }
+                    else { Text('▤').fontSize(22).fontColor('#58735E') }
+                    Column({ space: 3 }) {
+                      Text(attachment.name).fontSize(11).fontColor('#46574A').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width(130)
+                      Text(`${Math.max(1, Math.round(attachment.size / 1024))} KB${attachment.truncated ? ' · 部分内容' : ''}`).fontSize(10).fontColor('#8A968B')
+                    }.alignItems(HorizontalAlign.Start)
+                    Button('×').fontSize(18).width(30).height(40).backgroundColor(Color.Transparent).fontColor('#738174')
+                      .accessibilityText(`移除附件 ${attachment.name}`).onClick(() => this.removeAttachment(attachment.id))
+                  }.padding(7).backgroundColor('#F0F5EF').borderRadius(9)
+                }, (attachment: ChatAttachment) => attachment.id)
+              }
+            }.scrollable(ScrollDirection.Horizontal).width('100%').scrollBar(BarState.Off)
+          }
+          if (this.attachmentBusy || this.voiceBusy || this.recording) {
+            Text(this.attachmentBusy ? '正在读取附件…' : this.recording ? '● 正在聆听，再点麦克风结束' : '正在处理语音…')
+              .fontSize(11).fontColor(this.recording ? '#B35443' : '#66816B').width('100%')
+          }
           if (this.selectedContext.length > 0) {
             Row({ space: 5 }) {
               Text(`当前上下文 · ${this.selectedContext.length} 条资料`).fontSize(11).fontColor('#356B58').layoutWeight(1)
@@ -719,20 +1077,30 @@ struct Index {
           }
           Row({ space: 10 }) {
             Text('＋').fontSize(19).fontColor('#4F514B').width(26).height(44).textAlign(TextAlign.Center)
-              .accessibilityText('添加资料上下文').onClick(() => this.toggleContextPicker())
-            Text(this.recording ? '■' : '◉').fontSize(15).fontColor('#4F514B').width(30).height(44).textAlign(TextAlign.Center)
-              .accessibilityText(this.recording ? '结束录音' : '语音输入').onClick(() => this.toggleVoice())
+              .accessibilityText('导入文件或图片').enabled(!this.thinking && !this.recording && !this.voiceBusy && !this.attachmentBusy)
+              .bindMenu([{ value: '导入文件', action: () => this.pickAttachments(false) }, { value: '选择图片', action: () => this.pickAttachments(true) }])
+            Button({ type: ButtonType.Normal }) {
+              if (this.recording) { Text('■').fontSize(16).fontColor('#B35443') }
+              else if (this.voiceBusy) { LoadingProgress().width(20).height(20).color('#66816B') }
+              else { Image($r('app.media.ic_microphone')).width(23).height(23) }
+            }.width(32).height(44).backgroundColor(Color.Transparent).borderRadius(6)
+              .accessibilityText(this.recording ? '结束录音' : '麦克风语音识别').onClick(() => this.toggleVoice())
             TextInput({ text: this.inputText, placeholder: '向 CampusPilot 描述你的下一步…' }).layoutWeight(1).height(44).fontSize(14).backgroundColor('#F2F2ED').borderRadius(10).padding({ left: 12, right: 8 }).onChange((value: string) => this.inputText = value).onSubmit(() => this.sendMessage(this.inputText))
             Button({ type: ButtonType.Circle }) {
               Text('➤').fontSize(18).fontColor('#F9FAF6').rotate({ angle: -45 })
             }.width(42).height(42).backgroundColor('#356B58').onClick(() => this.sendMessage(this.inputText))
             if (this.thinking) { Text('停止').fontSize(12).fontColor('#356B58').height(44).padding({ left: 6, right: 6 }).onClick(() => this.stopReply()) }
           }.width('100%').padding(8).backgroundColor('#FFFFFF').borderRadius(14).border({ width: 1, color: '#E2E3DC' })
-          Text('云端模型、ASR/TTS 与业务工具均通过 services 适配层预留。').fontSize(10).fontColor('#92938D').width('100%').textAlign(TextAlign.Center)
+          Text(this.apiConfigured ? `● 已配置 ${IntegrationService.agent.name} · 管理 API` : '配置外部模型 API · 当前尚未连接模型')
+            .fontSize(10).fontColor(this.apiConfigured ? '#356B58' : '#777A72').width('100%').textAlign(TextAlign.Center)
+            .height(24).onClick(() => this.toggleApiSettings())
         }.width('100%').padding({ left: 26, right: 26, top: 10, bottom: 14 }).backgroundColor('#FBFBF8')
       }.layoutWeight(1).height('100%').backgroundColor('#FBFBF8')
 
       if (this.isTaskPanelVisible) { Divider().vertical(true).color('#E4E5DE').strokeWidth(1); this.TaskPanel() }
     }.width('100%').height('100%').backgroundColor('#FBFBF8')
+      .bindSheet($$this.contextPickerVisible, this.ContextSheet(), { height: '80%', width: 680,
+        preferType: SheetType.CENTER, showClose: false, dragBar: false,
+        onDisappear: () => { this.contextPickerVisible = false; this.searchSerial++; this.searchBusy = false } })
   }
 }

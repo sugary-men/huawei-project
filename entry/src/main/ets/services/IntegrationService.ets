@@ -2,10 +2,15 @@ import { AgentGateway, AgentRequest, ModuleAdapter, ModuleResult, StreamSink, Vo
 import { SourceCitation, KnowledgeRepository, QueryEmbedder } from '../models/RagModels'
 import { MemoryKnowledgeRepository } from './KnowledgeService'
 import { RagService } from './RagService'
+import { AgentApiSettings } from '../config/ApiConfig'
+import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
+import { common } from '@kit.AbilityKit'
+import { HarmonyVoiceAdapter } from './HarmonyVoiceAdapter'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
   name: string = '本地原文摘录'
+  cancel(): void {}
   async generate(request: AgentRequest, sink: StreamSink): Promise<void> {
     if (sink.isCancelled()) return
     let content = ''
@@ -35,14 +40,22 @@ export class UnavailableVoice implements VoiceAdapter {
   async stopSpeaking(): Promise<void> {}
 }
 
-// 真实实现由各模块负责人在应用启动时注册。
+// 对话网关可在聊天页配置；其他能力由各模块负责人接入。
 export class IntegrationService {
   static knowledge: KnowledgeRepository = new MemoryKnowledgeRepository()
   static embedder: QueryEmbedder | undefined = undefined
-  static agent: AgentGateway = new ExtractiveGateway()
+  static agent: AgentGateway = new OpenAiCompatibleGateway({ baseUrl: '', model: '', apiKey: '' })
+  static agentSettings: AgentApiSettings = { baseUrl: '', model: '', apiKey: '' }
   static forms: ModuleAdapter = new UnavailableModule('表单')
   static study: ModuleAdapter = new UnavailableModule('学习课程')
   static hardware: ModuleAdapter = new UnavailableModule('自律魔方')
   static voice: VoiceAdapter = new UnavailableVoice()
+  static initializeVoice(context: common.UIAbilityContext): void {
+    if (IntegrationService.voice instanceof UnavailableVoice) IntegrationService.voice = new HarmonyVoiceAdapter(context)
+  }
   static rag(): RagService { return new RagService(IntegrationService.knowledge, IntegrationService.embedder) }
+  static configureAgent(settings: AgentApiSettings): void {
+    IntegrationService.agentSettings = { baseUrl: settings.baseUrl.trim(), model: settings.model.trim(), apiKey: settings.apiKey.trim() }
+    IntegrationService.agent = new OpenAiCompatibleGateway(IntegrationService.agentSettings)
+  }
 }
