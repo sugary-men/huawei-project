@@ -6,14 +6,12 @@ import { AgentApiSettings } from '../config/ApiConfig'
 import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
 import { common } from '@kit.AbilityKit'
 import { HarmonyVoiceAdapter } from './HarmonyVoiceAdapter'
-// 旧 BLE/NFC 适配器保留在源文件中，本次以知识库专注服务为准。
-// import { HarmonyFocusModuleAdapter } from './HarmonyFocusModuleAdapter'
 import { PrivacyModuleAdapter } from './PrivacyModuleAdapter'
 import { HarmonyScheduleAdapter } from './HarmonyScheduleAdapter'
 import { SchedulePlatform } from '../models/ScheduleModels'
 import { LibraryService } from './LibraryService'
 import { StudentQueryEmbedder } from './StudentQueryEmbedder'
-import { FocusModuleAdapter } from './FocusGuardService'
+import { FocusIntegrationAdapter } from './FocusIntegrationAdapter'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
@@ -75,16 +73,14 @@ export class IntegrationService {
   static initializeVoice(context: common.UIAbilityContext): void {
     if (IntegrationService.voice instanceof UnavailableVoice) IntegrationService.voice = new HarmonyVoiceAdapter(context)
   }
-  // main 旧硬件初始化与清理停用；恢复时需同时恢复 NFC 订阅和权限。
-  // static initializeDeviceServices(context: common.UIAbilityContext): void {
-  // if (IntegrationService.hardware instanceof UnavailableModule) IntegrationService.hardware = new HarmonyFocusModuleAdapter(context)
-  // if (IntegrationService.privacy instanceof UnavailableModule) IntegrationService.privacy = new PrivacyModuleAdapter(context)
-  // }
-  // static disposeDeviceServices(): void {
-  // if (IntegrationService.hardware instanceof HarmonyFocusModuleAdapter) IntegrationService.hardware.dispose()
-  // }
   static initializeFocus(context: common.UIAbilityContext): void {
-    IntegrationService.hardware = new FocusModuleAdapter(context)
+    if (IntegrationService.hardware instanceof UnavailableModule) {
+      IntegrationService.hardware = new FocusIntegrationAdapter(context)
+    }
+  }
+  static disposeFocus(): void {
+    if (IntegrationService.hardware instanceof FocusIntegrationAdapter) IntegrationService.hardware.dispose()
+    IntegrationService.hardware = new UnavailableModule('自律魔方')
   }
   // 隐私档案独立于专注适配器，保留 main 的能力。
   static initializePrivacy(context: common.UIAbilityContext): void {

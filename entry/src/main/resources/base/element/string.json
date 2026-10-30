@@ -13,6 +13,14 @@
       "value": "用于将你主动录入的语音识别为聊天文字"
     },
     {
+      "name": "bluetooth_reason",
+      "value": "用于发现并连接你的自律魔方"
+    },
+    {
+      "name": "nfc_reason",
+      "value": "用于读取自律魔方 NFC 标签并开始专注"
+    },
+    {
       "name": "screen_time_guard_reason",
       "value": "用于按你设置的时长和应用白名单开启设备专注锁"
     },

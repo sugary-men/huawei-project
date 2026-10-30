@@ -211,13 +211,10 @@ struct Index {
     } catch (_error) { this.storageNotice = '部分旧附件未迁入资料库，原对话文件仍保留。' }
     IntegrationService.initializeVoice(this.getUIContext().getHostContext() as common.UIAbilityContext)
     IntegrationService.initializeSchedule(this.getUIContext().getHostContext() as common.UIAbilityContext)
-// 合并保留：以下 main 旧实现停用，采用知识库分支（2026-10-30）。
-//     IntegrationService.initializeDeviceServices(this.getUIContext().getHostContext() as common.UIAbilityContext)
-//     host.eventHub.on('focusNfcTap', this.nfcEvent)
-//     const pendingNfc = NfcFocusBridge.peek()
-//     if (pendingNfc.length > 0) this.nfcEvent(pendingNfc)
     IntegrationService.initializeFocus(host)
     IntegrationService.initializePrivacy(host)
+    host.eventHub.on('focusNfcTap', this.nfcEvent)
+    const pendingNfc = NfcFocusBridge.peek()
     this.refreshKnowledge()
     const savedSidebar = SessionService.sidebar()
     const sidebar = SidebarService.normalize(savedSidebar)
@@ -232,6 +229,7 @@ struct Index {
     this.leftWidth = sidebar.leftWidth || 256
     this.rightWidth = sidebar.rightWidth || 274
     this.chooseFeature(FEATURE_CATALOG[0])
+    if (pendingNfc.length > 0) this.nfcEvent(pendingNfc)
     this.loadLocalAgentConfig()
   }
 
@@ -247,9 +245,8 @@ struct Index {
 
   aboutToDisappear(): void {
     const host = this.getUIContext().getHostContext() as common.UIAbilityContext
-    // 旧 NFC 订阅随旧硬件入口停用，保留对应清理代码。
-    // host.eventHub.off('focusNfcTap', this.nfcEvent)
-    // IntegrationService.disposeDeviceServices()
+    host.eventHub.off('focusNfcTap', this.nfcEvent)
+    IntegrationService.disposeFocus()
     this.apiLoadSerial++
     if (this.messageClockTimer >= 0) clearInterval(this.messageClockTimer)
     this.importSerial++
@@ -1601,6 +1598,39 @@ struct Index {
         Text(this.focusGuardNotice || '白名单内应用可继续使用，名单外应用在设定时长内被限制访问。')
           .fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(19 * this.fontScale).width('100%')
           .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
+      }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(10)
+
+      Column({ space: 10 * this.fontScale }) {
+        Column({ space: 3 * this.fontScale }) {
+          Text('自律魔方硬件').fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text('连接 CampusCube，或用 NFC 标签触发专注').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
+        }.width('100%').alignItems(HorizontalAlign.Start)
+        Row({ space: 8 * this.fontScale }) {
+          Button('扫描魔方').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+            .enabled(!this.actionBusy).onClick(() => this.runModule('connect'))
+          Button('NFC 碰一碰').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+            .enabled(!this.actionBusy).onClick(() => this.runModule('nfc'))
+        }.width('100%')
+        Row({ space: 8 * this.fontScale }) {
+          Button('硬件状态').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+            .enabled(!this.actionBusy).onClick(() => this.runModule('hardware-status'))
+          Button('模拟姿态中断').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+            .enabled(!this.actionBusy).onClick(() => this.runModule('interrupt'))
+        }.width('100%')
+        if (this.moduleNotice.length > 0) {
+          Text(this.moduleNotice).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(19 * this.fontScale)
+            .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
+        }
+        ForEach(this.moduleItems, (item: ModuleItem) => {
+          Column({ space: 3 * this.fontScale }) {
+            Text(item.title).fontSize(12 * this.fontScale).fontColor(UiTheme.text).width('100%')
+            Text(item.detail).fontSize(11 * this.fontScale).fontColor(UiTheme.muted).lineHeight(18 * this.fontScale).width('100%')
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }, (item: ModuleItem) => item.id)
       }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(10)
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18 * this.fontScale, bottom: 8 * this.fontScale })
   }

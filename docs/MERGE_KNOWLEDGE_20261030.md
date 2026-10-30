@@ -1,6 +1,6 @@
-# 2026-10-30 分支合并与停用代码
+# 2026-10-30 分支合并与硬件恢复
 
-合并 main（2f5d854）与 codex/knowledge-base-library（1f5a274）。冲突功能以知识库分支为准；旧硬件适配器、BLE/NFC、ESP32 固件源文件继续保留，自律入口不再调用它们。隐私档案独立初始化，继续可用。
+合并 main（2f5d854）与 codex/knowledge-base-library（1f5a274）。初次合并以知识库分支为基准，后续审查发现 BLE/NFC 是可用能力而非可删除冲突，现已通过协调适配器恢复。隐私档案独立初始化，继续可用。
 
 string.json 是严格 JSON，不能写注释，旧权限文案记录在此。其余源代码的冲突旧片段在原位置以注释保留。文档的双方记录均保留。
 
@@ -149,6 +149,13 @@ string.json 是严格 JSON，不能写注释，旧权限文案记录在此。其
       "value": "用于按你设置的时长和应用白名单开启设备专注锁"
 ```
 
+## 硬件恢复结果
+
+- 新增 `FocusIntegrationAdapter`，把 Screen Time Guard 与 `HarmonyFocusModuleAdapter` 组合到同一业务接口。
+- 恢复 `ACCESS_BLUETOOTH`、`NFC_TAG` 权限及权限文案，恢复 `focusNfcTap` 订阅、冷启动待处理标签消费和页面销毁清理。
+- 自律魔方页面重新提供扫描连接、NFC 碰一碰、硬件状态和姿态中断入口；Screen Time Guard 继续负责设备锁、白名单及授权状态。
+- `focus_lock status` 改为独立的 `status` 动作，避免查询锁机状态时误触发蓝牙扫描。
+
 ## 验证
 
-13 个回归测试文件全部通过，DevEco CLI 构建成功。原硬件协议和状态机测试仍保留并通过；不代表 BLE/NFC 入口当前启用。构建未签名，本次未部署；系统专注锁、硬件和隐私加密的真机行为未在本次验证。
+DevEco CLI 构建成功，CodeLinter 为 0 错误，15 个 Node 回归测试全部通过。构建未签名，本次未部署；系统专注锁、真实 BLE/NFC 硬件和隐私加密仍需相应真机验证。

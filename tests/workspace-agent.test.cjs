@@ -64,7 +64,7 @@ const focusStart = service.applyTool('focus_lock', '{"action":"start","durationM
 assert.equal(focusStart.action, 'start');
 assert.deepEqual(JSON.parse(focusStart.input), { durationMinutes: 25, useWhitelist: true });
 assert.equal(service.applyTool('focus_lock', '{"action":"stop"}', 'focus', state).action, 'stop');
-assert.equal(service.applyTool('focus_lock', '{"action":"status"}', 'focus', state).action, 'connect');
+assert.equal(service.applyTool('focus_lock', '{"action":"status"}', 'focus', state).action, 'status');
 assert.throws(() => service.applyTool('focus_lock', '{"action":"start","durationMinutes":0}', 'focus', state), /1-1440/);
 assert.throws(() => service.applyTool('focus_lock', '{"action":"start","durationMinutes":25}', 'home', state), /自律魔方/);
 const request = ChatService.request('请继续', 'study', [], { context: '', sources: [] }, [], state, async () => '{}');
