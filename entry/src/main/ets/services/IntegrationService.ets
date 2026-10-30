@@ -12,6 +12,7 @@ import { SchedulePlatform } from '../models/ScheduleModels'
 import { LibraryService } from './LibraryService'
 import { StudentQueryEmbedder } from './StudentQueryEmbedder'
 import { FocusIntegrationAdapter } from './FocusIntegrationAdapter'
+import { RagWorkspaceService } from './RagWorkspaceService'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
@@ -51,6 +52,7 @@ export class IntegrationService {
   static knowledge: KnowledgeRepository = new MemoryKnowledgeRepository()
   static embedder: QueryEmbedder = new StudentQueryEmbedder()
   static library: LibraryService | undefined = undefined
+  static ragWorkspace: RagWorkspaceService | undefined = undefined
   static initializeLibrary(context: common.Context): void {
     if (IntegrationService.library !== undefined) return
     const base = new MemoryKnowledgeRepository()
@@ -58,6 +60,7 @@ export class IntegrationService {
     const library = new LibraryService(context.filesDir, base)
     IntegrationService.library = library
     IntegrationService.knowledge = library
+    IntegrationService.ragWorkspace = new RagWorkspaceService(context.filesDir)
   }
   static agent: AgentGateway = new OpenAiCompatibleGateway({ baseUrl: '', model: '', apiKey: '' })
   static agentSettings: AgentApiSettings = { baseUrl: '', model: '', apiKey: '' }
@@ -86,7 +89,13 @@ export class IntegrationService {
   static initializePrivacy(context: common.UIAbilityContext): void {
     if (IntegrationService.privacy instanceof UnavailableModule) IntegrationService.privacy = new PrivacyModuleAdapter(context)
   }
-  static rag(): RagService { return new RagService(IntegrationService.knowledge, IntegrationService.embedder) }
+  static rag(): RagService {
+    if (IntegrationService.library !== undefined && IntegrationService.ragWorkspace !== undefined) {
+      return IntegrationService.ragWorkspace.createRag(IntegrationService.library,
+        IntegrationService.ragWorkspace.activeBase().id)
+    }
+    return new RagService(IntegrationService.knowledge, IntegrationService.embedder)
+  }
   static configureAgent(settings: AgentApiSettings): void {
     IntegrationService.agentSettings = { baseUrl: settings.baseUrl.trim(), model: settings.model.trim(), apiKey: settings.apiKey.trim() }
     IntegrationService.agent = new OpenAiCompatibleGateway(IntegrationService.agentSettings)

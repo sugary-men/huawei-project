@@ -26,6 +26,10 @@
 
 `OpenAiCompatibleEmbeddingService` 提供在线 `/embeddings` 批量调用；`RagIndexBuilder` 负责分段、模态文本拼接、最多64条批处理和稳定片段ID。智谱 `embedding-3` 只接受文本输入，图片检索需先保存图片描述、OCR 或视觉模型描述；原生跨模态检索应接入 GLM 全模态知识库或 `Embedding-Multimodel`。详见 [多模态 RAG 与 Embedding 构建](../../../../docs/RAG_MULTIMODAL_EMBEDDING.md)。
 
+`RagWorkspaceService` 在应用沙箱 `rag_workspace.json` 持久保存知识库、API配置、已构建索引和本地算法。每个知识库可选择内置/本地资料范围、在线或本地 Embedding、在线或本地重排序。在线索引通过 `RagIndexBuilder` 构建；资料或知识库设置改变后旧索引会失效并显示为待重建。`OpenAiCompatibleRerankService` 兼容 `/rerank` 的 `results/data + index + relevance_score/score` 响应。
+
+资料库前端保持原有黑白灰框架，在内部提供“资料、知识库、数据可视化、模型与 API、本地算法”五个工作区。资料页为列表/详情分栏；可视化支持可点击关系图、节点和表格，并可直接执行当前知识库检索、高亮命中来源和把片段加入对话上下文。
+
 `AgentTaskService/Store` 管理周期、状态及最近5次结果；`LocalJsonStore` 使用原子替换、同步备份和短时目录锁。`AgentTaskRuntime` 前台轮询到期任务，并注册一个2小时周期的系统延迟任务；`AgentTaskAbility` 在后台回调时认领到期任务。实际唤醒受系统活跃分组等策略控制，不能作为准时闹钟。跨进程认领先落盘 `runId/runningSince`，周期推进后才调用模型，重复到期合并一次，过期执行记录为中断，旧回调不能覆盖新结果或复活已删除任务。
 
 自动执行最多85秒；工具白名单只有读时间、日历、提醒和本地备忘录的list/read，服务端分派也校验，不能靠模型遵循提示词来保护写操作。后台只检查现有日历授权，不弹窗。普通对话额外提供 `manage_agent_task` 管理任务，执行前展示时间/周期核对；API配置存设备私有首选项供后台读取，清空后不自动复活打包配置。

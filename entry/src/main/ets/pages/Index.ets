@@ -2149,6 +2149,21 @@ struct Index {
     }
   }
 
+  private useLibrarySource(source: SourceCitation): void {
+    try {
+      if (this.activeFeature === 'trash') this.openHome()
+      IntegrationService.library?.registerContext(source)
+      const retained = this.selectedContext.filter((item: SourceCitation) => item.chunkId !== source.chunkId)
+      if (retained.length >= 12) throw new Error('当前上下文较多，请先移除部分资料后再添加。')
+      this.selectedContext = retained.concat(source)
+      this.appSection = 'chat'
+      this.notice = '已将可视化片段加入当前对话上下文。'
+      this.persistSession()
+    } catch (error) {
+      try { this.getUIContext().getPromptAction().showToast({ message: (error as Error).message, duration: 2000 }) } catch (_error) {}
+    }
+  }
+
   private railIconFilter(active: boolean = false, source: number = 85): ColorFilter {
     const scale = (active ? 241 : 189) / source
     return new ColorFilter([scale, 0, 0, 0, 0, 0, scale, 0, 0, 0, 0, 0, scale, 0, 0, 0, 0, 0, 1, 0])
@@ -2190,7 +2205,10 @@ struct Index {
       if (this.appSection === 'tasks') {
         TaskCenterPage({ initialTab: this.taskCenterTab }).width('100%').height('100%').transition(UiMotion.page())
       } else if (this.appSection === 'library') {
-        LibraryPage({ onUse: (id: string, attachment: boolean) => this.useLibraryDocument(id, attachment), onChanged: () => this.refreshKnowledge() })
+        LibraryPage({ viewportWidth: this.viewportWidth,
+          onUse: (id: string, attachment: boolean) => this.useLibraryDocument(id, attachment),
+          onUseSource: (source: SourceCitation) => this.useLibrarySource(source),
+          onChanged: () => this.refreshKnowledge() })
           .width('100%').height('100%').transition(UiMotion.page())
       } else {
       Row() {

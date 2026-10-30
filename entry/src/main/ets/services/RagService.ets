@@ -1,13 +1,23 @@
 import { RagConfig } from '../config/RagConfig'
-import { KnowledgeChunk, KnowledgeRepository, QueryEmbedder, RankedChunk, RetrievalOptions,
+import { KnowledgeChunk, KnowledgeRepository, QueryEmbedder, RagRankingPolicy, RankedChunk, RerankProvider, RetrievalOptions,
   RetrievalResult, SourceCitation } from '../models/RagModels'
 
 export class RagService {
   private repository: KnowledgeRepository
   private embedder: QueryEmbedder | undefined
-  constructor(repository: KnowledgeRepository, embedder?: QueryEmbedder) {
+  private policy: RagRankingPolicy
+  private reranker: RerankProvider | undefined
+  constructor(repository: KnowledgeRepository, embedder?: QueryEmbedder,
+    policy: RagRankingPolicy = RagService.defaultPolicy(), reranker?: RerankProvider) {
     this.repository = repository
     this.embedder = embedder
+    this.policy = policy
+    this.reranker = reranker
+  }
+
+  static defaultPolicy(): RagRankingPolicy {
+    return { lexicalWeight: 0.55, semanticWeight: 0.45, bm25K1: 1.2, bm25B: 0.75,
+      localRerank: false, rerankWeight: 0.25 }
   }
 
   static tokens(text: string): string[] {
@@ -67,6 +77,13 @@ export class RagService {
     const corpus = chunks.map((chunk: KnowledgeChunk): string[] => RagService.tokens(`${chunk.title} ${chunk.content}`))
     const averageLength = corpus.reduce((total: number, row: string[]) => total + row.length, 0) / chunks.length
     const frequencies = queryTokens.map((token: string): number => corpus.filter((row: string[]) => row.indexOf(token) >= 0).length)
+    const lexicalWeight = Math.max(0, Math.min(1, this.policy.lexicalWeight))
+    const semanticWeight = Math.max(0, Math.min(1, this.policy.semanticWeight))
+    const weightTotal = Math.max(0.01, lexicalWeight + semanticWeight)
+    const normalizedLexical = lexicalWeight / weightTotal
+    const normalizedSemantic = semanticWeight / weightTotal
+    const bm25K1 = Math.max(0.1, Math.min(5, this.policy.bm25K1))
+    const bm25B = Math.max(0, Math.min(1, this.policy.bm25B))
     let hybrid = false
     const ranked: RankedChunk[] = chunks.map((chunk: KnowledgeChunk, index: number): RankedChunk => {
       const row = corpus[index]
@@ -77,7 +94,8 @@ export class RagService {
         if (tf > 0) {
           matched++
           const idf = Math.log(1 + (chunks.length - frequencies[tokenIndex] + 0.5) / (frequencies[tokenIndex] + 0.5))
-          bm25 += idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * row.length / Math.max(1, averageLength)))
+          bm25 += idf * tf * (bm25K1 + 1) /
+            (tf + bm25K1 * ((1 - bm25B) + bm25B * row.length / Math.max(1, averageLength)))
         }
       })
       const lexical = 0.55 * bm25 / (bm25 + 2) + 0.45 * matched / queryTokens.length
@@ -85,10 +103,30 @@ export class RagService {
         queryVector.length > 0 && chunk.vector.length === queryVector.length && RagService.cosine(chunk.vector, chunk.vector) > 0
       if (usableVector) hybrid = true
       const semantic = usableVector ? RagService.cosine(queryVector, chunk.vector) : 0
-      return { chunk: chunk, score: usableVector ? 0.55 * lexical + 0.45 * semantic : lexical }
+      return { chunk: chunk, score: usableVector ? normalizedLexical * lexical + normalizedSemantic * semantic : lexical }
     })
     result.mode = hybrid ? 'hybrid' : 'keyword'
     ranked.sort((a: RankedChunk, b: RankedChunk): number => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id))
+    if (this.reranker !== undefined && ranked.length > 1) {
+      try {
+        const reranked = await this.reranker.rerank(result.query, ranked.slice(0, 24))
+        if (reranked.length > 0) {
+          ranked.splice(0, ranked.length, ...reranked)
+          ranked.sort((a: RankedChunk, b: RankedChunk): number => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id))
+        }
+      } catch (_error) {
+        result.notice = '在线重排序服务暂不可用，已使用本地排序。'
+      }
+    } else if (this.policy.localRerank && ranked.length > 1) {
+      const weight = Math.max(0, Math.min(1, this.policy.rerankWeight))
+      ranked.forEach((item: RankedChunk) => {
+        const text = `${item.chunk.title} ${item.chunk.content}`.toLowerCase()
+        const matched = queryTokens.filter((token: string) => text.includes(token)).length / queryTokens.length
+        const exact = text.includes(result.query.toLowerCase()) ? 1 : 0
+        item.score = item.score * (1 - weight) + weight * (0.7 * matched + 0.3 * exact)
+      })
+      ranked.sort((a: RankedChunk, b: RankedChunk): number => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id))
+    }
     const counts = new Map<string, number>()
     const contents = new Set<string>()
     let remaining = Math.max(0, Math.min(8000, Math.floor(options.contextChars)))

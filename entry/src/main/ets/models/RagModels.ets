@@ -63,3 +63,17 @@ export interface RankedChunk {
   chunk: KnowledgeChunk
   score: number
 }
+
+export interface RagRankingPolicy {
+  lexicalWeight: number
+  semanticWeight: number
+  bm25K1: number
+  bm25B: number
+  localRerank: boolean
+  rerankWeight: number
+}
+
+export interface RerankProvider {
+  modelId: string
+  rerank(query: string, candidates: RankedChunk[]): Promise<RankedChunk[]>
+}
