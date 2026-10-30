@@ -11,7 +11,9 @@ export class MemoryKnowledgeRepository implements KnowledgeRepository {
       chunks: index.chunks.map((chunk: KnowledgeChunk): KnowledgeChunk => ({
         id: chunk.id, sourceId: chunk.sourceId, title: chunk.title,
         location: chunk.location, course: chunk.course, content: chunk.content,
-        vector: chunk.vector.slice(), vectorModel: chunk.vectorModel
+        vector: chunk.vector.slice(), vectorModel: chunk.vectorModel,
+        modality: chunk.modality || 'text', mediaPath: chunk.mediaPath || '',
+        mediaMimeType: chunk.mediaMimeType || ''
       }))
     }
   }
@@ -24,7 +26,9 @@ function withLocalVectors(index: KnowledgeIndex): KnowledgeIndex {
     chunks: index.chunks.map((chunk: KnowledgeChunk): KnowledgeChunk => ({
       id: chunk.id, sourceId: chunk.sourceId, title: chunk.title, location: chunk.location,
       course: chunk.course, content: chunk.content,
-      vector: localHashVector(`${chunk.title} ${chunk.content}`), vectorModel: LOCAL_VECTOR_MODEL
+      vector: localHashVector(`${chunk.title} ${chunk.content}`), vectorModel: LOCAL_VECTOR_MODEL,
+      modality: chunk.modality || 'text', mediaPath: chunk.mediaPath || '',
+      mediaMimeType: chunk.mediaMimeType || ''
     }))
   }
 }

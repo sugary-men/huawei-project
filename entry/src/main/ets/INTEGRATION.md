@@ -9,6 +9,7 @@
 - `revision` 是每次索引更新的稳定版本标识。
 - 每段 `KnowledgeChunk` 有稳定唯一的 `id`、文档级 `sourceId`、原始资料标题、章节或页码 `location`、课程 `course` 和用于引用的 `content`。
 - `vector` 与 `vectorModel` 成对提供。`QueryEmbedder.modelId` 必须与文档向量所用模型一致；维数和模型不匹配的片段只参与关键词搜索。
+- 可选 `modality`、`mediaPath`、`mediaMimeType` 记录文本、图片、表格、音频或视频来源；图片、音视频应先把描述或转写作为 `content`，原始媒体仍通过路径回溯。
 - 每一处内容与位置应能回溯到原始文档；文档解析、切块、向量生成、索引存储和联网兜底由 M7 数据侧承担。
 
 `RagService.search(query, options)` 会按选择的课程过滤片段，执行中文字符二元组与英文词的 BM25 关键词检索；有匹配模型向量时，将关键词得分与余弦相似度合并。默认最多返回 4 个片段、每份资料最多 2 段，截取的资料文本预算为 2400 个字符。低于相关度阈值的片段不入选。每条结果包含稳定编号、来源、章节、原文片段和分数；检索不到时返回空引用和明确提示，不自动把猜测内容当成资料。
@@ -19,9 +20,11 @@
 
 全局页面由 `Index.appSection` 切换，`GlobalRail` 始终显示；`TaskCenterPage` 承载日历、提醒、备忘录与 `AgentTaskPage`，`LibraryPage` 统一管理资料。普通会话保持独立状态，不用特殊工作区模拟这些页面。
 
-`LibraryService` 包装原有 `KnowledgeRepository`，组合已启用的外部片段和持久化本地资料，实现 `snapshot()`；`IntegrationService.knowledge` 指向该组合仓库。文件迁移/导入复制到 `library_files`，发送附件再次复制到 `chat_attachments`，两者生命周期独立。文本按800字符、120重叠分段；JSON索引校验后保留向量及模型标识，命名空间前缀隔离片段ID。图片无文本索引。`library.json` 保存开关、正文、元数据和删除标记，禁止旧会话重新导入已删除源。
+`LibraryService` 包装原有 `KnowledgeRepository`，组合已启用的外部片段和持久化本地资料，实现 `snapshot()`；`IntegrationService.knowledge` 指向该组合仓库。文件迁移/导入复制到 `library_files`，发送附件再次复制到 `chat_attachments`，两者生命周期独立。文本按800字符、120重叠分段；JSON索引校验后保留向量、模型及模态标识，命名空间前缀隔离片段ID。图片没有描述时只可预览和加入对话；保存图片描述后会以描述文本参与检索，并保留图片路径与 MIME 类型。`library.json` 保存开关、正文、元数据和删除标记，禁止旧会话重新导入已删除源。
 
 默认 base 为炫神（许昊龙）公开知识库（14 段，`local-hash-64` 向量）。本地文本与导入文本在分段时同样补 `local-hash-64` 向量；`IntegrationService.embedder` 默认使用 `StudentQueryEmbedder`，因此资料库与对话检索可离线执行关键词 + 余弦混合检索。RAG JSON 中已有向量的片段保留原向量与 `vectorModel`，模型不匹配时只参与关键词检索。
+
+`OpenAiCompatibleEmbeddingService` 提供在线 `/embeddings` 批量调用；`RagIndexBuilder` 负责分段、模态文本拼接、最多64条批处理和稳定片段ID。智谱 `embedding-3` 只接受文本输入，图片检索需先保存图片描述、OCR 或视觉模型描述；原生跨模态检索应接入 GLM 全模态知识库或 `Embedding-Multimodel`。详见 [多模态 RAG 与 Embedding 构建](../../../../docs/RAG_MULTIMODAL_EMBEDDING.md)。
 
 `AgentTaskService/Store` 管理周期、状态及最近5次结果；`LocalJsonStore` 使用原子替换、同步备份和短时目录锁。`AgentTaskRuntime` 前台轮询到期任务，并注册一个2小时周期的系统延迟任务；`AgentTaskAbility` 在后台回调时认领到期任务。实际唤醒受系统活跃分组等策略控制，不能作为准时闹钟。跨进程认领先落盘 `runId/runningSince`，周期推进后才调用模型，重复到期合并一次，过期执行记录为中断，旧回调不能覆盖新结果或复活已删除任务。
 

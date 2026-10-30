@@ -10,7 +10,15 @@
 - 审查合并注释后，新增 `FocusIntegrationAdapter`，在保留 Screen Time Guard 专注锁的同时恢复 BLE 扫描、GATT 连接、NFC 触发和姿态中断。
 - 恢复蓝牙/NFC 权限、权限文案、NFC EventHub 冷启动与运行中事件处理，以及页面退出时的适配器清理；自律魔方页面新增硬件操作入口。
 - 将 Agent 的设备锁状态查询改为独立 `status` 动作，避免查询状态时误触蓝牙扫描。
-- DevEco CLI 构建与 CodeLinter 通过，15 个 Node 回归测试全部通过。
+- DevEco CLI 构建与 CodeLinter 通过，13 个 Node 回归测试全部通过。
+
+### 多模态 RAG 与 Embedding 构建
+
+- 新增 `RagIndexBuilder`，支持800字符分段、120字符重叠、批量 Embedding、稳定片段ID和 `text/image/table/audio/video` 模态元数据。
+- 新增 OpenAI 兼容 `OpenAiCompatibleEmbeddingService`，支持自定义维度、最多64条批量输入、响应索引校验和 `模型@维度` 向量模型标识。
+- 资料库支持为图片添加描述并启用检索，引用保留原始图片路径和 MIME 类型；没有描述的图片仍只作为对话附件。
+- 验证智谱 `embedding-3` 默认2048维和自定义512维调用；真实测试使用图片描述、文本、表格和音频转写构建索引，三组语义问题均召回正确来源。
+- 新增确定性 RAG 构建测试与可选真实 API 测试；密钥仅从 `EMBEDDING_API_KEY` 环境变量读取，不进入源码。
 
 ## 2026-10-28
 

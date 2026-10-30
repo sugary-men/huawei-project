@@ -103,7 +103,8 @@ export class RagService {
       const citation: SourceCitation = {
         number: result.sources.length + 1, chunkId: item.chunk.id, sourceId: item.chunk.sourceId,
         title: item.chunk.title, location: item.chunk.location, course: item.chunk.course,
-        excerpt: excerpt, score: item.score
+        excerpt: excerpt, score: item.score, modality: item.chunk.modality || 'text',
+        mediaPath: item.chunk.mediaPath || '', mediaMimeType: item.chunk.mediaMimeType || ''
       }
       result.sources.push(citation)
       counts.set(item.chunk.sourceId, count + 1)

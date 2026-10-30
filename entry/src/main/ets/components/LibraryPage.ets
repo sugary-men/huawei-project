@@ -17,6 +17,7 @@ export struct LibraryPage {
   @State busy: boolean = false
   @State notice: string = ''
   @State editing: boolean = false
+  @State editingImage: boolean = false
   @State editId: string = ''
   @State draftTitle: string = ''
   @State draftText: string = ''
@@ -60,7 +61,8 @@ export struct LibraryPage {
     return this.documents.filter((d: LibraryDocument) => this.filter === 'all' || (this.filter === 'indexed' ? d.indexed : d.kind === 'image'))
   }
   private edit(document?: LibraryDocument): void {
-    this.editId = document?.id || ''; this.draftTitle = document?.title || ''; this.draftText = document?.text || ''; this.setEditing(true)
+    this.editId = document?.id || ''; this.editingImage = document?.kind === 'image'
+    this.draftTitle = document?.title || ''; this.draftText = document?.text || ''; this.setEditing(true)
   }
   private setEditing(value: boolean): void {
     this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => this.editing = value)
@@ -70,9 +72,21 @@ export struct LibraryPage {
   }
   private saveText(): void {
     try {
-      IntegrationService.library?.saveText(this.draftTitle, this.draftText, this.editId || undefined)
-      this.setEditing(false); this.refresh(); this.onChanged(); this.notice = '文本资料已保存并加入检索。'
+      if (this.editingImage) {
+        IntegrationService.library?.saveImageDescription(this.editId, this.draftText)
+        this.notice = '图片描述已保存并用于检索。'
+      } else {
+        IntegrationService.library?.saveText(this.draftTitle, this.draftText, this.editId || undefined)
+        this.notice = '文本资料已保存并加入检索。'
+      }
+      this.setEditing(false); this.refresh(); this.onChanged()
     } catch (error) { this.notice = (error as Error).message }
+  }
+  private documentStatus(document: LibraryDocument): string {
+    if (document.kind === 'image') {
+      return document.indexed ? '图片描述参与检索' : document.text ? '图片描述待启用' : '图片待添加描述'
+    }
+    return document.indexed ? '参与检索' : '已停用检索'
   }
   @Styles
   interactive() {
@@ -125,13 +139,16 @@ export struct LibraryPage {
         Column({ space: 10 * this.fontScale }) {
           if (this.editing) {
             Column({ space: 9 * this.fontScale }) {
-              TextInput({ text: this.draftTitle, placeholder: '资料名称' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale })
-                .height(36 * this.fontScale).width('100%').maxLength(120).id('library-text-title').focusFeedback().onChange((value: string) => this.draftTitle = value)
-              TextArea({ text: this.draftText, placeholder: '粘贴要保留的资料或上下文' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale })
+              if (!this.editingImage) {
+                TextInput({ text: this.draftTitle, placeholder: '资料名称' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale })
+                  .height(36 * this.fontScale).width('100%').maxLength(120).id('library-text-title').focusFeedback().onChange((value: string) => this.draftTitle = value)
+              }
+              TextArea({ text: this.draftText, placeholder: this.editingImage ? '描述图片中的场景、文字、图表或可用于检索的信息' : '粘贴要保留的资料或上下文' })
+                .fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale })
                 .height(125 * this.fontScale).width('100%').maxLength(12000).id('library-text-content').focusFeedback().onChange((value: string) => this.draftText = value)
               Row({ space: 9 }) {
                 Button('取消').height(30 * this.fontScale).fontSize(12 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text).interactive().onClick(() => this.setEditing(false))
-                Button('保存资料').height(30 * this.fontScale).fontSize(12 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.surface)
+                Button(this.editingImage ? '保存图片描述' : '保存资料').height(30 * this.fontScale).fontSize(12 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.surface)
                   .id('library-text-save').interactive().onClick(() => this.saveText())
               }
             }.padding(14 * this.fontScale).width('100%').backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(12)
@@ -140,7 +157,7 @@ export struct LibraryPage {
           if (this.visible().length === 0) {
             Column({ space: 9 }) {
               Text(this.query ? '没有匹配的资料' : '让资料在这里汇集').fontSize(20 * this.fontScale).fontColor(UiTheme.text)
-              Text('导入的文件会保存在本机；文字可用于检索，图片可加入对话。也支持导入RAG索引JSON。')
+              Text('导入的文件会保存在本机；文字和图片描述可用于检索，图片也可加入对话。也支持导入RAG索引JSON。')
                 .fontSize(13 * this.fontScale).lineHeight(22 * this.fontScale).fontColor(UiTheme.secondary).textAlign(TextAlign.Center)
             }.width('100%').padding(45 * this.fontScale).transition(UiMotion.fade())
           }
@@ -150,26 +167,34 @@ export struct LibraryPage {
                 Image(document.kind === 'image' ? $r('app.media.ic_image') : $r('app.media.ic_library')).width(23 * this.fontScale).height(23 * this.fontScale)
                 Column({ space: 4 }) {
                   Text(document.title).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text).maxLines(2).width('100%')
-                  Text(`${document.origin} · ${document.course || '未分类'} · ${document.indexed ? '参与检索' : document.kind === 'image' ? '图片资料' : '已停用检索'}`)
+                  Text(`${document.origin} · ${document.course || '未分类'} · ${this.documentStatus(document)}`)
                     .fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
                 }.alignItems(HorizontalAlign.Start).layoutWeight(1)
                 if (document.createdAt > 0) { Text(ScheduleService.localLabel(document.createdAt)).fontSize(10 * this.fontScale).fontColor(UiTheme.muted) }
               }.width('100%').id(`library-item-${document.id}`).interactive().onClick(() => this.togglePreview(document.id))
               if (this.selected === document.id) {
                 Column({ space: 9 * this.fontScale }) {
-                if (document.kind === 'image') { Image(`file://${document.path}`).height(190 * this.fontScale).width('100%').objectFit(ImageFit.Contain) }
-                else { MarkdownContent({ content: document.text || '暂无可读取正文', textSize: 13 }) }
+                if (document.kind === 'image') {
+                  Image(`file://${document.path}`).height(190 * this.fontScale).width('100%').objectFit(ImageFit.Contain)
+                  if (document.text) {
+                    Text(document.text).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(20 * this.fontScale).width('100%')
+                  }
+                } else { MarkdownContent({ content: document.text || '暂无可读取正文', textSize: 13 }) }
                 if (document.truncated) { Text('当前为已提取的部分正文，原始文件仍保留。').fontSize(11 * this.fontScale).fontColor(UiTheme.muted) }
                 }.width('100%').alignItems(HorizontalAlign.Start).transition(UiMotion.reveal())
               } else if (document.text) { Text(document.text).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).maxLines(2).width('100%').transition(UiMotion.fade()) }
               Flex({ wrap: FlexWrap.Wrap }) {
                 Button(this.selected === document.id ? '收起' : '预览').fontSize(11 * this.fontScale).height(28 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
                   .margin({ right: 7, bottom: 4 }).id(`library-preview-${document.id}`).interactive().onClick(() => this.togglePreview(document.id))
-                if (document.kind !== 'image') {
+                if (document.text) {
                   Button('加入上下文').fontSize(11 * this.fontScale).height(28 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
                     .margin({ right: 7, bottom: 4 }).id(`library-use-${document.id}`).interactive().onClick(() => this.onUse(document.id, false))
                   Button(document.indexed ? '停用检索' : '参与检索').fontSize(11 * this.fontScale).height(28 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
                     .margin({ right: 7, bottom: 4 }).id(`library-toggle-${document.id}`).interactive().onClick(() => this.toggle(document.id))
+                }
+                if (document.kind === 'image') {
+                  Button(document.text ? '编辑图片描述' : '添加图片描述').fontSize(11 * this.fontScale).height(28 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+                    .margin({ right: 7, bottom: 4 }).id(`library-describe-${document.id}`).interactive().onClick(() => this.edit(document))
                 }
                 if (document.path) {
                   Button('作为附件发送').fontSize(11 * this.fontScale).height(28 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)

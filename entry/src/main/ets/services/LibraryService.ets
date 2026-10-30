@@ -32,7 +32,10 @@ export class LibraryService implements KnowledgeRepository {
   private static validChunk(c: KnowledgeChunk): boolean {
     return !!c && typeof c.id === 'string' && typeof c.sourceId === 'string' && typeof c.title === 'string' &&
       typeof c.course === 'string' && typeof c.location === 'string' && typeof c.content === 'string' && c.content.length <= 12000 &&
-      Array.isArray(c.vector) && c.vector.length <= 4096 && c.vector.every((n: number) => Number.isFinite(n)) && typeof c.vectorModel === 'string'
+      Array.isArray(c.vector) && c.vector.length <= 4096 && c.vector.every((n: number) => Number.isFinite(n)) &&
+      typeof c.vectorModel === 'string' && (c.modality === undefined || typeof c.modality === 'string') &&
+      (c.mediaPath === undefined || typeof c.mediaPath === 'string') &&
+      (c.mediaMimeType === undefined || typeof c.mediaMimeType === 'string')
   }
 
   private static fingerprint(value: string): string {
@@ -87,7 +90,9 @@ export class LibraryService implements KnowledgeRepository {
       const content = text.slice(start, start + 800)
       result.push({ id: `${document.id}:${version}:${start}`, sourceId: document.id, title: document.title,
         course: document.course, location: `片段 ${result.length + 1}`, content: content,
-        vector: localHashVector(`${document.title} ${content}`), vectorModel: LOCAL_VECTOR_MODEL })
+        vector: localHashVector(`${document.title} ${content}`), vectorModel: LOCAL_VECTOR_MODEL,
+        modality: document.kind, mediaPath: document.kind === 'image' ? document.path : '',
+        mediaMimeType: document.kind === 'image' ? document.mimeType : '' })
       if (start + 800 >= text.length) break
     }
     return result
@@ -117,7 +122,7 @@ export class LibraryService implements KnowledgeRepository {
         fs.copyFileSync(attachment.path, path); copied.push(path)
         const document: LibraryDocument = { id: id, title: attachment.name, course: '个人资料', kind: attachment.kind, origin: origin,
           path: path, mimeType: attachment.mimeType, size: attachment.size, text: attachment.text, truncated: attachment.truncated,
-          indexed: attachment.kind === 'document', createdAt: Date.now() }
+          indexed: attachment.kind === 'document' || attachment.text.trim().length > 0, createdAt: Date.now() }
         if (attachment.name.toLowerCase().endsWith('.json') && attachment.size > 2000000) throw new Error('JSON资料最多2MB，请拆分索引后导入。')
         if (attachment.name.toLowerCase().endsWith('.json')) {
           let index: KnowledgeIndex | undefined = undefined
@@ -129,7 +134,8 @@ export class LibraryService implements KnowledgeRepository {
               if (!c.id || seen.has(c.id)) throw new Error('RAG索引片段ID为空或重复。')
               seen.add(c.id)
               return { id: `${id}:${c.id}`, sourceId: id, title: c.title, course: c.course, location: c.location,
-                content: c.content, vector: c.vector.slice(), vectorModel: c.vectorModel }
+                content: c.content, vector: c.vector.slice(), vectorModel: c.vectorModel,
+                modality: c.modality || 'text', mediaPath: c.mediaPath || '', mediaMimeType: c.mediaMimeType || '' }
             })
             document.kind = 'index'; document.text = document.chunks.map((c: KnowledgeChunk) => c.content).join('\n\n').slice(0, 12000)
           }
@@ -169,9 +175,24 @@ export class LibraryService implements KnowledgeRepository {
         state.disabledSources = state.disabledSources.includes(key) ? state.disabledSources.filter((value: string) => value !== key) : state.disabledSources.concat(key)
       } else {
         const document = state.documents.find((d: LibraryDocument) => d.id === id)
-        if (document === undefined || !document.text.trim()) throw new Error('图片尚无文字索引，可作为图片加入对话。')
+        if (document === undefined || !document.text.trim()) {
+          throw new Error('这份资料尚无文字或图片描述，暂不能参与检索。')
+        }
         document.indexed = !document.indexed
       }
+      return state
+    })
+  }
+
+  saveImageDescription(id: string, description: string): void {
+    const text = description.trim()
+    if (!text || text.length > 12000) throw new Error('图片描述需为1至12000字。')
+    this.store.change((state: LibraryArchive): LibraryArchive => {
+      const document = state.documents.find((d: LibraryDocument) => d.id === id)
+      if (document === undefined || document.kind !== 'image') throw new Error('这份资料不是可添加描述的图片。')
+      document.text = text
+      document.indexed = true
+      document.truncated = false
       return state
     })
   }

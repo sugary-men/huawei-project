@@ -158,4 +158,4 @@ string.json 是严格 JSON，不能写注释，旧权限文案记录在此。其
 
 ## 验证
 
-DevEco CLI 构建成功，CodeLinter 为 0 错误，15 个 Node 回归测试全部通过。构建未签名，本次未部署；系统专注锁、真实 BLE/NFC 硬件和隐私加密仍需相应真机验证。
+DevEco CLI 构建成功，CodeLinter 为 0 错误，13 个 Node 回归测试全部通过。构建未签名，本次未部署；系统专注锁、真实 BLE/NFC 硬件和隐私加密仍需相应真机验证。
