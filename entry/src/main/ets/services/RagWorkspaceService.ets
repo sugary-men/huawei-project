@@ -54,7 +54,10 @@ export class RagWorkspaceService {
       typeof value.model === 'string' && value.model.length <= 160 &&
       typeof value.apiKey === 'string' && value.apiKey.length <= 8192 &&
       Number.isFinite(value.dimensions) && value.dimensions >= 0 && value.dimensions <= 4096 &&
-      Number.isFinite(value.createdAt)
+      Number.isFinite(value.createdAt) &&
+      (value.enabled === undefined || typeof value.enabled === 'boolean') &&
+      (value.lastTestAt === undefined || Number.isFinite(value.lastTestAt)) &&
+      (value.lastTestStatus === undefined || typeof value.lastTestStatus === 'string')
   }
 
   private static validBase(value: RagKnowledgeBase): boolean {
@@ -133,12 +136,12 @@ export class RagWorkspaceService {
       if (base === undefined) {
         if (state.knowledgeBases.length >= 20) throw new Error('最多保存20个知识库。')
         if (embeddingMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
-          profile.id === embeddingProfileId && profile.kind === 'embedding')) {
-          throw new Error('在线向量化需要选择一个Embedding API。')
+          profile.id === embeddingProfileId && profile.kind === 'embedding' && profile.enabled !== false)) {
+          throw new Error('在线向量化需要选择一个已启用的Embedding API。')
         }
         if (rerankMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
-          profile.id === rerankProfileId && profile.kind === 'rerank')) {
-          throw new Error('在线重排序需要选择一个Rerank API。')
+          profile.id === rerankProfileId && profile.kind === 'rerank' && profile.enabled !== false)) {
+          throw new Error('在线重排序需要选择一个已启用的Rerank API。')
         }
         base = { id: `kb:${util.generateRandomUUID()}`, name: title, description: description.trim().slice(0, 300),
           embeddingMode: embeddingMode === 'online' ? 'online' : 'local', embeddingProfileId: embeddingProfileId,
@@ -148,12 +151,12 @@ export class RagWorkspaceService {
         state.knowledgeBases.push(base)
       } else {
         if (embeddingMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
-          profile.id === embeddingProfileId && profile.kind === 'embedding')) {
-          throw new Error('在线向量化需要选择一个Embedding API。')
+          profile.id === embeddingProfileId && profile.kind === 'embedding' && profile.enabled !== false)) {
+          throw new Error('在线向量化需要选择一个已启用的Embedding API。')
         }
         if (rerankMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
-          profile.id === rerankProfileId && profile.kind === 'rerank')) {
-          throw new Error('在线重排序需要选择一个Rerank API。')
+          profile.id === rerankProfileId && profile.kind === 'rerank' && profile.enabled !== false)) {
+          throw new Error('在线重排序需要选择一个已启用的Rerank API。')
         }
         base.name = title
         base.description = description.trim().slice(0, 300)
@@ -203,7 +206,10 @@ export class RagWorkspaceService {
         model: model.trim(),
         apiKey: apiKey.trim(),
         dimensions: Math.max(0, Math.min(4096, Math.round(dimensions))),
-        createdAt: profile?.createdAt || now
+        createdAt: profile?.createdAt || now,
+        enabled: profile?.enabled !== false,
+        lastTestAt: profile?.lastTestAt || 0,
+        lastTestStatus: profile?.lastTestStatus || ''
       }
       if (!next.baseUrl || !next.model) throw new Error('请填写API服务地址和模型名称。')
       if (state.apiProfiles.length >= 30 && profile === undefined) throw new Error('最多保存30组RAG API配置。')
@@ -234,6 +240,35 @@ export class RagWorkspaceService {
         }
       })
       state.indexes = state.indexes.filter((index: RagStoredIndex) => !invalidated.has(index.baseId))
+      return state
+    })
+  }
+
+  setProfileEnabled(id: string, enabled: boolean): RagWorkspaceArchive {
+    return this.store.change((state: RagWorkspaceArchive): RagWorkspaceArchive => {
+      const profile = state.apiProfiles.find((item: RagApiProfile) => item.id === id)
+      if (profile === undefined) throw new Error('API配置不存在。')
+      if (!enabled) {
+        state.knowledgeBases.forEach((base: RagKnowledgeBase) => {
+          if (base.embeddingProfileId === id && base.embeddingMode === 'online') {
+            throw new Error('该 Embedding 正被知识库使用，请先切换知识库配置。')
+          }
+          if (base.rerankProfileId === id && base.rerankMode === 'online') {
+            throw new Error('该重排序模型正被知识库使用，请先切换知识库配置。')
+          }
+        })
+      }
+      profile.enabled = enabled
+      return state
+    })
+  }
+
+  updateProfileTest(id: string, success: boolean, message: string): RagWorkspaceArchive {
+    return this.store.change((state: RagWorkspaceArchive): RagWorkspaceArchive => {
+      const profile = state.apiProfiles.find((item: RagApiProfile) => item.id === id)
+      if (profile === undefined) throw new Error('API配置不存在。')
+      profile.lastTestAt = Date.now()
+      profile.lastTestStatus = success ? `连接正常 · ${message}` : (message || '连接失败。')
       return state
     })
   }
@@ -304,9 +339,9 @@ export class RagWorkspaceService {
     const archive = this.store.read()
     const base = archive.knowledgeBases.find((item: RagKnowledgeBase) => item.id === baseId) || archive.knowledgeBases[0]
     const embeddingProfile = archive.apiProfiles.find((profile: RagApiProfile) =>
-      profile.id === base.embeddingProfileId && profile.kind === 'embedding')
+      profile.id === base.embeddingProfileId && profile.kind === 'embedding' && profile.enabled !== false)
     const rerankProfile = archive.apiProfiles.find((profile: RagApiProfile) =>
-      profile.id === base.rerankProfileId && profile.kind === 'rerank')
+      profile.id === base.rerankProfileId && profile.kind === 'rerank' && profile.enabled !== false)
     const embedder = base.embeddingMode === 'online' && embeddingProfile !== undefined
       ? new OpenAiCompatibleEmbeddingService({ baseUrl: embeddingProfile.baseUrl, model: embeddingProfile.model,
         apiKey: embeddingProfile.apiKey, dimensions: embeddingProfile.dimensions })

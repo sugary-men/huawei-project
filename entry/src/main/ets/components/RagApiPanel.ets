@@ -1,7 +1,10 @@
 import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
+import { KnowledgeChunk, RankedChunk } from '../models/RagModels'
 import { RagApiProfile, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { IntegrationService } from '../services/IntegrationService'
+import { OpenAiCompatibleEmbeddingService } from '../services/OpenAiCompatibleEmbeddingService'
+import { OpenAiCompatibleRerankService } from '../services/OpenAiCompatibleRerankService'
 import { RagWorkspaceService } from '../services/RagWorkspaceService'
 
 @Component
@@ -20,6 +23,8 @@ export struct RagApiPanel {
   @State dimensions: string = '512'
   @State notice: string = ''
   @State panelWidth: number = 900
+  @State profileEnabled: boolean = true
+  @State testing: boolean = false
 
   aboutToAppear(): void { this.refresh() }
 
@@ -45,6 +50,7 @@ export struct RagApiPanel {
     this.model = profile.model
     this.apiKey = profile.apiKey
     this.dimensions = String(profile.dimensions)
+    this.profileEnabled = profile.enabled !== false
     this.notice = ''
   }
   private add(kind: string): void {
@@ -55,6 +61,7 @@ export struct RagApiPanel {
     this.model = kind === 'embedding' ? 'embedding-3' : ''
     this.apiKey = ''
     this.dimensions = kind === 'embedding' ? '512' : '0'
+    this.profileEnabled = true
     this.notice = ''
   }
   private save(): void {
@@ -63,12 +70,62 @@ export struct RagApiPanel {
     try {
       const profile = workspace.saveProfile(this.selectedId, this.kind, this.name, this.baseUrl,
         this.model, this.apiKey, Number(this.dimensions))
+      workspace.setProfileEnabled(profile.id, this.profileEnabled)
       this.archive = workspace.read()
       this.selectedId = profile.id
       this.refresh(profile.id)
       this.notice = 'API配置已保存到本机。'
       this.onChanged()
     } catch (error) { this.notice = (error as Error).message || '保存失败。' }
+  }
+  private async testConnection(): Promise<void> {
+    if (this.testing) return
+    this.testing = true
+    this.notice = '正在测试连接…'
+    try {
+      if (this.kind === 'embedding') {
+        const service = new OpenAiCompatibleEmbeddingService({ baseUrl: this.baseUrl, model: this.model,
+          apiKey: this.apiKey, dimensions: Number(this.dimensions) })
+        const vectors = await service.embedBatch(['RAG connectivity test'])
+        if (vectors.length !== 1 || vectors[0].length === 0) throw new Error('服务没有返回有效向量。')
+        this.notice = `连接正常，返回 ${vectors[0].length} 维向量。`
+      } else {
+        const service = new OpenAiCompatibleRerankService({ baseUrl: this.baseUrl, model: this.model,
+          apiKey: this.apiKey })
+        const chunk: KnowledgeChunk = { id: 'connectivity', sourceId: 'connectivity', title: '连通性测试',
+          location: '本地测试', course: '系统', content: '用于验证重排序 API 是否可用。',
+          vector: [], vectorModel: 'none' }
+        const ranked: RankedChunk[] = await service.rerank('连通性测试', [{ chunk: chunk, score: 1 }])
+        if (ranked.length === 0) throw new Error('服务没有返回有效排序结果。')
+        this.notice = '连接正常，重排序响应格式有效。'
+      }
+      const workspace = this.workspace()
+      if (workspace !== undefined && this.selectedId) {
+        workspace.updateProfileTest(this.selectedId, true, this.notice)
+        this.archive = workspace.read()
+        this.onChanged()
+      }
+    } catch (error) {
+      this.notice = (error as Error).message || '连接测试失败，请检查地址、模型和密钥。'
+      const workspace = this.workspace()
+      if (workspace !== undefined && this.selectedId) {
+        workspace.updateProfileTest(this.selectedId, false, this.notice)
+        this.archive = workspace.read()
+      }
+    } finally {
+      this.testing = false
+    }
+  }
+  private toggleEnabled(): void {
+    const workspace = this.workspace()
+    if (workspace === undefined || !this.selectedId) return
+    try {
+      workspace.setProfileEnabled(this.selectedId, !this.profileEnabled)
+      this.profileEnabled = !this.profileEnabled
+      this.archive = workspace.read()
+      this.notice = this.profileEnabled ? 'API 配置已启用。' : 'API 配置已停用。'
+      this.onChanged()
+    } catch (error) { this.notice = (error as Error).message || '状态切换失败。' }
   }
   private async remove(): Promise<void> {
     const workspace = this.workspace()
@@ -121,6 +178,9 @@ export struct RagApiPanel {
               }.width('100%')
               Text(`${profile.model}${profile.dimensions > 0 ? ` · ${profile.dimensions}维` : ''}`)
                 .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(profile.enabled === false ? '已停用' : profile.lastTestStatus || '未测试')
+                .fontSize(8 * this.fontScale).fontColor(profile.enabled === false ? UiTheme.muted : UiTheme.secondary)
+                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
             }.width('100%').padding(9 * this.fontScale).alignItems(HorizontalAlign.Start)
               .backgroundColor(this.selectedId === profile.id ? UiTheme.surface : Color.Transparent)
               .border({ width: 1, color: this.selectedId === profile.id ? '#BDBDBD' : UiTheme.border }).borderRadius(7)
@@ -156,6 +216,15 @@ export struct RagApiPanel {
             .height(37 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8)
             .onChange((value: string) => this.dimensions = value)
         }
+        Row({ space: 9 * this.fontScale }) {
+          Text('启用此配置').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).layoutWeight(1)
+          Toggle({ type: ToggleType.Switch, isOn: this.profileEnabled })
+            .enabled(!this.selectedId).onChange((value: boolean) => this.profileEnabled = value)
+          if (this.selectedId) {
+            Button('切换状态').height(30 * this.fontScale).fontSize(9 * this.fontScale)
+              .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.toggleEnabled())
+          }
+        }.width('100%')
         Text('密钥不会显示在日志中。公开部署建议通过自有后端代理，不把长期密钥写入HAP。')
           .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).lineHeight(15 * this.fontScale).width('100%')
           .padding(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(7)
@@ -164,6 +233,9 @@ export struct RagApiPanel {
         Row({ space: 8 * this.fontScale }) {
           Button('保存API').layoutWeight(1).height(38 * this.fontScale).fontSize(11 * this.fontScale)
             .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => this.save())
+          Button(this.testing ? '测试中' : '测试连接').height(38 * this.fontScale).fontSize(11 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).enabled(!this.testing)
+            .onClick(() => this.testConnection())
           if (this.selectedId) {
             Button('删除').height(38 * this.fontScale).fontSize(11 * this.fontScale)
               .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary).onClick(() => this.remove())

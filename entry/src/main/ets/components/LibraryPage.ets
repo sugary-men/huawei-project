@@ -3,23 +3,34 @@ import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
 import { LibraryDocument } from '../models/LibraryModels'
 import { SourceCitation } from '../models/RagModels'
+import { RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { AttachmentService } from '../services/AttachmentService'
 import { IntegrationService } from '../services/IntegrationService'
 import { ScheduleService } from '../services/ScheduleService'
+import { KnowledgeFeatureRail } from './KnowledgeFeatureRail'
 import { MarkdownContent } from './MarkdownContent'
 import { RagAlgorithmPanel } from './RagAlgorithmPanel'
 import { RagApiPanel } from './RagApiPanel'
 import { RagDataVisualization } from './RagDataVisualization'
 import { RagKnowledgeBasePanel } from './RagKnowledgeBasePanel'
+import { RagOperationsPanel } from './RagOperationsPanel'
+import { RagRerankPanel } from './RagRerankPanel'
+
+interface LibraryMenuOption {
+  value: string
+  action: () => void
+}
 
 @Component
 export struct LibraryPage {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop viewportWidth: number = 1280
-  @State section: string = 'documents'
+  @State section: string = 'visualization'
   @State pageWidth: number = 1000
   @State query: string = ''
   @State filter: string = 'all'
+  @State modelApiTab: string = 'rerank'
+  @State settingsTab: string = 'knowledge'
   @State documents: LibraryDocument[] = []
   @State selected: string = ''
   @State busy: boolean = false
@@ -31,6 +42,14 @@ export struct LibraryPage {
   @State draftText: string = ''
   @State activeBaseId: string = 'kb-local'
   @State ragRevision: number = 0
+  @State archive: RagWorkspaceArchive | undefined = undefined
+  @State railCollapsed: boolean = false
+  @State createVisible: boolean = false
+  @State createName: string = ''
+  @State createDescription: string = ''
+  @State createEmbeddingId: string = ''
+  @State createNotice: string = ''
+  @State creating: boolean = false
   private alive: boolean = true
   onUse: (id: string, attachment: boolean) => void = () => {}
   onUseSource: (source: SourceCitation) => void = () => {}
@@ -38,7 +57,8 @@ export struct LibraryPage {
 
   aboutToAppear(): void {
     this.alive = true
-    this.activeBaseId = IntegrationService.ragWorkspace?.activeBase().id || 'kb-local'
+    if (this.viewportWidth < 760) this.railCollapsed = true
+    this.syncWorkspace()
     this.refresh()
   }
   aboutToDisappear(): void { this.alive = false }
@@ -49,7 +69,7 @@ export struct LibraryPage {
       if (!this.documents.some((document: LibraryDocument) => document.id === this.selected)) {
         this.selected = this.visible().length > 0 ? this.visible()[0].id : ''
       }
-      this.activeBaseId = IntegrationService.ragWorkspace?.activeBase().id || 'kb-local'
+      this.syncWorkspace()
     } catch (error) { this.notice = (error as Error).message }
   }
   private visible(): LibraryDocument[] {
@@ -59,9 +79,100 @@ export struct LibraryPage {
   private selectedDocument(): LibraryDocument | undefined {
     return this.documents.find((document: LibraryDocument) => document.id === this.selected)
   }
-  private contentWidth(): number { return Math.max(320, (this.viewportWidth || this.pageWidth) - 92) }
+  private railWidth(): number { return this.railCollapsed ? 46 : (this.viewportWidth >= 900 ? 92 : 58) }
+  private contentWidth(): number { return Math.max(220, (this.viewportWidth || this.pageWidth) - this.railWidth() - 48) }
   private wide(): boolean { return this.contentWidth() >= 760 }
   private contextWidth(): number { return Math.max(210, Math.min(320, this.contentWidth() * 0.28)) }
+  private syncWorkspace(): void {
+    const workspace = IntegrationService.ragWorkspace
+    if (workspace === undefined) return
+    this.archive = workspace.read()
+    this.activeBaseId = workspace.activeBase().id
+  }
+  private currentBase(): RagKnowledgeBase | undefined {
+    return this.archive?.knowledgeBases.find((base: RagKnowledgeBase) => base.id === this.activeBaseId)
+  }
+  private embeddingProfiles(): RagApiProfile[] {
+    return this.archive?.apiProfiles.filter((profile: RagApiProfile) =>
+      profile.kind === 'embedding' && profile.enabled !== false) || []
+  }
+  private embeddingName(id: string): string {
+    const profile = this.archive?.apiProfiles.find((item: RagApiProfile) => item.id === id)
+    return profile === undefined ? '选择在线 Embedding' : `${profile.name || profile.model} · ${profile.model}`
+  }
+  private embeddingMenu(): LibraryMenuOption[] {
+    return this.embeddingProfiles().map((profile: RagApiProfile): LibraryMenuOption => ({
+      value: `${profile.name || profile.model} · ${profile.model}`,
+      action: () => this.createEmbeddingId = profile.id
+    }))
+  }
+  private knowledgeMenu(): LibraryMenuOption[] {
+    return this.archive?.knowledgeBases.map((base: RagKnowledgeBase): LibraryMenuOption => ({
+      value: `${base.id === this.activeBaseId ? '✓ ' : ''}${base.name}`,
+      action: () => this.switchBase(base.id)
+    })) || []
+  }
+  private databaseMenu(): LibraryMenuOption[] {
+    return [
+      { value: '导入文件到资料库', action: () => this.pick(false) },
+      { value: '导入图片到资料库', action: () => this.pick(true) },
+      { value: '资料管理', action: () => { this.setSection('settings'); this.settingsTab = 'documents' } },
+      { value: '索引、导出与运行状态', action: () => this.setSection('operations') },
+      { value: '本地存储：应用沙箱 JSON', action: () => {
+        this.getUIContext().getPromptAction().showToast({ message: '知识库与资料索引保存在应用沙箱，本地 RAG 直接读取该存储。' })
+      } }
+    ]
+  }
+  private switchBase(id: string): void {
+    const workspace = IntegrationService.ragWorkspace
+    if (workspace === undefined || id === this.activeBaseId) return
+    try {
+      workspace.activateBase(id)
+      this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+        this.syncWorkspace()
+        this.selected = ''
+        this.ragRevision++
+      })
+      this.refresh()
+      this.onChanged()
+      this.notice = `已切换到「${this.currentBase()?.name || '知识库'}」。`
+    } catch (error) { this.notice = (error as Error).message || '切换知识库失败。' }
+  }
+  private openCreate(): void {
+    this.syncWorkspace()
+    this.createName = ''
+    this.createDescription = ''
+    this.createEmbeddingId = this.embeddingProfiles()[0]?.id || ''
+    this.createNotice = ''
+    this.creating = false
+    this.createVisible = true
+  }
+  private createKnowledgeBase(): void {
+    const workspace = IntegrationService.ragWorkspace
+    if (workspace === undefined || this.creating) return
+    this.creating = true
+    this.createNotice = '正在创建知识库配置…'
+    try {
+      if (!this.createName.trim()) throw new Error('请填写知识库名称。')
+      if (!this.createEmbeddingId) throw new Error('请选择一个已启用的在线 Embedding 配置。')
+      const base = workspace.saveBase('', this.createName, this.createDescription, 'online',
+        this.createEmbeddingId, 'local', '', false, true, [])
+      this.syncWorkspace()
+      this.activeBaseId = base.id
+      this.ragRevision++
+      this.createNotice = '知识库已创建。下一步可在运行管理中重建在线索引。'
+      this.notice = `已新建「${base.name}」，当前已自动切换。`
+      this.createVisible = false
+      this.section = 'settings'
+      this.settingsTab = 'knowledge'
+      this.refresh()
+      this.onChanged()
+    } catch (error) {
+      this.createNotice = (error as Error).message || '创建知识库失败。'
+    } finally {
+      this.creating = false
+    }
+  }
 
   private async pick(photos: boolean): Promise<void> {
     if (this.busy) return
@@ -151,14 +262,43 @@ export struct LibraryPage {
     this.editing = false
   }
   private setSection(value: string): void {
-    this.section = value
-    this.activeBaseId = IntegrationService.ragWorkspace?.activeBase().id || this.activeBaseId
+    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+      this.section = value
+      this.syncWorkspace()
+    })
     if (value === 'documents') this.refresh()
+    if (value === 'operations') this.syncWorkspace()
   }
   private ragChanged(): void {
-    this.activeBaseId = IntegrationService.ragWorkspace?.activeBase().id || this.activeBaseId
-    this.ragRevision++
+    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+      this.syncWorkspace()
+      this.ragRevision++
+    })
     this.onChanged()
+  }
+  private sectionTitle(): string {
+    if (this.section === 'modelApi') return '模型与 API'
+    if (this.section === 'settings') return '算法与设置'
+    if (this.section === 'operations') return '其他'
+    return '数据可视化'
+  }
+  private sectionDetail(): string {
+    if (this.section === 'visualization') return '当前知识库的关系图与数据分析卡片。'
+    if (this.section === 'modelApi') return '统一管理重排序模型和服务 API。'
+    if (this.section === 'settings') return '知识库、资料范围与检索算法。'
+    return '存储、导入导出、索引任务与操作日志。'
+  }
+  private workspaceKey(): string {
+    return `${this.section}:${this.activeBaseId}:${this.ragRevision}`
+  }
+  private setModelApiTab(value: string): void {
+    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+      () => this.modelApiTab = value)
+  }
+  private setSettingsTab(value: string): void {
+    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+      () => this.settingsTab = value)
+    if (value === 'documents') this.refresh()
   }
 
   @Styles
@@ -174,15 +314,6 @@ export struct LibraryPage {
     .animation({ duration: UiMotion.press, curve: Curve.EaseOut })
   }
   @Builder
-  SectionTab(label: string, value: string) {
-    Button(label).height(32 * this.fontScale).fontSize(11 * this.fontScale)
-      .backgroundColor(this.section === value ? UiTheme.primary : Color.Transparent)
-      .fontColor(this.section === value ? UiTheme.onPrimary : UiTheme.secondary)
-      .borderRadius(7).padding({ left: 12 * this.fontScale, right: 12 * this.fontScale })
-      .id(`library-tab-${value}`)
-      .interactive().onClick(() => this.setSection(value))
-  }
-  @Builder
   Filter(label: string, value: string) {
     Button(label).height(29 * this.fontScale).fontSize(10 * this.fontScale)
       .backgroundColor(this.filter === value ? UiTheme.primary : UiTheme.raised)
@@ -195,34 +326,70 @@ export struct LibraryPage {
       })
   }
   @Builder
-  Header() {
-    Row({ space: 12 * this.fontScale }) {
-      Column({ space: 4 * this.fontScale }) {
-        Text('资料库').fontSize(24 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-        Text('资料、知识库与本地检索工作台').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
-      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      if (this.section === 'documents') {
-        Button('导入图片').height(34 * this.fontScale).fontSize(10 * this.fontScale)
-          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).enabled(!this.busy)
-          .id('library-import-image').interactive().onClick(() => this.pick(true))
-        Button(this.busy ? '正在导入' : '导入文件').height(34 * this.fontScale).fontSize(10 * this.fontScale)
-          .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).enabled(!this.busy)
-          .id('library-import-file').interactive().onClick(() => this.pick(false))
-        Button('＋').height(34 * this.fontScale).width(36 * this.fontScale).fontSize(18 * this.fontScale)
-          .padding(0).backgroundColor(UiTheme.raised).fontColor(UiTheme.text).id('library-menu')
-          .bindMenu([{ value: '新建文本资料', action: () => this.edit() }])
-      }
-    }.width('100%')
+  KnowledgeSelector() {
+    Button({ type: ButtonType.Normal }) {
+      Row({ space: 7 * this.fontScale }) {
+        Text('◇').fontSize(13 * this.fontScale).fontColor(UiTheme.onPrimary)
+        Text(this.currentBase()?.name || '选择知识库').fontSize(10 * this.fontScale)
+          .fontColor(UiTheme.onPrimary).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        Text('▾').fontSize(9 * this.fontScale).fontColor('#D8D8D8')
+      }.width('100%')
+    }.width(180 * this.fontScale).height(36 * this.fontScale).padding({ left: 12, right: 10 })
+      .backgroundColor(UiTheme.primary).borderRadius(8)
+      .clip(true)
+      .id('knowledge-base-switcher').bindMenu(this.knowledgeMenu())
   }
   @Builder
-  Tabs() {
-    Row({ space: 3 * this.fontScale }) {
-      this.SectionTab('资料', 'documents')
-      this.SectionTab('知识库', 'knowledge')
-      this.SectionTab('数据可视化', 'visualization')
-      this.SectionTab('模型与 API', 'api')
-      this.SectionTab('本地算法', 'algorithm')
-    }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9 * this.fontScale)
+  DocumentQuickMenu() {
+    Button('＋').width(36 * this.fontScale).height(36 * this.fontScale).fontSize(18 * this.fontScale)
+      .padding(0).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+      .id('library-menu').bindMenu([
+        { value: '新建文本资料', action: () => this.edit() },
+        { value: '导入文件', action: () => this.pick(false) },
+        { value: '导入图片', action: () => this.pick(true) }
+      ])
+  }
+  @Builder
+  Header() {
+    if (this.contentWidth() >= 700) {
+      Row({ space: 9 * this.fontScale }) {
+        Column({ space: 3 * this.fontScale }) {
+          Text(this.sectionTitle()).fontSize(22 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text(this.sectionDetail()).fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        this.KnowledgeSelector()
+        Button('＋ 新建知识库').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+          .id('knowledge-base-create-wide').onClick(() => this.openCreate())
+        Button('数据库').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+          .backgroundColor(UiTheme.surface).fontColor(UiTheme.secondary)
+          .border({ width: 1, color: UiTheme.border }).borderRadius(8)
+          .bindMenu(this.databaseMenu())
+        if (this.section === 'settings' && this.settingsTab === 'documents') this.DocumentQuickMenu()
+      }.width('100%')
+    } else {
+      Column({ space: 8 * this.fontScale }) {
+        Row({ space: 8 * this.fontScale }) {
+          Column({ space: 2 * this.fontScale }) {
+            Text(this.sectionTitle()).fontSize(20 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+            Text(this.sectionDetail()).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Button('数据库').height(32 * this.fontScale).fontSize(9 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary)
+            .bindMenu(this.databaseMenu())
+        }.width('100%')
+        Row({ space: 7 * this.fontScale }) {
+          Column() { this.KnowledgeSelector() }.layoutWeight(1)
+          Button('＋ 新建').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+            .id('knowledge-base-create-compact').onClick(() => this.openCreate())
+          if (this.section === 'settings' && this.settingsTab === 'documents') this.DocumentQuickMenu()
+        }.width('100%')
+      }.width('100%')
+    }
   }
   @Builder
   DocumentListRow(document: LibraryDocument) {
@@ -399,30 +566,183 @@ export struct LibraryPage {
       }
     }.width('100%').layoutWeight(1)
   }
+  @Builder
+  CreateKnowledgeSheet() {
+    Scroll() {
+      Column({ space: 13 * this.fontScale }) {
+        Row() {
+          Column({ space: 4 * this.fontScale }) {
+            Text('新建知识库').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+            Text('新知识库使用在线 Embedding，创建后可继续配置资料范围并构建索引。')
+              .fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Button('关闭').height(30 * this.fontScale).fontSize(10 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+            .onClick(() => this.createVisible = false)
+        }.width('100%')
+        Column({ space: 7 * this.fontScale }) {
+          Text('知识库名称').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+          TextInput({ text: this.createName, placeholder: '例如：操作系统课程知识库' })
+            .height(40 * this.fontScale).fontSize(12 * this.fontScale).backgroundColor(UiTheme.surface)
+            .border({ width: 1, color: UiTheme.border }).borderRadius(8)
+            .onChange((value: string) => this.createName = value)
+        }.width('100%').alignItems(HorizontalAlign.Start)
+        Column({ space: 7 * this.fontScale }) {
+          Text('知识库说明').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+          TextArea({ text: this.createDescription, placeholder: '用途、课程范围或资料来源' })
+            .height(74 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+            .border({ width: 1, color: UiTheme.border }).borderRadius(8)
+            .onChange((value: string) => this.createDescription = value)
+        }.width('100%').alignItems(HorizontalAlign.Start)
+        Column({ space: 8 * this.fontScale }) {
+          Row() {
+            Column({ space: 3 * this.fontScale }) {
+              Text('在线 Embedding 配置').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+                .fontColor(UiTheme.text)
+              Text('新知识库必须选择已启用的 Embedding API。')
+                .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Text('在线').fontSize(8 * this.fontScale).fontColor(UiTheme.onPrimary)
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+              .backgroundColor(UiTheme.primary).borderRadius(4)
+          }.width('100%')
+          if (this.embeddingProfiles().length > 0) {
+            Button({ type: ButtonType.Normal }) {
+              Row({ space: 8 * this.fontScale }) {
+                Text('↗').fontSize(14 * this.fontScale).fontColor(UiTheme.secondary)
+                Text(this.embeddingName(this.createEmbeddingId)).fontSize(10 * this.fontScale)
+                  .fontColor(UiTheme.text).layoutWeight(1).maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text('▾').fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+              }.width('100%')
+            }.height(38 * this.fontScale).width('100%').padding({ left: 11, right: 11 })
+              .backgroundColor(UiTheme.raised).borderRadius(8).bindMenu(this.embeddingMenu())
+          } else {
+            Row({ space: 8 * this.fontScale }) {
+              Text('尚未配置可用的在线 Embedding。').fontSize(10 * this.fontScale)
+                .fontColor(UiTheme.secondary).layoutWeight(1)
+              Button('去配置').height(30 * this.fontScale).fontSize(9 * this.fontScale)
+                .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => {
+                  this.createVisible = false
+                  this.setSection('api')
+                })
+            }.width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+          }
+        }.width('100%').padding(13 * this.fontScale).backgroundColor('#F7F7F7')
+          .border({ width: 1, color: UiTheme.border }).borderRadius(9)
+        if (this.createNotice) {
+          Text(this.createNotice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+            .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+        }
+        Row({ space: 8 * this.fontScale }) {
+          Button(this.creating ? '创建中' : '创建知识库').layoutWeight(1).height(40 * this.fontScale)
+            .fontSize(11 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary)
+            .enabled(!this.creating && this.embeddingProfiles().length > 0)
+            .onClick(() => this.createKnowledgeBase())
+          Button('取消').height(40 * this.fontScale).fontSize(11 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+            .onClick(() => this.createVisible = false)
+        }.width('100%')
+        Text('创建只会保存知识库配置；在线索引可在知识库设置或运行管理中构建。')
+          .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).width('100%')
+      }.width('100%').padding(18 * this.fontScale).alignItems(HorizontalAlign.Start)
+    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+      .backgroundColor(UiTheme.background)
+  }
+  @Builder
+  WorkspaceSegment(label: string, value: string, current: string, action: (value: string) => void) {
+    Button(label).height(31 * this.fontScale).fontSize(10 * this.fontScale)
+      .backgroundColor(current === value ? UiTheme.primary : Color.Transparent)
+      .fontColor(current === value ? UiTheme.onPrimary : UiTheme.secondary)
+      .borderRadius(6).hoverEffect(HoverEffect.Highlight)
+      .onClick(() => action(value))
+  }
+  @Builder
+  ModelApiSwitcher() {
+    Row({ space: 3 * this.fontScale }) {
+      this.WorkspaceSegment('重排序模型', 'rerank', this.modelApiTab,
+        (value: string) => this.setModelApiTab(value))
+      this.WorkspaceSegment('API 管理', 'api', this.modelApiTab,
+        (value: string) => this.setModelApiTab(value))
+    }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
+  }
+  @Builder
+  SettingsSwitcher() {
+    Row({ space: 3 * this.fontScale }) {
+      this.WorkspaceSegment('知识库', 'knowledge', this.settingsTab,
+        (value: string) => this.setSettingsTab(value))
+      this.WorkspaceSegment('本地算法', 'algorithm', this.settingsTab,
+        (value: string) => this.setSettingsTab(value))
+      this.WorkspaceSegment('资料管理', 'documents', this.settingsTab,
+        (value: string) => this.setSettingsTab(value))
+    }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
+  }
+  @Builder
+  WorkspaceContent() {
+    if (this.section === 'visualization') {
+      ForEach([`${this.activeBaseId}:${this.ragRevision}`], (key: string) => {
+        RagDataVisualization({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+          onUse: (source: SourceCitation) => this.onUseSource(source) })
+          .layoutWeight(1).transition(UiMotion.reveal())
+      }, (key: string) => key)
+    } else if (this.section === 'modelApi') {
+      Column({ space: 10 * this.fontScale }) {
+        this.ModelApiSwitcher()
+        ForEach([`${this.workspaceKey()}:${this.modelApiTab}`], (key: string) => {
+          if (this.modelApiTab === 'rerank') {
+            RagRerankPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+              onChanged: () => this.ragChanged() }).layoutWeight(1).transition(UiMotion.reveal())
+          } else {
+            RagApiPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
+              .layoutWeight(1).transition(UiMotion.reveal())
+          }
+        }, (key: string) => key)
+      }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
+    } else if (this.section === 'settings') {
+      Column({ space: 10 * this.fontScale }) {
+        this.SettingsSwitcher()
+        ForEach([`${this.workspaceKey()}:${this.settingsTab}`], (key: string) => {
+          if (this.settingsTab === 'knowledge') {
+            RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
+              .layoutWeight(1).transition(UiMotion.reveal())
+          } else if (this.settingsTab === 'algorithm') {
+            RagAlgorithmPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
+              .layoutWeight(1).transition(UiMotion.reveal())
+          } else {
+            this.DocumentsView()
+          }
+        }, (key: string) => key)
+      }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
+    } else {
+      ForEach([this.workspaceKey()], (key: string) => {
+        RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+          onImportFiles: () => this.pick(false), onImportImages: () => this.pick(true),
+          onOpenKnowledge: () => { this.setSection('settings'); this.settingsTab = 'knowledge' },
+          onChanged: () => this.ragChanged() })
+          .layoutWeight(1).transition(UiMotion.reveal())
+      }, (key: string) => key)
+    }
+  }
   build() {
     Column({ space: 12 * this.fontScale }) {
       this.Header()
-      this.Tabs()
-      if (this.section === 'documents') {
-        this.DocumentsView()
-      } else if (this.section === 'knowledge') {
-        RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() }).layoutWeight(1)
-      } else if (this.section === 'visualization') {
-        ForEach([`${this.activeBaseId}:${this.ragRevision}`], (key: string) => {
-          RagDataVisualization({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-            onUse: (source: SourceCitation) => this.onUseSource(source) })
-            .layoutWeight(1).transition(UiMotion.reveal())
-        }, (key: string) => key)
-      } else if (this.section === 'api') {
-        RagApiPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() }).layoutWeight(1)
-      } else {
-        RagAlgorithmPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() }).layoutWeight(1)
-      }
+      Row({ space: 8 * this.fontScale }) {
+        Column() { this.WorkspaceContent() }.layoutWeight(1).height('100%').clip(true)
+        KnowledgeFeatureRail({ selected: this.section, collapsed: this.railCollapsed,
+          onSelect: (value: string) => this.setSection(value),
+          onToggle: () => {
+            this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+              () => this.railCollapsed = !this.railCollapsed)
+          } }).height('100%')
+      }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)
     }.padding({ left: 22 * this.fontScale, right: 22 * this.fontScale, top: 20 * this.fontScale, bottom: 14 * this.fontScale })
       .width('100%').height('100%').backgroundColor(UiTheme.background).id('library-page')
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         const width = parseFloat(String(newValue.width))
         if (Number.isFinite(width) && width > 0) this.pageWidth = width
       })
+      .bindSheet($$this.createVisible, this.CreateKnowledgeSheet(), { height: '76%', width: 620,
+        preferType: SheetType.CENTER, showClose: false, dragBar: false,
+        onDisappear: () => { this.createVisible = false } })
   }
 }

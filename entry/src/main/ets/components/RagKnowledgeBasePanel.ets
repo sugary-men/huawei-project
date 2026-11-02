@@ -3,9 +3,7 @@ import { UiTheme } from '../config/UiTheme'
 import { LibraryDocument } from '../models/LibraryModels'
 import { RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { IntegrationService } from '../services/IntegrationService'
-import { OpenAiCompatibleEmbeddingService } from '../services/OpenAiCompatibleEmbeddingService'
-import { RagIndexBuilder } from '../services/RagIndexBuilder'
-import { RagSourceDocument } from '../services/RagIndexBuilder'
+import { RagMaintenanceService } from '../services/RagMaintenanceService'
 import { RagWorkspaceService } from '../services/RagWorkspaceService'
 
 interface RagMenuItem {
@@ -140,7 +138,7 @@ export struct RagKnowledgeBasePanel {
     const library = IntegrationService.library
     if (workspace === undefined || library === undefined || !this.selectedId) return
     const profile = this.archive.apiProfiles.find((item: RagApiProfile) =>
-      item.id === this.embeddingProfileId && item.kind === 'embedding')
+      item.id === this.embeddingProfileId && item.kind === 'embedding' && item.enabled !== false)
     if (this.embeddingMode !== 'online' || profile === undefined) {
       this.notice = '请先选择在线 Embedding API 配置。'
       return
@@ -151,31 +149,9 @@ export struct RagKnowledgeBasePanel {
         this.embeddingProfileId, this.rerankMode, this.rerankProfileId, this.includeBuiltIn,
         this.includeAllLocal, this.documentIds)
       this.selectedId = base.id
-      const docs = library.documents().filter((document: LibraryDocument) => {
-        if (document.text.trim().length === 0) return false
-        if (document.id.startsWith('rag:')) return base.includeBuiltIn
-        if (base.includeAllLocal) return true
-        return base.documentIds.includes(document.id)
-      })
-      if (docs.length === 0) throw new Error('当前知识库没有可索引的文本或图片描述。')
-      const algorithm = workspace.algorithm()
-      const sources = docs.map((document: LibraryDocument): RagSourceDocument => ({
-        id: document.id,
-        title: document.title,
-        location: document.origin,
-        course: document.course,
-        text: document.text,
-        modality: document.kind === 'image' ? 'image' : document.kind === 'index' ? 'table' : 'text',
-        mediaPath: document.path,
-        mediaMimeType: document.mimeType
-      }))
-      const embedder = new OpenAiCompatibleEmbeddingService({ baseUrl: profile.baseUrl,
-        model: profile.model, apiKey: profile.apiKey, dimensions: profile.dimensions })
-      const index = await RagIndexBuilder.build(sources, embedder, {
-        maxChars: algorithm.chunkChars, overlapChars: algorithm.chunkOverlap, batchSize: 24 })
-      workspace.storeIndex(base.id, index, embedder.modelId)
+      const result = await RagMaintenanceService.rebuild(workspace, library, base.id)
       this.refresh(base.id)
-      this.notice = `索引构建完成：${index.chunks.length} 个片段，模型 ${embedder.modelId}。`
+      this.notice = `索引构建完成：${result.chunkCount} 个片段，模型 ${result.modelId}。`
       this.onChanged()
     } catch (error) {
       this.notice = (error as Error).message || '在线索引构建失败。'
@@ -256,7 +232,13 @@ export struct RagKnowledgeBasePanel {
         Column({ space: 7 * this.fontScale }) {
           Text('向量化方式').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
           Row({ space: 7 * this.fontScale }) {
-            this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => this.embeddingMode = value)
+            this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => {
+              if (!this.selectedId) {
+                this.notice = '新建知识库使用在线 Embedding；默认本地知识库可继续使用本地算法。'
+              } else {
+                this.embeddingMode = value
+              }
+            })
             this.ModeButton('在线 Embedding', this.embeddingMode, 'online', (value: string) => this.embeddingMode = value)
             Button(this.profileName(this.embeddingProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
               .fontColor(UiTheme.text).backgroundColor(UiTheme.raised).layoutWeight(1)

@@ -9,6 +9,9 @@ export interface RagApiProfile {
   apiKey: string
   dimensions: number
   createdAt: number
+  enabled?: boolean
+  lastTestAt?: number
+  lastTestStatus?: string
 }
 
 export interface RagKnowledgeBase {
