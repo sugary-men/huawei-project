@@ -44,7 +44,7 @@ export struct RagOperationsPanel {
   private statusLabel(): string {
     const base = this.base()
     if (base === undefined) return '无知识库'
-    if (base.embeddingMode === 'local') return '本地即时索引'
+    if (base.embeddingMode === 'local') return '未启用语义检索 · 本地可用'
     return base.lastIndexedAt > 0 ? '在线索引可用' : '等待构建索引'
   }
   private appendLog(message: string): void {

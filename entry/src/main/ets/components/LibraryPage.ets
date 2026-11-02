@@ -155,13 +155,15 @@ export struct LibraryPage {
     this.createNotice = '正在创建知识库配置…'
     try {
       if (!this.createName.trim()) throw new Error('请填写知识库名称。')
-      if (!this.createEmbeddingId) throw new Error('请选择一个已启用的在线 Embedding 配置。')
-      const base = workspace.saveBase('', this.createName, this.createDescription, 'online',
+      const embeddingMode = this.createEmbeddingId ? 'online' : 'local'
+      const base = workspace.saveBase('', this.createName, this.createDescription, embeddingMode,
         this.createEmbeddingId, 'local', '', false, true, [])
       this.syncWorkspace()
       this.activeBaseId = base.id
       this.ragRevision++
-      this.createNotice = '知识库已创建。下一步可在运行管理中重建在线索引。'
+      this.createNotice = embeddingMode === 'online'
+        ? '知识库已创建，可继续构建在线索引。'
+        : '知识库已以本地模式创建，可先导入资料并检索，稍后配置在线 Embedding。'
       this.notice = `已新建「${base.name}」，当前已自动切换。`
       this.createVisible = false
       this.section = 'settings'
@@ -575,7 +577,7 @@ export struct LibraryPage {
         Row() {
           Column({ space: 4 * this.fontScale }) {
             Text('新建知识库').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text('新知识库使用在线 Embedding，创建后可继续配置资料范围并构建索引。')
+            Text('在线 Embedding 可后置配置；未配置时直接使用本地检索。')
               .fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           Button('关闭').height(30 * this.fontScale).fontSize(10 * this.fontScale)
@@ -599,9 +601,9 @@ export struct LibraryPage {
         Column({ space: 8 * this.fontScale }) {
           Row() {
             Column({ space: 3 * this.fontScale }) {
-              Text('在线 Embedding 配置').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+              Text('在线 Embedding 配置（可选）').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
                 .fontColor(UiTheme.text)
-              Text('新知识库必须选择已启用的 Embedding API。')
+              Text('不选择时创建本地知识库，之后可在设置中补充。')
                 .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
             }.layoutWeight(1).alignItems(HorizontalAlign.Start)
             Text('在线').fontSize(8 * this.fontScale).fontColor(UiTheme.onPrimary)
@@ -621,12 +623,11 @@ export struct LibraryPage {
               .backgroundColor(UiTheme.raised).borderRadius(8).bindMenu(this.embeddingMenu())
           } else {
             Row({ space: 8 * this.fontScale }) {
-              Text('尚未配置可用的在线 Embedding。').fontSize(10 * this.fontScale)
+              Text('未配置在线 Embedding，将使用本地检索创建。').fontSize(10 * this.fontScale)
                 .fontColor(UiTheme.secondary).layoutWeight(1)
-              Button('去配置').height(30 * this.fontScale).fontSize(9 * this.fontScale)
+              Button('仍可创建').height(30 * this.fontScale).fontSize(9 * this.fontScale)
                 .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => {
-                  this.createVisible = false
-                  this.setSection('api')
+                  this.createNotice = '创建后将使用本地检索，可在“模型与 API”中补充在线配置。'
                 })
             }.width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
           }
@@ -639,7 +640,7 @@ export struct LibraryPage {
         Row({ space: 8 * this.fontScale }) {
           Button(this.creating ? '创建中' : '创建知识库').layoutWeight(1).height(40 * this.fontScale)
             .fontSize(11 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary)
-            .enabled(!this.creating && this.embeddingProfiles().length > 0)
+            .enabled(!this.creating)
             .onClick(() => this.createKnowledgeBase())
           Button('取消').height(40 * this.fontScale).fontSize(11 * this.fontScale)
             .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)

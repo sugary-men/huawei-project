@@ -66,7 +66,7 @@ export struct RagKnowledgeBasePanel {
     this.selectedId = ''
     this.name = ''
     this.description = ''
-    this.embeddingMode = 'online'
+    this.embeddingMode = this.profiles('embedding').length > 0 ? 'online' : 'local'
     this.embeddingProfileId = this.archive.apiProfiles.find((profile: RagApiProfile) =>
       profile.kind === 'embedding')?.id || ''
     this.rerankMode = 'local'
@@ -74,7 +74,9 @@ export struct RagKnowledgeBasePanel {
     this.includeBuiltIn = false
     this.includeAllLocal = false
     this.documentIds = []
-    this.notice = '填写名称、选择在线 Embedding 配置，再勾选资料并保存。'
+    this.notice = this.embeddingMode === 'online'
+      ? '填写名称和资料范围；可直接保存，也可构建在线索引。'
+      : '当前以本地模式创建，可先保存使用，之后再配置在线 Embedding。'
   }
 
   private profiles(kind: string): RagApiProfile[] {
@@ -197,6 +199,10 @@ export struct RagKnowledgeBasePanel {
               }.width('100%')
               Text(`${base.embeddingMode === 'online' ? '在线 Embedding' : '本地哈希'} · ${base.chunkCount || '待索引'} 片`)
                 .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+              if (base.embeddingMode === 'local') {
+                Text('未启用语义检索 · 本地检索可用').fontSize(8 * this.fontScale)
+                  .fontColor(UiTheme.secondary)
+              }
             }.width('100%').padding(10 * this.fontScale).alignItems(HorizontalAlign.Start)
               .backgroundColor(this.selectedId === base.id ? UiTheme.surface : Color.Transparent)
               .border({ width: 1, color: this.selectedId === base.id ? '#BDBDBD' : UiTheme.border }).borderRadius(8)
@@ -215,7 +221,7 @@ export struct RagKnowledgeBasePanel {
         Row() {
           Column({ space: 3 * this.fontScale }) {
             Text(this.selectedId ? '知识库设置' : '新建知识库').fontSize(17 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text(this.selectedId ? `ID ${this.selectedId}` : '保存后即可选择在线 Embedding 构建索引')
+            Text(this.selectedId ? `ID ${this.selectedId}` : '可先线下创建，再补充在线 Embedding')
               .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           if (this.selectedId) {
@@ -232,13 +238,7 @@ export struct RagKnowledgeBasePanel {
         Column({ space: 7 * this.fontScale }) {
           Text('向量化方式').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
           Row({ space: 7 * this.fontScale }) {
-            this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => {
-              if (!this.selectedId) {
-                this.notice = '新建知识库使用在线 Embedding；默认本地知识库可继续使用本地算法。'
-              } else {
-                this.embeddingMode = value
-              }
-            })
+            this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => this.embeddingMode = value)
             this.ModeButton('在线 Embedding', this.embeddingMode, 'online', (value: string) => this.embeddingMode = value)
             Button(this.profileName(this.embeddingProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
               .fontColor(UiTheme.text).backgroundColor(UiTheme.raised).layoutWeight(1)

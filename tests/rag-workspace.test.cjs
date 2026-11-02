@@ -78,6 +78,12 @@ assert.equal(archive.knowledgeBases.length, 1)
 assert.equal(archive.activeBaseId, 'kb-local')
 assert.equal(archive.algorithm.chunkChars, 800)
 
+const offline = workspace.saveBase('', '离线优先资料库', '尚未配置在线向量化',
+  'local', '', 'local', '', false, true, [])
+assert.equal(offline.embeddingMode, 'local')
+assert.equal(offline.embeddingProfileId, '')
+assert.equal(workspace.activeBase().id, offline.id)
+
 const embedding = workspace.saveProfile('', 'embedding', '课程向量', 'https://example.invalid/v4',
   'embedding-3', 'secret-test-key', 512)
 assert.equal(embedding.kind, 'embedding')
@@ -141,6 +147,7 @@ assert.equal(archive.knowledgeBases.find(value => value.id === base.id).chunkCou
 assert.equal(archive.indexes.some(value => value.baseId === base.id), false)
 workspace.removeBase(base.id)
 workspace.removeBase(selectedBase.id)
+workspace.removeBase(offline.id)
 assert.equal(workspace.read().activeBaseId, 'kb-local')
 assert.throws(() => workspace.removeBase('kb-local'), /不能删除/)
 console.log('PASS: persisted knowledge bases, online embedding/rerank profiles, source scoping, stored indexes, algorithm bounds and safe defaults.')
