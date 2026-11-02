@@ -18,9 +18,8 @@ export struct KnowledgeFeatureRail {
   private features(): KnowledgeFeatureItem[] {
     return [
       { value: 'visualization', label: '数据可视化', icon: '◎' },
-      { value: 'modelApi', label: '模型与 API', icon: '≋' },
       { value: 'settings', label: '算法与设置', icon: '⌁' },
-      { value: 'operations', label: '其他', icon: '▦' }
+      { value: 'dataManagement', label: '数据管理', icon: '▦' }
     ]
   }
 

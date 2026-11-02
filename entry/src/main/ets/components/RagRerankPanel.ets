@@ -14,6 +14,7 @@ export struct RagRerankPanel {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop baseId: string = ''
   @Prop viewportWidth: number = 900
+  @Prop embedded: boolean = false
   onChanged: () => void = () => {}
   @State archive: RagWorkspaceArchive = RagWorkspaceService.empty()
   @State notice: string = ''
@@ -158,6 +159,10 @@ export struct RagRerankPanel {
             .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
         }.width('100%').padding(12 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
       }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.width('100%').height('100%').scrollBar(this.embedded ? BarState.Off : BarState.Auto)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.PARENT_FIRST
+      }).align(Alignment.TopStart)
   }
 }

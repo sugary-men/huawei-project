@@ -12,6 +12,7 @@ import { SelectionTab } from './SelectionTab'
 export struct RagApiPanel {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop viewportWidth: number = 900
+  @Prop embedded: boolean = false
   onChanged: () => void = () => {}
   @State archive: RagWorkspaceArchive = RagWorkspaceService.empty()
   @State filter: string = 'all'
@@ -194,7 +195,11 @@ export struct RagApiPanel {
               .width('100%').padding(15 * this.fontScale)
           }
         }.width('100%')
-      }.layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
+      }.layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
+        .nestedScroll({
+          scrollForward: NestedScrollMode.PARENT_FIRST,
+          scrollBackward: NestedScrollMode.PARENT_FIRST
+        }).align(Alignment.TopStart)
     }.width(this.wide() ? 270 : '100%').height(this.wide() ? '100%' : 210).padding(12 * this.fontScale).backgroundColor('#F7F7F7')
       .border({ width: { right: 1 }, color: UiTheme.border })
   }
@@ -245,7 +250,11 @@ export struct RagApiPanel {
           }
         }.width('100%')
       }.width('100%').alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
-    }.height('100%').layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.height('100%').layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.PARENT_FIRST
+      }).align(Alignment.TopStart)
   }
   build() {
     if (this.wide()) {

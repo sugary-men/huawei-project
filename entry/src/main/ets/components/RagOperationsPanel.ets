@@ -13,6 +13,7 @@ export struct RagOperationsPanel {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop baseId: string = ''
   @Prop viewportWidth: number = 900
+  @Prop embedded: boolean = false
   onChanged: () => void = () => {}
   onImportFiles: () => void = () => {}
   onImportImages: () => void = () => {}
@@ -193,6 +194,10 @@ export struct RagOperationsPanel {
         }.width('100%').padding(13 * this.fontScale).alignItems(HorizontalAlign.Start)
           .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(8)
       }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.width('100%').height('100%').scrollBar(this.embedded ? BarState.Off : BarState.Auto)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.PARENT_FIRST
+      }).align(Alignment.TopStart)
   }
 }

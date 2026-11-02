@@ -30,7 +30,6 @@ export struct LibraryPage {
   @State pageWidth: number = 1000
   @State query: string = ''
   @State filter: string = 'all'
-  @State modelApiTab: string = 'rerank'
   @State documents: LibraryDocument[] = []
   @State selected: string = ''
   @State busy: boolean = false
@@ -117,8 +116,7 @@ export struct LibraryPage {
     return [
       { value: '导入文件到资料库', action: () => this.pick(false) },
       { value: '导入图片到资料库', action: () => this.pick(true) },
-      { value: '资料管理', action: () => this.setSection('settings') },
-      { value: '索引、导出与运行状态', action: () => this.setSection('operations') },
+      { value: '资料与运行管理', action: () => this.setSection('dataManagement') },
       { value: '本地存储：应用沙箱 JSON', action: () => {
         this.getUIContext().getPromptAction().showToast({ message: '知识库与资料索引保存在应用沙箱，本地 RAG 直接读取该存储。' })
       } }
@@ -269,8 +267,10 @@ export struct LibraryPage {
       this.section = value
       this.syncWorkspace()
     })
-    if (value === 'documents') this.refresh()
-    if (value === 'operations') this.syncWorkspace()
+    if (value === 'dataManagement') {
+      this.syncWorkspace()
+      this.refresh()
+    }
   }
   private ragChanged(): void {
     this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve }, () => {
@@ -280,25 +280,18 @@ export struct LibraryPage {
     this.onChanged()
   }
   private sectionTitle(): string {
-    if (this.section === 'modelApi') return '模型与 API'
     if (this.section === 'settings') return '算法与设置'
-    if (this.section === 'operations') return '其他'
+    if (this.section === 'dataManagement') return '数据管理'
     return '数据可视化'
   }
   private sectionDetail(): string {
     if (this.section === 'visualization') return '当前知识库的关系图与数据分析卡片。'
-    if (this.section === 'modelApi') return '统一管理重排序模型和服务 API。'
-    if (this.section === 'settings') return '知识库、资料范围与检索算法。'
-    return '存储、导入导出、索引任务与操作日志。'
+    if (this.section === 'settings') return '模型、API、知识库配置与本地算法。'
+    return '资料、索引、导入导出和运行状态。'
   }
   private workspaceKey(): string {
     return `${this.section}:${this.activeBaseId}:${this.ragRevision}`
   }
-  private setModelApiTab(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
-      () => this.modelApiTab = value)
-  }
-
   @Styles
   interactive() {
     .hoverEffect(HoverEffect.Highlight)
@@ -658,15 +651,6 @@ export struct LibraryPage {
       .backgroundColor(UiTheme.background)
   }
   @Builder
-  ModelApiSwitcher() {
-    Row({ space: 3 * this.fontScale }) {
-      SelectionTab({ label: '重排序模型', selected: this.modelApiTab === 'rerank',
-        onSelect: () => this.setModelApiTab('rerank') })
-      SelectionTab({ label: 'API 管理', selected: this.modelApiTab === 'api',
-        onSelect: () => this.setModelApiTab('api') })
-    }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
-  }
-  @Builder
   SettingsSectionTitle(title: string, detail: string) {
     Column({ space: 3 * this.fontScale }) {
       Text(title).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
@@ -681,24 +665,20 @@ export struct LibraryPage {
           onUse: (source: SourceCitation) => this.onUseSource(source) })
           .layoutWeight(1).transition(UiMotion.reveal())
       }, (key: string) => key)
-    } else if (this.section === 'modelApi') {
-      Column({ space: 10 * this.fontScale }) {
-        this.ModelApiSwitcher()
-        ForEach([`${this.workspaceKey()}:${this.modelApiTab}`], (key: string) => {
-          if (this.modelApiTab === 'rerank') {
-            RagRerankPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-              onChanged: () => this.ragChanged() }).layoutWeight(1).transition(UiMotion.reveal())
-          } else {
-            RagApiPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
-              .layoutWeight(1).transition(UiMotion.reveal())
-          }
-        }, (key: string) => key)
-      }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
     } else if (this.section === 'settings') {
       Scroll() {
         Column() {
           ForEach([this.workspaceKey()], (key: string) => {
             Column({ space: 14 * this.fontScale }) {
+              this.SettingsSectionTitle('模型与 API', '重排序模型、Embedding 与 Rerank 服务。')
+              Column() {
+                RagRerankPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+                  embedded: true, onChanged: () => this.ragChanged() })
+              }.width('100%').height(620 * this.fontScale)
+              Column() {
+                RagApiPanel({ viewportWidth: this.contentWidth(), embedded: true,
+                  onChanged: () => this.ragChanged() })
+              }.width('100%').height(760 * this.fontScale)
               this.SettingsSectionTitle('知识库设置', '当前库范围、向量化与索引状态。')
               Column() {
                 RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), embedded: true,
@@ -707,6 +687,24 @@ export struct LibraryPage {
               this.SettingsSectionTitle('本地算法', '检索权重、召回、阈值和切块参数。')
               RagAlgorithmPanel({ viewportWidth: this.contentWidth(), embedded: true,
                 onChanged: () => this.ragChanged() }).width('100%')
+            }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale })
+          }, (key: string) => key)
+        }.width('100%')
+      }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).scrollBarWidth(4)
+        .scrollBarColor('#777777').align(Alignment.TopStart)
+    } else {
+      Scroll() {
+        Column() {
+          ForEach([this.workspaceKey()], (key: string) => {
+            Column({ space: 14 * this.fontScale }) {
+              this.SettingsSectionTitle('索引与运行', '导入导出、索引任务、存储状态与操作记录。')
+              Column() {
+                RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+                  embedded: true, onImportFiles: () => this.pick(false),
+                  onImportImages: () => this.pick(true),
+                  onOpenKnowledge: () => this.setSection('settings'),
+                  onChanged: () => this.ragChanged() })
+              }.width('100%').height(900 * this.fontScale)
               this.SettingsSectionTitle('资料管理', '导入、编辑和检索范围。')
               Column() { this.DocumentsView() }.width('100%').height(700 * this.fontScale)
             }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale })
@@ -714,14 +712,6 @@ export struct LibraryPage {
         }.width('100%')
       }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).scrollBarWidth(4)
         .scrollBarColor('#777777').align(Alignment.TopStart)
-    } else {
-      ForEach([this.workspaceKey()], (key: string) => {
-        RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-          onImportFiles: () => this.pick(false), onImportImages: () => this.pick(true),
-          onOpenKnowledge: () => this.setSection('settings'),
-          onChanged: () => this.ragChanged() })
-          .layoutWeight(1).transition(UiMotion.reveal())
-      }, (key: string) => key)
     }
   }
   build() {
