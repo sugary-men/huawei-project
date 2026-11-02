@@ -47,7 +47,7 @@ export struct KnowledgeFeatureRail {
         normal: { .opacity(1).scale({ x: 1, y: 1 }) },
         pressed: { .opacity(0.72).scale({ x: 0.96, y: 0.96 }) }
       })
-      .animation({ duration: UiMotion.press, curve: Curve.EaseOut })
+      .animation({ duration: UiMotion.duration(UiMotion.press), curve: UiMotion.enterCurve })
       .onClick(() => this.onSelect(item.value))
   }
 
@@ -69,6 +69,6 @@ export struct KnowledgeFeatureRail {
     }.width(this.collapsed ? 46 : 92).height('100%')
       .backgroundColor(UiTheme.surface)
       .border({ width: { left: 1 }, color: UiTheme.border })
-      .animation({ duration: UiMotion.section, curve: Curve.EaseInOut })
+      .animation({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve })
   }
 }

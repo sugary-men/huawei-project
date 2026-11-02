@@ -63,9 +63,24 @@ export struct RagDataVisualization {
   private edges: KnowledgeGraphEdge[] = []
   private pieRender: RenderingContextSettings = new RenderingContextSettings(true)
   private pieCanvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.pieRender)
+  private alive: boolean = true
+  private timers: number[] = []
 
   aboutToAppear(): void {
+    this.alive = true
     this.refresh()
+  }
+  aboutToDisappear(): void {
+    this.alive = false
+    this.timers.forEach((timer: number) => clearTimeout(timer))
+    this.timers = []
+  }
+
+  private schedulePieDraw(delay: number): void {
+    const timer = setTimeout(() => {
+      if (this.alive) this.drawPie()
+    }, delay)
+    this.timers.push(timer)
   }
 
   private wide(): boolean { return this.viewportWidth >= 900 }
@@ -198,7 +213,7 @@ export struct RagDataVisualization {
     return this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk' && ids.has(node.id))
   }
   private selectNode(node: KnowledgeGraphNode): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve }, () => {
       this.selectedBase = node.baseId
       if (node.kind === 'chunk') {
         this.selectedSource = node.sourceId
@@ -323,7 +338,7 @@ export struct RagDataVisualization {
     return items.sort((a: WordCloudItem, b: WordCloudItem): number => b.count - a.count).slice(0, 34)
   }
   private applyChartFilter(label: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve }, () => {
       this.chartFilter = this.chartFilter === label ? '' : label
       this.chartTooltip = this.chartFilter.length > 0
         ? `${label} · ${this.activeChunks().filter((chunk: KnowledgeChunk) => this.chartLabel(chunk) === label).length} 个知识片段`
@@ -332,13 +347,13 @@ export struct RagDataVisualization {
     this.buildMindMap()
   }
   private setChartDimension(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve }, () => {
       this.chartDimension = value
       this.chartFilter = ''
       this.chartTooltip = ''
       this.selectedPie = -1
     })
-    setTimeout(() => this.drawPie(), 30)
+    this.schedulePieDraw(30)
   }
   private drawPie(): void {
     const items = this.distribution()
@@ -509,7 +524,7 @@ export struct RagDataVisualization {
                 Row().width(`${Math.max(5, item.value / this.maxDistribution() * 100)}%`)
                   .height(9 * this.fontScale).backgroundColor(item.color).borderRadius(5)
                   .opacity(this.chartFilter.length === 0 || this.chartFilter === item.label ? 1 : 0.28)
-                  .animation({ duration: UiMotion.section, curve: Curve.EaseOut })
+                  .animation({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve })
               }.width('100%')
             }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
               .backgroundColor(this.chartFilter === item.label ? '#F0F0F0' : Color.Transparent)
@@ -548,7 +563,7 @@ export struct RagDataVisualization {
               const height = parseFloat(String(newValue.height))
               if (Number.isFinite(width) && width > 0) this.pieWidth = width
               if (Number.isFinite(height) && height > 0) this.pieHeight = height
-              setTimeout(() => this.drawPie(), 20)
+              this.schedulePieDraw(20)
             })
           Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
             ForEach(this.distribution(), (item: DistributionItem, index: number) => {

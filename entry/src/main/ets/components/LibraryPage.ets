@@ -56,6 +56,7 @@ export struct LibraryPage {
   onChanged: () => void = () => {}
 
   aboutToAppear(): void {
+    UiMotion.initialize()
     this.alive = true
     if (this.viewportWidth < 760) this.railCollapsed = true
     this.syncWorkspace()
@@ -128,7 +129,7 @@ export struct LibraryPage {
     if (workspace === undefined || id === this.activeBaseId) return
     try {
       workspace.activateBase(id)
-      this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+      this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve }, () => {
         this.syncWorkspace()
         this.selected = ''
         this.ragRevision++
@@ -225,7 +226,8 @@ export struct LibraryPage {
     this.setEditing(true)
   }
   private setEditing(value: boolean): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => this.editing = value)
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve },
+      () => this.editing = value)
   }
   private saveText(): void {
     try {
@@ -262,7 +264,7 @@ export struct LibraryPage {
     this.editing = false
   }
   private setSection(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve }, () => {
       this.section = value
       this.syncWorkspace()
     })
@@ -270,7 +272,7 @@ export struct LibraryPage {
     if (value === 'operations') this.syncWorkspace()
   }
   private ragChanged(): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve }, () => {
       this.syncWorkspace()
       this.ragRevision++
     })
@@ -292,11 +294,11 @@ export struct LibraryPage {
     return `${this.section}:${this.activeBaseId}:${this.ragRevision}`
   }
   private setModelApiTab(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
       () => this.modelApiTab = value)
   }
   private setSettingsTab(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
       () => this.settingsTab = value)
     if (value === 'documents') this.refresh()
   }
@@ -305,13 +307,13 @@ export struct LibraryPage {
   interactive() {
     .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ normal: { .opacity(1).scale({ x: 1, y: 1 }) }, pressed: { .opacity(0.76).scale({ x: 0.985, y: 0.985 }) } })
-    .animation({ duration: UiMotion.press, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.duration(UiMotion.press), curve: UiMotion.enterCurve })
   }
   @Styles
   focusFeedback() {
     .border({ width: 1, color: Color.Transparent })
     .stateStyles({ normal: { .borderColor(Color.Transparent) }, focused: { .borderColor(UiTheme.focus) } })
-    .animation({ duration: UiMotion.press, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.duration(UiMotion.press), curve: UiMotion.enterCurve })
   }
   @Builder
   Filter(label: string, value: string) {
@@ -731,7 +733,7 @@ export struct LibraryPage {
         KnowledgeFeatureRail({ selected: this.section, collapsed: this.railCollapsed,
           onSelect: (value: string) => this.setSection(value),
           onToggle: () => {
-            this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseInOut },
+            this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
               () => this.railCollapsed = !this.railCollapsed)
           } }).height('100%')
       }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)

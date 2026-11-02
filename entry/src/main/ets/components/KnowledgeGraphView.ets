@@ -1,4 +1,3 @@
-import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
 import {
   KnowledgeGraphEdge,
@@ -35,10 +34,18 @@ export struct KnowledgeGraphView {
   private draggingNodeId: string = ''
   private dragStartX: number = 0
   private dragStartY: number = 0
+  private alive: boolean = true
+  private timers: number[] = []
   onSelect: (node: KnowledgeGraphNode) => void = () => {}
 
   aboutToAppear(): void {
+    this.alive = true
     this.buildLayout()
+  }
+  aboutToDisappear(): void {
+    this.alive = false
+    this.timers.forEach((timer: number) => clearTimeout(timer))
+    this.timers = []
   }
 
   selectionChanged(): void {
@@ -50,7 +57,14 @@ export struct KnowledgeGraphView {
       this.chunks, this.graphWidth, this.graphHeight)
     this.nodes = layout.nodes
     this.edges = layout.edges
-    setTimeout(() => this.drawGraph(), 20)
+    this.scheduleDraw()
+  }
+
+  private scheduleDraw(): void {
+    const timer = setTimeout(() => {
+      if (this.alive) this.drawGraph()
+    }, 20)
+    this.timers.push(timer)
   }
 
   private node(id: string): KnowledgeGraphNode | undefined {
@@ -145,7 +159,7 @@ export struct KnowledgeGraphView {
 
   private selectNode(node: KnowledgeGraphNode): void {
     this.onSelect(node)
-    setTimeout(() => this.drawGraph(), 20)
+    this.scheduleDraw()
   }
 
   private startDrag(node: KnowledgeGraphNode): void {

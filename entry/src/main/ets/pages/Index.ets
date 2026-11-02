@@ -196,6 +196,7 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    UiMotion.initialize()
     this.messageClock = Date.now()
     this.messageClockTimer = setInterval(() => { this.messageClock = Date.now() }, 60000)
     this.features = SessionService.workspaces()
@@ -257,6 +258,7 @@ struct Index {
     this.cancelVoice()
     this.stopSpeech()
     this.stopFocusTimer()
+    UiMotion.dispose()
   }
 
   private refreshKnowledge(): void {
@@ -794,7 +796,7 @@ struct Index {
   }
 
   private toggleWorkspaceGroup(id: string): void {
-    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.section, curve: UiMotion.moveCurve }, () => {
       this.expandedWorkspaceIds = this.expandedWorkspaceIds.includes(id)
         ? this.expandedWorkspaceIds.filter((item: string) => item !== id) : [...this.expandedWorkspaceIds, id]
       this.persistSidebar()
@@ -1168,7 +1170,7 @@ struct Index {
       normal: { .opacity(1).scale({ x: 1, y: 1 }) },
       pressed: { .opacity(0.76).scale({ x: 0.98, y: 0.98 }) }
     })
-    .animation({ duration: 140, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.fast, curve: UiMotion.enterCurve })
   }
 
   @Styles
@@ -1177,7 +1179,7 @@ struct Index {
       normal: { .border({ width: 1, color: Color.Transparent }) },
       focused: { .border({ width: 1, color: UiTheme.focus }).shadow({ radius: 8, color: UiTheme.shadow, offsetY: 0 }) }
     })
-    .animation({ duration: 160, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.fast, curve: UiMotion.enterCurve })
   }
 
   private sendMessage(prompt: string, reviewContext: string = ''): void {
@@ -1315,14 +1317,14 @@ struct Index {
   }
 
   private toggleWorkspace(): void {
-    this.getUIContext().animateTo({ duration: 240, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.panel, curve: UiMotion.moveCurve }, () => {
       this.sideExpanded = !this.sideExpanded
       this.persistSidebar()
     })
   }
 
   private toggleRecents(): void {
-    this.getUIContext().animateTo({ duration: 240, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({ duration: UiMotion.panel, curve: UiMotion.moveCurve }, () => {
       this.recentsExpanded = !this.recentsExpanded
       this.persistSidebar()
     })
@@ -1373,7 +1375,7 @@ struct Index {
           .enabled(!this.thinking).interactive().onClick(() => this.sendMessage('帮我整理投递追踪清单，只记录我已提供的信息，并保存为产物。'))
       }.width('100%')
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18, bottom: 8 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -1406,7 +1408,7 @@ struct Index {
         }, (task: WorkspaceTask) => `${task.id}-${task.title}-${task.detail}-${task.status}`)
       }.width('100%').padding(15).backgroundColor(UiTheme.surface).borderRadius(12)
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18, bottom: 8 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -1428,7 +1430,7 @@ struct Index {
         }, (item: WorkspaceArtifact) => `${item.id}-${item.title}-${item.content}`)
       }.width('100%').padding(15).backgroundColor(UiTheme.surface).borderRadius(12)
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18, bottom: 8 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -1470,7 +1472,7 @@ struct Index {
         Button('刷新').height(44).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised).interactive().onClick(() => this.refreshKnowledge())
       }.width('100%')
       if (this.knowledgeRevision.includes('demo-1')) {
-        Text('离线演示资料，不代表学校官方资料。').fontSize(12 * this.fontScale).fontColor('#666666').width('100%').padding(10).backgroundColor(UiTheme.raised).borderRadius(9).transition(TransitionEffect.OPACITY.animation({ duration: 160 }))
+        Text('离线演示资料，不代表学校官方资料。').fontSize(12 * this.fontScale).fontColor('#666666').width('100%').padding(10).backgroundColor(UiTheme.raised).borderRadius(9).transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.fast }))
       }
       if (this.knowledgeCount === 0) {
         Text('还没有可检索的文字资料。请到资料库导入，也可载入离线样例体验检索。').fontSize(13 * this.fontScale).fontColor(UiTheme.muted).lineHeight(21 * this.fontScale).width('100%')
@@ -1524,11 +1526,11 @@ struct Index {
             .interactive().onClick(() => { this.contextPickerVisible = false; this.sendMessage(this.retrieval.query) })
         }
         if (this.retrieval.notice.length > 0) {
-          Text(this.retrieval.notice).fontSize(12 * this.fontScale).fontColor('#666666').width('100%').padding(10).backgroundColor(UiTheme.raised).borderRadius(9).transition(TransitionEffect.OPACITY.animation({ duration: 160 }))
+          Text(this.retrieval.notice).fontSize(12 * this.fontScale).fontColor('#666666').width('100%').padding(10).backgroundColor(UiTheme.raised).borderRadius(9).transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.fast }))
         }
       }
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18, bottom: 8 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -2045,7 +2047,7 @@ struct Index {
       if (this.notice) { Text(this.notice).fontSize(12 * this.fontScale).fontColor('#666666').lineHeight(20 * this.fontScale).textAlign(TextAlign.Center) }
       if (this.storageNotice) { Text(this.storageNotice).fontSize(12 * this.fontScale).fontColor('#666666').lineHeight(20 * this.fontScale).textAlign(TextAlign.Center) }
     }.width('100%').constraintSize({ maxWidth: 760 }).padding({ left: 32, right: 32, top: 28, bottom: 28 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -2060,7 +2062,7 @@ struct Index {
         }, (prompt: string) => `${this.activeFeature}-${prompt}`)
       }.width('100%')
     }.alignItems(HorizontalAlign.Start).width('100%').padding({ top: 8, bottom: 8 })
-      .transition(TransitionEffect.OPACITY.animation({ duration: 180 }))
+      .transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.section }))
   }
 
   @Builder
@@ -2214,7 +2216,7 @@ struct Index {
       Row() {
       Row() { this.SidebarContent(); this.ResizeHandle('left') }
         .panelLayoutWidth(this.isLeftPanelVisible ? this.panelWidth('left') + 8 : 0)
-        .animation({ duration: this.resizingPanel ? 0 : 220, curve: Curve.EaseInOut })
+        .animation({ duration: this.resizingPanel ? 0 : UiMotion.panel, curve: UiMotion.moveCurve })
         .height('100%').clip(true).id('left-panel-slot')
 
       Column() {
@@ -2251,11 +2253,11 @@ struct Index {
             if (this.activeFeature !== 'trash') { this.WorkspaceAssistantContent() }
             if (this.notice.length > 0) {
               Text(this.notice).fontSize(12 * this.fontScale).fontColor('#666666').lineHeight(19 * this.fontScale).width('100%')
-                .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9 * this.fontScale).transition(TransitionEffect.OPACITY.animation({ duration: 160 }))
+                .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9 * this.fontScale).transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.fast }))
             }
             if (this.storageNotice.length > 0) {
               Text(this.storageNotice).fontSize(12 * this.fontScale).fontColor('#666666').width('100%')
-                .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9 * this.fontScale).transition(TransitionEffect.OPACITY.animation({ duration: 160 }))
+                .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9 * this.fontScale).transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.fast }))
             }
             if (this.activeFeature !== 'trash') {
               Row({ space: 8 * this.fontScale }) { Text('✦').fontSize(13 * this.fontScale).fontColor(UiTheme.primary); Text('回答会结合当前对话和你主动加入的课程资料。').fontSize(12 * this.fontScale).fontColor(UiTheme.secondary) }.width('100%').padding(11 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(10 * this.fontScale)
@@ -2401,7 +2403,7 @@ struct Index {
       if (!this.isWelcomePage && this.activeFeature !== 'trash') {
         Row() { this.ResizeHandle('right'); this.TaskPanel() }
           .panelLayoutWidth(this.isTaskPanelVisible ? this.panelWidth('right') + 8 : 0)
-          .animation({ duration: this.resizingPanel ? 0 : 220, curve: Curve.EaseInOut })
+          .animation({ duration: this.resizingPanel ? 0 : UiMotion.panel, curve: UiMotion.moveCurve })
           .height('100%').clip(true).id('right-panel-slot')
       }
       }.width('100%').height('100%').transition(UiMotion.page())

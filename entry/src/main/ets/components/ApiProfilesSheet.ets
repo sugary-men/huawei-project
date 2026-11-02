@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { AgentProfileArchive, AgentProfileSummary } from '../config/ApiConfig'
 import { UiTheme } from '../config/UiTheme'
+import { UiMotion } from '../config/UiMotion'
 import { LocalAgentConfigService } from '../services/LocalAgentConfigService'
 import { ApiProfileList } from './ApiProfileList'
 
@@ -85,7 +86,7 @@ export struct ApiProfilesSheet {
   action() {
     .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ normal: { .opacity(1) }, pressed: { .opacity(0.65) } })
-    .animation({ duration: 120, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.press, curve: UiMotion.enterCurve })
   }
 
   build() {

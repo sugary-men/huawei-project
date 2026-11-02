@@ -1,6 +1,7 @@
 import { pasteboard } from '@kit.BasicServicesKit'
 import { MarkdownParser } from '../services/MarkdownParser'
 import { UiTheme } from '../config/UiTheme'
+import { UiMotion } from '../config/UiMotion'
 
 @Component
 export struct ReplyActions {
@@ -35,7 +36,7 @@ export struct ReplyActions {
   actionFeedback() {
     .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ normal: { .opacity(1).scale({ x: 1, y: 1 }) }, pressed: { .opacity(0.6).scale({ x: 0.94, y: 0.94 }) } })
-    .animation({ duration: 120, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.press, curve: UiMotion.enterCurve })
   }
 
   build() {
