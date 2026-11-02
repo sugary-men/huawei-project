@@ -29,10 +29,10 @@ export struct KnowledgeFeatureRail {
     Button({ type: ButtonType.Normal }) {
       Column({ space: 4 * this.fontScale }) {
         Text(item.icon).fontSize(18 * this.fontScale)
-          .fontColor(this.selected === item.value ? UiTheme.onPrimary : UiTheme.secondary)
+          .fontColor(this.selected === item.value ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
         if (!this.collapsed) {
           Text(item.label).fontSize(10 * this.fontScale)
-            .fontColor(this.selected === item.value ? UiTheme.onPrimary : UiTheme.text)
+            .fontColor(this.selected === item.value ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
             .fontWeight(this.selected === item.value ? FontWeight.Medium : FontWeight.Regular)
             .textAlign(TextAlign.Center).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
         }
@@ -40,7 +40,7 @@ export struct KnowledgeFeatureRail {
         .justifyContent(FlexAlign.Center)
     }.width('100%').height(this.collapsed ? 40 * this.fontScale : 58 * this.fontScale)
       .padding(this.collapsed ? 0 : { left: 4, right: 4 })
-      .backgroundColor(this.selected === item.value ? UiTheme.primary : Color.Transparent)
+      .backgroundColor(this.selected === item.value ? UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
       .borderRadius(8).accessibilityText(item.label)
       .hoverEffect(HoverEffect.Highlight)
       .stateStyles({

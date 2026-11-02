@@ -313,15 +313,13 @@ export struct LibraryPage {
   }
   @Builder
   Filter(label: string, value: string) {
-    Button(label).height(29 * this.fontScale).fontSize(10 * this.fontScale)
-      .backgroundColor(this.filter === value ? UiTheme.primary : UiTheme.raised)
-      .fontColor(this.filter === value ? UiTheme.onPrimary : UiTheme.text).borderRadius(7)
-      .interactive().onClick(() => {
+    SelectionTab({ label: label, selected: this.filter === value, showIndicator: false,
+      onSelect: () => {
         this.filter = value
         if (!this.visible().some((document: LibraryDocument) => document.id === this.selected)) {
           this.selected = this.visible()[0]?.id || ''
         }
-      })
+      } })
   }
   @Builder
   KnowledgeSelector() {
@@ -394,7 +392,8 @@ export struct LibraryPage {
     Column({ space: 5 * this.fontScale }) {
       Row({ space: 8 * this.fontScale }) {
         Text(this.documentIcon(document)).fontSize(16 * this.fontScale).fontColor(UiTheme.secondary).width(20 * this.fontScale)
-        Text(document.title).fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        Text(document.title).fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium)
+          .fontColor(this.selected === document.id ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
         Text(this.documentStatus(document)).fontSize(8 * this.fontScale)
           .fontColor(document.indexed ? UiTheme.secondary : UiTheme.muted)

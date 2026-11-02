@@ -5,6 +5,7 @@ import { ScheduleArgs, ScheduleEntry, ScheduleResult } from '../models/ScheduleM
 import { IntegrationService } from '../services/IntegrationService'
 import { ScheduleService } from '../services/ScheduleService'
 import { ScheduleOverviewService } from '../services/ScheduleOverviewService'
+import { SelectionTab } from './SelectionTab'
 
 @Component
 export struct SystemSchedulePanel {
@@ -180,12 +181,15 @@ export struct SystemSchedulePanel {
         .interactive().onClick(() => this.refreshTime())
       Row({ space: 8 * this.fontScale }) {
         if (!this.embedded) {
-        Button('日历').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'calendar' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'calendar' ? UiTheme.surface : UiTheme.text).id('system-tab-calendar').enabled(!this.busy).interactive().onClick(() => this.switchTab('calendar'))
-        Button('提醒').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'reminders' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'reminders' ? UiTheme.surface : UiTheme.text).id('system-tab-reminders').enabled(!this.busy).interactive().onClick(() => this.switchTab('reminders'))
-        Button('备忘录').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'memos' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'memos' ? UiTheme.surface : UiTheme.text).id('system-tab-memos').enabled(!this.busy).interactive().onClick(() => this.switchTab('memos'))
+          SelectionTab({ label: '日历', selected: this.tab === 'calendar', showIndicator: false,
+            itemId: 'system-tab-calendar', disabled: this.busy,
+            onSelect: () => this.switchTab('calendar') })
+          SelectionTab({ label: '提醒', selected: this.tab === 'reminders', showIndicator: false,
+            itemId: 'system-tab-reminders', disabled: this.busy,
+            onSelect: () => this.switchTab('reminders') })
+          SelectionTab({ label: '备忘录', selected: this.tab === 'memos', showIndicator: false,
+            itemId: 'system-tab-memos', disabled: this.busy,
+            onSelect: () => this.switchTab('memos') })
         }
         Blank()
         Button(this.busy ? '处理中' : '刷新').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)

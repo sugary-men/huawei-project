@@ -6,6 +6,7 @@ import { IntegrationService } from '../services/IntegrationService'
 import { OpenAiCompatibleEmbeddingService } from '../services/OpenAiCompatibleEmbeddingService'
 import { OpenAiCompatibleRerankService } from '../services/OpenAiCompatibleRerankService'
 import { RagWorkspaceService } from '../services/RagWorkspaceService'
+import { SelectionTab } from './SelectionTab'
 
 @Component
 export struct RagApiPanel {
@@ -150,10 +151,8 @@ export struct RagApiPanel {
   }
   @Builder
   FilterButton(label: string, value: string) {
-    Button(label).height(29 * this.fontScale).fontSize(10 * this.fontScale)
-      .backgroundColor(this.filter === value ? UiTheme.primary : UiTheme.raised)
-      .fontColor(this.filter === value ? UiTheme.onPrimary : UiTheme.text).borderRadius(7)
-      .onClick(() => { this.filter = value; this.refresh() })
+    SelectionTab({ label: label, selected: this.filter === value, showIndicator: false,
+      onSelect: () => { this.filter = value; this.refresh() } })
   }
   @Builder
   ProfileList() {
@@ -173,7 +172,9 @@ export struct RagApiPanel {
             Column({ space: 3 * this.fontScale }) {
               Row() {
                 Text(profile.name || profile.model).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
-                  .fontColor(UiTheme.text).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
+                  .fontColor(this.selectedId === profile.id ?
+                    UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
                 Text(profile.kind === 'embedding' ? 'Embedding' : 'Rerank').fontSize(8 * this.fontScale).fontColor(UiTheme.muted)
               }.width('100%')
               Text(`${profile.model}${profile.dimensions > 0 ? ` · ${profile.dimensions}维` : ''}`)
@@ -182,8 +183,10 @@ export struct RagApiPanel {
                 .fontSize(8 * this.fontScale).fontColor(profile.enabled === false ? UiTheme.muted : UiTheme.secondary)
                 .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
             }.width('100%').padding(9 * this.fontScale).alignItems(HorizontalAlign.Start)
-              .backgroundColor(this.selectedId === profile.id ? UiTheme.surface : Color.Transparent)
-              .border({ width: 1, color: this.selectedId === profile.id ? '#BDBDBD' : UiTheme.border }).borderRadius(7)
+              .backgroundColor(this.selectedId === profile.id ?
+                UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
+              .border({ width: 1, color: this.selectedId === profile.id ?
+                UiTheme.choiceSelectedBorder : UiTheme.border }).borderRadius(7)
               .interactive().onClick(() => this.edit(profile))
           }, (profile: RagApiProfile) => profile.id)
           if (this.visibleProfiles().length === 0) {

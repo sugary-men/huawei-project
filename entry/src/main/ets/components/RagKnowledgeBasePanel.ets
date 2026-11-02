@@ -5,6 +5,7 @@ import { RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/
 import { IntegrationService } from '../services/IntegrationService'
 import { RagMaintenanceService } from '../services/RagMaintenanceService'
 import { RagWorkspaceService } from '../services/RagWorkspaceService'
+import { SelectionTab } from './SelectionTab'
 
 interface RagMenuItem {
   value: string
@@ -155,10 +156,8 @@ export struct RagKnowledgeBasePanel {
 
   @Builder
   ModeButton(label: string, current: string, value: string, apply: (value: string) => void) {
-    Button(label).height(30 * this.fontScale).fontSize(10 * this.fontScale)
-      .backgroundColor(current === value ? UiTheme.primary : UiTheme.raised)
-      .fontColor(current === value ? UiTheme.onPrimary : UiTheme.text).borderRadius(7)
-      .interactive().onClick(() => apply(value))
+    SelectionTab({ label: label, selected: current === value, showIndicator: false,
+      onSelect: () => apply(value) })
   }
 
   @Builder

@@ -92,9 +92,9 @@ export struct RagRerankPanel {
         Row({ space: 7 * this.fontScale }) {
           Text(title).fontSize(13 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
           if (selected) {
-            Text('当前生效').fontSize(8 * this.fontScale).fontColor(UiTheme.onPrimary)
+            Text('当前生效').fontSize(8 * this.fontScale).fontColor(UiTheme.choiceSelectedText)
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .backgroundColor(UiTheme.primary).borderRadius(4)
+              .backgroundColor(UiTheme.choiceSelectedBackground).borderRadius(4)
           }
         }
         Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
@@ -104,10 +104,11 @@ export struct RagRerankPanel {
         .backgroundColor(selected ? UiTheme.raised : UiTheme.primary)
         .fontColor(selected ? UiTheme.secondary : UiTheme.onPrimary)
         .enabled(!selected).onClick(action)
-    }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
-      .border({ width: 1, color: selected ? '#9A9A9A' : UiTheme.border }).borderRadius(9)
+    }.width('100%').padding(14 * this.fontScale)
+      .backgroundColor(selected ? UiTheme.choiceSelectedBackground : UiTheme.surface)
+      .border({ width: 1, color: selected ? UiTheme.choiceSelectedBorder : UiTheme.border }).borderRadius(9)
       .hoverEffect(HoverEffect.Highlight)
-      .animation({ duration: UiMotion.section, curve: Curve.EaseOut })
+      .animation({ duration: UiMotion.section, curve: UiMotion.enterCurve })
   }
 
   build() {

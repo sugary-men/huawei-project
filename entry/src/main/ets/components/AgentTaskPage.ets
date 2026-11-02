@@ -8,6 +8,7 @@ import { AgentTaskRuntime } from '../services/AgentTaskRuntime'
 import { ScheduleService } from '../services/ScheduleService'
 import { MarkdownContent } from './MarkdownContent'
 import { MarkdownParser } from '../services/MarkdownParser'
+import { SelectionTab } from './SelectionTab'
 
 @Component
 export struct AgentTaskPage {
@@ -91,9 +92,11 @@ export struct AgentTaskPage {
   }
   @Builder
   Mode(label: string, value: string) {
-    Button(label).height(28 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(this.mode === value ? UiTheme.primary : UiTheme.raised)
-      .fontColor(this.mode === value ? UiTheme.surface : UiTheme.text).interactive().onClick(() =>
-        this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => this.mode = value))
+    SelectionTab({ label: label, selected: this.mode === value, showIndicator: false,
+      onSelect: () => {
+        this.getUIContext().animateTo({ duration: UiMotion.section, curve: UiMotion.enterCurve },
+          () => this.mode = value)
+      } })
   }
   build() {
     Column({ space: 12 * this.fontScale }) {

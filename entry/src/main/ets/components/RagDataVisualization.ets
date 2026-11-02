@@ -6,6 +6,7 @@ import { RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceMod
 import { IntegrationService } from '../services/IntegrationService'
 import { KnowledgeGraphLayoutService } from '../services/KnowledgeGraphLayoutService'
 import { KnowledgeGraphView } from './KnowledgeGraphView'
+import { SelectionTab } from './SelectionTab'
 
 interface SourceGroup {
   sourceId: string
@@ -421,22 +422,17 @@ export struct RagDataVisualization {
   }
   @Builder
   GraphFilterButton(label: string, value: string) {
-    Button(label).height(27 * this.fontScale).fontSize(9 * this.fontScale)
-      .backgroundColor(this.graphFilter === value ? UiTheme.primary : UiTheme.surface)
-      .fontColor(this.graphFilter === value ? UiTheme.onPrimary : UiTheme.text)
-      .border({ width: 1, color: this.graphFilter === value ? UiTheme.primary : UiTheme.border })
-      .borderRadius(6).onClick(() => {
+    SelectionTab({ label: label, selected: this.graphFilter === value, showIndicator: false,
+      onSelect: () => {
         this.graphFilter = value
         this.chartFilter = ''
         this.buildMindMap()
-      })
+      } })
   }
   @Builder
   DimensionButton(label: string, value: string) {
-    Button(label).height(26 * this.fontScale).fontSize(9 * this.fontScale)
-      .backgroundColor(this.chartDimension === value ? UiTheme.primary : UiTheme.raised)
-      .fontColor(this.chartDimension === value ? UiTheme.onPrimary : UiTheme.text)
-      .borderRadius(6).onClick(() => this.setChartDimension(value))
+    SelectionTab({ label: label, selected: this.chartDimension === value, showIndicator: false,
+      onSelect: () => this.setChartDimension(value) })
   }
   @Builder
   MindMapCanvas() {
@@ -512,7 +508,10 @@ export struct RagDataVisualization {
           ForEach(this.distribution(), (item: DistributionItem, index: number) => {
             Column({ space: 7 * this.fontScale }) {
               Row() {
-                Text(item.label).fontSize(10 * this.fontScale).fontColor(UiTheme.text).layoutWeight(1)
+                Text(item.label).fontSize(10 * this.fontScale)
+                  .fontColor(this.chartFilter === item.label ?
+                    UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+                  .layoutWeight(1)
                   .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
                 Text(`${item.value} 节点`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
               }.width('100%')
@@ -524,7 +523,8 @@ export struct RagDataVisualization {
                   .animation({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve })
               }.width('100%')
             }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
-              .backgroundColor(this.chartFilter === item.label ? '#F0F0F0' : Color.Transparent)
+              .backgroundColor(this.chartFilter === item.label ?
+                UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
               .borderRadius(7).hoverEffect(HoverEffect.Highlight)
               .onClick(() => this.applyChartFilter(item.label))
           }, (item: DistributionItem) => item.label)
@@ -565,12 +565,15 @@ export struct RagDataVisualization {
                 Row({ space: 6 * this.fontScale }) {
                   Row().width(8 * this.fontScale).height(8 * this.fontScale)
                     .backgroundColor(item.color).borderRadius(4)
-                  Text(`${item.label} ${item.value}`).fontSize(9 * this.fontScale).fontColor(UiTheme.text)
+                  Text(`${item.label} ${item.value}`).fontSize(9 * this.fontScale)
+                    .fontColor(this.selectedPie === index ?
+                      UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
                     .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
               }.height(29 * this.fontScale).padding({ left: 8, right: 8 })
                 .margin({ right: 5, bottom: 5 })
-                .backgroundColor(this.selectedPie === index ? '#EAEAEA' : UiTheme.raised).borderRadius(6)
+                .backgroundColor(this.selectedPie === index ?
+                  UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground).borderRadius(6)
                 .onClick(() => {
                   this.selectedPie = index
                   this.chartFilter = item.label

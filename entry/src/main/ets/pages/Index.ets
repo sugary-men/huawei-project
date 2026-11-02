@@ -1693,7 +1693,8 @@ struct Index {
   SidebarConversation(session: SessionSummary, nested: boolean) {
     Row({ space: 4 * this.fontScale }) {
       Column({ space: 3 * this.fontScale }) {
-        Text(session.title).fontSize(12 * this.fontScale).fontColor(this.activeSession === session.id ? '#F1F1F1' : '#BDBDBD')
+        Text(session.title).fontSize(12 * this.fontScale)
+          .fontColor(this.activeSession === session.id ? UiTheme.darkSelectionText : UiTheme.darkUnselectedText)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
         Text(`${nested ? '' : `${this.workspaceProfile(session.featureId).name} · `}${this.sessionTime(session.updatedAt)}`)
           .fontSize(9 * this.fontScale).fontColor('#777777').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
@@ -1716,7 +1717,8 @@ struct Index {
           : [{ value: '移入回收站', action: () => this.confirmDeleteSession(session.id) }])
       }
     }.width('100%').padding({ left: nested ? 24 : 10 * this.fontScale, right: 4 * this.fontScale }).margin({ bottom: 2 * this.fontScale })
-      .backgroundColor(this.activeSession === session.id ? '#303030' : Color.Transparent).borderRadius(7 * this.fontScale)
+      .backgroundColor(this.activeSession === session.id ? UiTheme.darkSelectionBackground : Color.Transparent)
+      .borderRadius(7 * this.fontScale)
       .hoverEffect(HoverEffect.Highlight)
   }
 
@@ -1736,7 +1738,8 @@ struct Index {
           })
         Row({ space: 8 * this.fontScale }) {
           Image($r('app.media.ic_folder')).width(17 * this.fontScale).height(17 * this.fontScale)
-          Text(group.feature.name).fontSize(12 * this.fontScale).fontColor(this.activeFeature === group.feature.id ? '#EEEEEE' : '#B5B5B5')
+          Text(group.feature.name).fontSize(12 * this.fontScale)
+            .fontColor(this.activeFeature === group.feature.id ? UiTheme.darkSelectionText : UiTheme.darkUnselectedText)
             .fontWeight(this.activeFeature === group.feature.id ? FontWeight.Medium : FontWeight.Regular).layoutWeight(1)
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           if (group.totalCount > 0) { Text(`${group.totalCount}`).fontSize(10 * this.fontScale).fontColor('#747474') }
@@ -1756,7 +1759,9 @@ struct Index {
                 : [{ value: '新建对话', action: () => this.createChat(group.feature.id) },
                   { value: '删除工作区', action: () => this.confirmDeleteWorkspace(group.feature.id) }])
         }
-      }.width('100%').padding({ right: 4 * this.fontScale }).backgroundColor(this.sidebarSelection === `workspace-${group.feature.id}` ? '#303030' : Color.Transparent)
+      }.width('100%').padding({ right: 4 * this.fontScale })
+        .backgroundColor(this.sidebarSelection === `workspace-${group.feature.id}` ?
+          UiTheme.darkSelectionBackground : Color.Transparent)
         .borderRadius(7 * this.fontScale).hoverEffect(HoverEffect.Highlight)
       if (group.expanded) {
         ForEach(group.sessions, (session: SessionSummary) => {
@@ -1801,7 +1806,8 @@ struct Index {
               .interactive().bindMenu([{ value: '新建对话', action: () => this.createChat() }])
           }
         }.width('100%').height(38 * this.fontScale).padding({ left: 10 * this.fontScale, right: 4 * this.fontScale }).borderRadius(7 * this.fontScale)
-          .backgroundColor(this.sidebarSelection === 'section-conversations' ? '#303030' : '#252525')
+          .backgroundColor(this.sidebarSelection === 'section-conversations' ?
+            UiTheme.darkSelectionBackground : UiTheme.darkSidebarSection)
         Row({ space: 8 * this.fontScale }) {
           Image($r('app.media.ic_search')).width(17 * this.fontScale).height(17 * this.fontScale)
           TextInput({ text: this.sidebarQuery, placeholder: '搜索对话' }).fontSize(12 * this.fontScale).placeholderFont({ size: 12 * this.fontScale }).layoutWeight(1).height(34 * this.fontScale).fontSize(12 * this.fontScale)
@@ -2167,7 +2173,7 @@ struct Index {
   }
 
   private railIconFilter(active: boolean = false, source: number = 85): ColorFilter {
-    const scale = (active ? 241 : 189) / source
+    const scale = (active ? UiTheme.darkSelectionChannel : UiTheme.darkUnselectedChannel) / source
     return new ColorFilter([scale, 0, 0, 0, 0, 0, scale, 0, 0, 0, 0, 0, scale, 0, 0, 0, 0, 0, 1, 0])
   }
 
@@ -2176,7 +2182,8 @@ struct Index {
     Button({ type: ButtonType.Normal }) {
       Image(icon).width(22 * this.fontScale).height(22 * this.fontScale).colorFilter(this.railIconFilter(this.appSection === section))
     }.width('100%').height(44 * Math.max(1, this.fontScale)).padding(0).borderRadius(9 * this.fontScale)
-      .backgroundColor(this.appSection === section ? '#3B3B3B' : Color.Transparent).id(`nav-${section}`).accessibilityText(label)
+      .backgroundColor(this.appSection === section ? UiTheme.darkRailSelectionBackground : Color.Transparent)
+      .id(`nav-${section}`).accessibilityText(label)
       .interactive().onClick(() => {
         if (section === 'chat') this.openHome()
         else { if (section === 'tasks') this.taskCenterTab = 'agent'; this.navigateSection(section) }
