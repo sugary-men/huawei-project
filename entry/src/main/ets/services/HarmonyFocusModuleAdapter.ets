@@ -75,13 +75,13 @@ export class HarmonyFocusModuleAdapter implements ModuleAdapter {
     this.subscribeScan()
     const discovery = new Promise<boolean>((resolve: (ok: boolean) => void): void => { this.scanResolve = resolve })
     try {
-      const scanFilter: ble.ScanFilter = { serviceUuid: FocusProtocol.SERVICE_UUID }
       const options: ble.ScanOptions = {
         interval: 500,
         dutyMode: ble.ScanDuty.SCAN_MODE_LOW_POWER,
         matchMode: ble.MatchMode.MATCH_MODE_AGGRESSIVE
       }
-      ble.startBLEScan([scanFilter], options)
+      hilog.info(HarmonyFocusModuleAdapter.LOG_DOMAIN, HarmonyFocusModuleAdapter.LOG_TAG, 'BLE scan started (all devices)')
+      ble.startBLEScan(null, options)
     } catch (error) {
       this.scanning = false
       this.scanResolve = undefined
@@ -185,8 +185,12 @@ export class HarmonyFocusModuleAdapter implements ModuleAdapter {
     this.scanListenerReady = true
     try {
       ble.on('BLEDeviceFind', (results: Array<ble.ScanResult>): void => {
+        hilog.info(HarmonyFocusModuleAdapter.LOG_DOMAIN, HarmonyFocusModuleAdapter.LOG_TAG, `BLE results: ${results.length}`)
         for (const result of results) {
-          const name = result.deviceName || FocusProtocol.DEVICE_NAME
+          const name = result.deviceName || ''
+          hilog.info(HarmonyFocusModuleAdapter.LOG_DOMAIN, HarmonyFocusModuleAdapter.LOG_TAG,
+            `BLE device: ${name || '(unnamed)'} ${result.deviceId} rssi=${result.rssi}`)
+          if (name.indexOf(FocusProtocol.DEVICE_NAME) < 0) continue
           this.foundDeviceName = name
           this.foundDeviceId = result.deviceId
           try { ble.stopBLEScan() } catch (_error) {}
@@ -278,4 +282,3 @@ export class HarmonyFocusModuleAdapter implements ModuleAdapter {
     hilog.error(HarmonyFocusModuleAdapter.LOG_DOMAIN, HarmonyFocusModuleAdapter.LOG_TAG, `${message}: ${detail}`)
   }
 }
-

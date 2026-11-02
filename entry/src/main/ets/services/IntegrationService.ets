@@ -6,14 +6,13 @@ import { AgentApiSettings } from '../config/ApiConfig'
 import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
 import { common } from '@kit.AbilityKit'
 import { HarmonyVoiceAdapter } from './HarmonyVoiceAdapter'
+import { HarmonyFocusModuleAdapter } from './HarmonyFocusModuleAdapter'
 // 旧 BLE/NFC 适配器保留在源文件中，本次以知识库专注服务为准。
-// import { HarmonyFocusModuleAdapter } from './HarmonyFocusModuleAdapter'
 import { PrivacyModuleAdapter } from './PrivacyModuleAdapter'
 import { HarmonyScheduleAdapter } from './HarmonyScheduleAdapter'
 import { SchedulePlatform } from '../models/ScheduleModels'
 import { LibraryService } from './LibraryService'
 import { StudentQueryEmbedder } from './StudentQueryEmbedder'
-import { FocusModuleAdapter } from './FocusGuardService'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
@@ -84,7 +83,10 @@ export class IntegrationService {
   // if (IntegrationService.hardware instanceof HarmonyFocusModuleAdapter) IntegrationService.hardware.dispose()
   // }
   static initializeFocus(context: common.UIAbilityContext): void {
-    IntegrationService.hardware = new FocusModuleAdapter(context)
+    IntegrationService.hardware = new HarmonyFocusModuleAdapter(context)
+  }
+  static disposeDeviceServices(): void {
+    if (IntegrationService.hardware instanceof HarmonyFocusModuleAdapter) IntegrationService.hardware.dispose()
   }
   // 隐私档案独立于专注适配器，保留 main 的能力。
   static initializePrivacy(context: common.UIAbilityContext): void {

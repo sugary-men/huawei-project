@@ -249,7 +249,7 @@ struct Index {
     const host = this.getUIContext().getHostContext() as common.UIAbilityContext
     // 旧 NFC 订阅随旧硬件入口停用，保留对应清理代码。
     // host.eventHub.off('focusNfcTap', this.nfcEvent)
-    // IntegrationService.disposeDeviceServices()
+    IntegrationService.disposeDeviceServices()
     this.apiLoadSerial++
     if (this.messageClockTimer >= 0) clearInterval(this.messageClockTimer)
     this.importSerial++
@@ -1548,6 +1548,8 @@ struct Index {
           .backgroundColor(this.focusGuardActive ? UiTheme.primary : UiTheme.raised).borderRadius(8)
       }.width('100%').alignItems(VerticalAlign.Center)
 
+      this.FocusHardwareCard()
+
       Column({ space: 12 * this.fontScale }) {
         Progress({ value: this.focusProgress(), total: 100, type: ProgressType.Ring })
           .width(210 * this.fontScale).height(210 * this.fontScale).color(UiTheme.primary).style({ strokeWidth: 12 * this.fontScale })
@@ -1604,6 +1606,57 @@ struct Index {
       }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(10)
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18 * this.fontScale, bottom: 8 * this.fontScale })
   }
+
+  @Builder
+  FocusHardwareCard() {
+    Column({ space: 10 * this.fontScale }) {
+      Row() {
+        Column({ space: 3 * this.fontScale }) {
+          Text('魔方硬件').fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text('连接 CampusCube，读取 MPU6050 姿态').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        Text('BLE / NFC').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
+          .padding({ left: 9 * this.fontScale, right: 9 * this.fontScale, top: 5 * this.fontScale, bottom: 5 * this.fontScale })
+          .backgroundColor(UiTheme.raised).borderRadius(8)
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Row({ space: 8 * this.fontScale }) {
+        Button('扫描 / 查询魔方').layoutWeight(1).height(42 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.onPrimary).backgroundColor(UiTheme.primary)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('connect'))
+        Button('NFC 碰一碰').layoutWeight(1).height(42 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('nfc'))
+      }.width('100%')
+      Row({ space: 8 * this.fontScale }) {
+        Button('开始专注').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('start'))
+        Button('模拟姿态中断').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('interrupt'))
+      }.width('100%')
+      Row({ space: 8 * this.fontScale }) {
+        Button('结束专注').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('stop'))
+        Button('锁机联动状态').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
+          .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
+          .enabled(!this.actionBusy && !this.thinking).interactive().onClick(() => this.runModule('lock'))
+      }.width('100%')
+      if (this.moduleNotice.length > 0) {
+        Text(this.moduleNotice).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(19 * this.fontScale)
+          .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
+      }
+      ForEach(this.moduleItems, (item: ModuleItem) => {
+        Column({ space: 4 * this.fontScale }) {
+          Text(item.title).fontSize(13 * this.fontScale).fontColor('#303030').width('100%')
+          Text(item.detail).fontSize(11 * this.fontScale).fontColor('#666666').lineHeight(18 * this.fontScale).width('100%')
+        }.width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
+      }, (item: ModuleItem) => item.id)
+    }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
+      .backgroundColor(UiTheme.surface).borderRadius(10)
+  }
+
 
   @Builder
   ModuleContent() {

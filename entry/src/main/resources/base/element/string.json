@@ -27,6 +27,14 @@
     {
       "name": "EntryAbility_label",
       "value": "CampusPilot"
+    },
+    {
+      "name": "bluetooth_reason",
+      "value": "用于发现并连接你的自律魔方"
+    },
+    {
+      "name": "nfc_reason",
+      "value": "用于读取自律魔方 NFC 标签并开始专注"
     }
   ]
 }
