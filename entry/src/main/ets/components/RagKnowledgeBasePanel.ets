@@ -160,36 +160,6 @@ export struct RagKnowledgeBasePanel {
       onSelect: () => apply(value) })
   }
 
-  @Builder
-  CurrentBaseSummary() {
-    Column({ space: 8 * this.fontScale }) {
-      Text('当前知识库').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium)
-        .fontColor(UiTheme.muted).width('100%')
-      if (this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
-        base.id === this.archive.activeBaseId) !== undefined) {
-        Column({ space: 7 * this.fontScale }) {
-          Text(this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
-            base.id === this.archive.activeBaseId)?.name || '').fontSize(15 * this.fontScale)
-            .fontWeight(FontWeight.Medium).fontColor(UiTheme.text).width('100%')
-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
-            base.id === this.archive.activeBaseId)?.embeddingMode === 'online'
-            ? '在线 Embedding' : '未启用语义检索 · 本地检索可用')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
-          Text(`${this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
-            base.id === this.archive.activeBaseId)?.chunkCount || '待索引'} 个知识片段`)
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-        }.width('100%').padding(12 * this.fontScale).alignItems(HorizontalAlign.Start)
-          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(8)
-      } else {
-        Text('暂无知识库').fontSize(11 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-      }
-      Text('如需切换或新建知识库，请使用页面顶部的知识库入口。')
-        .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).lineHeight(15 * this.fontScale)
-        .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8)
-    }.width(this.wide() ? 270 : '100%').height(this.wide() ? '100%' : 205).padding(12 * this.fontScale).backgroundColor('#F7F7F7')
-      .border({ width: { right: 1 }, color: UiTheme.border })
-  }
 
   @Builder
   BaseForm() {
@@ -285,14 +255,12 @@ export struct RagKnowledgeBasePanel {
   build() {
     if (this.wide()) {
       Row() {
-        this.CurrentBaseSummary()
         this.BaseForm()
       }.width('100%').height('100%').alignItems(VerticalAlign.Top).backgroundColor(UiTheme.surface)
         .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
         .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
     } else {
       Column() {
-        this.CurrentBaseSummary()
         this.BaseForm()
       }.width('100%').height('100%').backgroundColor(UiTheme.surface)
         .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
