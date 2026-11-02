@@ -36,7 +36,6 @@ export interface RagAlgorithmSettings {
   semanticWeight: number
   bm25K1: number
   bm25B: number
-  localRerank: boolean
   rerankWeight: number
   topK: number
   minScore: number

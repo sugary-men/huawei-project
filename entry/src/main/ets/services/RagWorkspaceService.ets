@@ -25,7 +25,7 @@ export class RagWorkspaceService {
 
   static emptyAlgorithm(): RagAlgorithmSettings {
     return { lexicalWeight: 0.55, semanticWeight: 0.45, bm25K1: 1.2, bm25B: 0.75,
-      localRerank: false, rerankWeight: 0.25, topK: 4, minScore: 0.2, maxPerSource: 2,
+      rerankWeight: 0.25, topK: 4, minScore: 0.2, maxPerSource: 2,
       contextChars: 2400, chunkChars: 800, chunkOverlap: 120 }
   }
 
@@ -280,7 +280,6 @@ export class RagWorkspaceService {
         semanticWeight: Math.max(0, Math.min(1, value.semanticWeight)),
         bm25K1: Math.max(0.1, Math.min(5, value.bm25K1)),
         bm25B: Math.max(0, Math.min(1, value.bm25B)),
-        localRerank: value.localRerank,
         rerankWeight: Math.max(0, Math.min(1, value.rerankWeight)),
         topK: Math.max(1, Math.min(10, Math.round(value.topK))),
         minScore: Math.max(0, Math.min(1, value.minScore)),
@@ -353,7 +352,7 @@ export class RagWorkspaceService {
     const algorithm = archive.algorithm
     const policy: RagRankingPolicy = { lexicalWeight: algorithm.lexicalWeight, semanticWeight: algorithm.semanticWeight,
       bm25K1: algorithm.bm25K1, bm25B: algorithm.bm25B,
-      localRerank: base.rerankMode === 'local' && algorithm.localRerank,
+      localRerank: base.rerankMode === 'local',
       rerankWeight: algorithm.rerankWeight }
     return new RagService(this.repository(library, base.id), embedder, policy, reranker)
   }

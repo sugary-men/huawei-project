@@ -133,6 +133,13 @@ assert.equal(archive.algorithm.lexicalWeight, 1)
 assert.equal(archive.algorithm.semanticWeight, 0)
 assert.equal(archive.algorithm.topK, 10)
 assert.equal(archive.algorithm.chunkOverlap, archive.algorithm.chunkChars - 1)
+assert.equal(workspace.createRag(liveLibrary, selectedBase.id).policy.localRerank, true)
+workspace.saveBase(selectedBase.id, selectedBase.name, selectedBase.description, 'local', '',
+  'none', '', false, false, selectedBase.documentIds)
+assert.equal(workspace.createRag(liveLibrary, selectedBase.id).policy.localRerank, false)
+workspace.saveBase(selectedBase.id, selectedBase.name, selectedBase.description, 'local', '',
+  'local', '', false, false, selectedBase.documentIds)
+assert.equal(workspace.createRag(liveLibrary, selectedBase.id).policy.localRerank, true)
 
 const rag = workspace.createRag(liveLibrary, base.id)
 assert.equal(rag.embedder.modelId, 'embedding-3@512')

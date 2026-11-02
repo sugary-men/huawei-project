@@ -25,7 +25,6 @@ export struct RagAlgorithmPanel {
       semanticWeight: changes.semanticWeight ?? this.value.semanticWeight,
       bm25K1: changes.bm25K1 ?? this.value.bm25K1,
       bm25B: changes.bm25B ?? this.value.bm25B,
-      localRerank: changes.localRerank ?? this.value.localRerank,
       rerankWeight: changes.rerankWeight ?? this.value.rerankWeight,
       topK: changes.topK ?? this.value.topK,
       minScore: changes.minScore ?? this.value.minScore,
@@ -105,12 +104,7 @@ export struct RagAlgorithmPanel {
         }.width('100%')
         Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
           Column({ space: 12 * this.fontScale }) {
-            this.SectionTitle('本地重排序', '按查询词覆盖和精确短语提高候选片段排序。')
-            Row() {
-              Text('启用本地重排序').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).layoutWeight(1)
-              Toggle({ type: ToggleType.Switch, isOn: this.value.localRerank })
-                .onChange((next: boolean) => this.copy({ localRerank: next }))
-            }.width('100%')
+            this.SectionTitle('本地重排序权重', '是否启用由“模型与 API”中的重排序模式统一决定。')
             this.NumberSetting('重排序权重', this.value.rerankWeight, 0, 1, 0.05,
               (next: number) => this.copy({ rerankWeight: next }))
           }.width(this.wide() ? '48.5%' : '100%').margin({ bottom: this.wide() ? 0 : 12 * this.fontScale })

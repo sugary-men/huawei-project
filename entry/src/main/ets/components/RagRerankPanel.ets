@@ -1,6 +1,6 @@
 import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
-import { RagAlgorithmSettings, RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
+import { RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { IntegrationService } from '../services/IntegrationService'
 import { RagWorkspaceService } from '../services/RagWorkspaceService'
 
@@ -48,9 +48,7 @@ export struct RagRerankPanel {
     const base = this.base()
     if (base === undefined) return '未选择知识库'
     if (base.rerankMode === 'none') return '关闭重排序'
-    if (base.rerankMode === 'local') {
-      return this.archive.algorithm.localRerank ? '本地重排序 · 已启用' : '本地重排序 · 已停用'
-    }
+    if (base.rerankMode === 'local') return '本地重排序 · 已启用'
     return this.profileName(base.rerankProfileId)
   }
   private select(mode: string, profileId: string = ''): void {
@@ -68,22 +66,6 @@ export struct RagRerankPanel {
         mode === 'local' ? '已切换为本地重排序。' : `已启用在线重排序：${this.profileName(profileId)}。`
       this.onChanged()
     } catch (error) { this.notice = (error as Error).message || '切换失败。' }
-  }
-  private setLocalEnabled(enabled: boolean): void {
-    const workspace = this.workspace()
-    if (workspace === undefined) return
-    const current = this.archive.algorithm
-    const next: RagAlgorithmSettings = {
-      lexicalWeight: current.lexicalWeight, semanticWeight: current.semanticWeight,
-      bm25K1: current.bm25K1, bm25B: current.bm25B, localRerank: enabled,
-      rerankWeight: current.rerankWeight, topK: current.topK, minScore: current.minScore,
-      maxPerSource: current.maxPerSource, contextChars: current.contextChars,
-      chunkChars: current.chunkChars, chunkOverlap: current.chunkOverlap
-    }
-    workspace.saveAlgorithm(next)
-    this.reload()
-    this.notice = enabled ? '本地重排序已启用。' : '本地重排序已停用。'
-    this.onChanged()
   }
 
   @Builder
@@ -136,11 +118,6 @@ export struct RagRerankPanel {
         Column({ space: 9 * this.fontScale }) {
           this.MethodCard('本地重排序', '基于查询词覆盖与短语精确度在本机重排，不发送资料内容。',
             this.base()?.rerankMode === 'local', () => this.select('local'))
-          Row({ space: 8 * this.fontScale }) {
-            Text('启用本地重排序计算').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).layoutWeight(1)
-            Toggle({ type: ToggleType.Switch, isOn: this.archive.algorithm.localRerank })
-              .onChange((value: boolean) => this.setLocalEnabled(value))
-          }.width('100%').padding({ left: 14, right: 14 })
         }.width('100%')
         this.MethodCard('在线重排序', this.profiles().length === 0 ? '暂无已启用的 Rerank API，可前往 API 管理添加。' :
           `可用模型 ${this.profiles().length} 个，按需发送候选片段完成服务端重排。`,
