@@ -466,31 +466,28 @@ export struct RagDataVisualization {
       if (this.wordCloudItems().length === 0) {
         this.EmptyState('暂无可提取词语', '导入资料或添加图片描述后再查看词云。')
       } else {
-        Scroll() {
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center, alignItems: ItemAlign.Center }) {
-            ForEach(this.wordCloudItems(), (item: WordCloudItem, index: number) => {
-              Text(item.term).fontSize(item.size * this.fontScale)
-                .fontColor(item.color).fontWeight(index < 6 ? FontWeight.Medium : FontWeight.Regular)
-                .padding({ left: 8, right: 8, top: 5, bottom: 5 })
-                .margin(3).backgroundColor(index % 3 === 0 ? '#F0F0F0' : Color.Transparent)
-                .borderRadius(14).accessibilityText(`关键词 ${item.term}，出现 ${item.count} 次`)
-                .hoverEffect(HoverEffect.Highlight)
-                .onClick(() => {
-                  this.query = item.term
-                  this.chartTooltip = `正在检索关键词：${item.term}`
-                  this.search()
-                })
-            }, (item: WordCloudItem) => item.term)
-          }.width('100%').padding(14 * this.fontScale)
-        }.layoutWeight(1).scrollBar(BarState.Auto)
+        Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center, alignItems: ItemAlign.Center }) {
+          ForEach(this.wordCloudItems(), (item: WordCloudItem, index: number) => {
+            Text(item.term).fontSize(item.size * this.fontScale)
+              .fontColor(item.color).fontWeight(index < 6 ? FontWeight.Medium : FontWeight.Regular)
+              .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+              .margin(3).backgroundColor(index % 3 === 0 ? '#F0F0F0' : Color.Transparent)
+              .borderRadius(14).accessibilityText(`关键词 ${item.term}，出现 ${item.count} 次`)
+              .hoverEffect(HoverEffect.Highlight)
+              .onClick(() => {
+                this.query = item.term
+                this.chartTooltip = `正在检索关键词：${item.term}`
+                this.search()
+              })
+          }, (item: WordCloudItem) => item.term)
+        }.width('100%').padding(14 * this.fontScale)
       }
-    }.width('100%').height('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
+    }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
       .border({ width: 1, color: UiTheme.border }).borderRadius(9)
   }
   @Builder
   BarChartView() {
-    Scroll() {
-      Column({ space: 13 * this.fontScale }) {
+    Column({ space: 13 * this.fontScale }) {
         Row() {
           Column({ space: 3 * this.fontScale }) {
             Text('知识分布').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
@@ -532,15 +529,12 @@ export struct RagDataVisualization {
               .onClick(() => this.applyChartFilter(item.label))
           }, (item: DistributionItem) => item.label)
         }
-      }.width('100%').alignItems(HorizontalAlign.Start)
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
-      .padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
-      .border({ width: 1, color: UiTheme.border }).borderRadius(9)
+    }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(9)
   }
   @Builder
   PieChartView() {
-    Scroll() {
-      Column({ space: 12 * this.fontScale }) {
+    Column({ space: 12 * this.fontScale }) {
         Column({ space: 3 * this.fontScale }) {
           Text('知识维度占比').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
           Text('点击扇区或图例查看占比，并联动知识图谱筛选。')
@@ -587,8 +581,7 @@ export struct RagDataVisualization {
             }, (item: DistributionItem) => item.label)
           }.width('100%')
         }
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
       .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(9)
   }
   @Builder
@@ -613,8 +606,7 @@ export struct RagDataVisualization {
         Text('知识节点').width('38%'); Text('来源').width('28%'); Text('课程').width('22%'); Text('检索').width('12%')
       }.width('100%').height(32 * this.fontScale).padding({ left: 9, right: 9 })
         .backgroundColor(UiTheme.raised).border({ width: { bottom: 1 }, color: UiTheme.border })
-      Scroll() {
-        Column() {
+      Column() {
           ForEach(this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk'),
             (node: KnowledgeGraphNode, index: number) => {
             Row() {
@@ -636,14 +628,12 @@ export struct RagDataVisualization {
             Row() { this.EmptyState('暂无知识节点', '导入资料或清除图表筛选后再查看表格。') }
               .width('100%').padding(12 * this.fontScale)
           }
-        }.width('100%')
-      }.layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
-    }.width('100%').height('100%').border({ width: 1, color: UiTheme.border }).borderRadius(8).clip(true)
+      }.width('100%')
+    }.width('100%').border({ width: 1, color: UiTheme.border }).borderRadius(8).clip(true)
   }
   @Builder
   Inspector() {
-    Scroll() {
-      Column({ space: 9 * this.fontScale }) {
+    Column({ space: 9 * this.fontScale }) {
         Text('节点详情').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text).width('100%')
         Text(`${this.activeChunks().length} 个知识片段 · ${this.activeNetwork()?.sources.length || 0} 个来源`)
           .fontSize(8 * this.fontScale).fontColor(UiTheme.muted).width('100%')
@@ -726,8 +716,7 @@ export struct RagDataVisualization {
           Text('点击知识库或资料来源节点查看详情。').fontSize(9 * this.fontScale)
             .fontColor(UiTheme.muted).width('100%')
         }
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(10 * this.fontScale)
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.width('100%').alignItems(HorizontalAlign.Start).padding(10 * this.fontScale)
       .backgroundColor(Color.Transparent)
   }
   @Builder
@@ -754,13 +743,13 @@ export struct RagDataVisualization {
       if (this.wide()) {
         Row() {
           Column() { this.MindMapCanvas() }.layoutWeight(1).height(520 * this.fontScale)
-          Column() { this.Inspector() }.width(286 * this.fontScale).height(520 * this.fontScale)
+          Column() { this.Inspector() }.width(286 * this.fontScale)
             .margin({ left: 10 * this.fontScale })
         }.width('100%').alignItems(VerticalAlign.Top)
       } else {
         Column({ space: 10 * this.fontScale }) {
           Column() { this.MindMapCanvas() }.width('100%').height(420 * this.fontScale)
-          Column() { this.Inspector() }.width('100%').height(300 * this.fontScale)
+          Column() { this.Inspector() }.width('100%')
         }.width('100%')
       }
     }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
@@ -803,12 +792,17 @@ export struct RagDataVisualization {
         Scroll() {
           Column({ space: 10 * this.fontScale }) {
             this.RelationshipCard()
-            Column() { this.WordCloudView() }.width('100%').height(330 * this.fontScale)
-            Column() { this.BarChartView() }.width('100%').height(420 * this.fontScale)
-            Column() { this.PieChartView() }.width('100%').height(410 * this.fontScale)
-            Column() { this.TableView() }.width('100%').height(450 * this.fontScale)
+            this.WordCloudView()
+            this.BarChartView()
+            this.PieChartView()
+            this.TableView()
           }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 12 * this.fontScale })
-        }.layoutWeight(1).width('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+        }.layoutWeight(1).width('100%').scrollBar(BarState.Auto).scrollBarWidth(4)
+          .scrollBarColor('#777777').align(Alignment.TopStart)
+          .nestedScroll({
+            scrollForward: NestedScrollMode.SELF_FIRST,
+            scrollBackward: NestedScrollMode.SELF_FIRST
+          })
       }
     }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
       .transition(UiMotion.reveal())
