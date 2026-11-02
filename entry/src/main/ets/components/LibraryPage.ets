@@ -31,7 +31,6 @@ export struct LibraryPage {
   @State query: string = ''
   @State filter: string = 'all'
   @State modelApiTab: string = 'rerank'
-  @State settingsTab: string = 'knowledge'
   @State documents: LibraryDocument[] = []
   @State selected: string = ''
   @State busy: boolean = false
@@ -118,7 +117,7 @@ export struct LibraryPage {
     return [
       { value: '导入文件到资料库', action: () => this.pick(false) },
       { value: '导入图片到资料库', action: () => this.pick(true) },
-      { value: '资料管理', action: () => { this.setSection('settings'); this.settingsTab = 'documents' } },
+      { value: '资料管理', action: () => this.setSection('settings') },
       { value: '索引、导出与运行状态', action: () => this.setSection('operations') },
       { value: '本地存储：应用沙箱 JSON', action: () => {
         this.getUIContext().getPromptAction().showToast({ message: '知识库与资料索引保存在应用沙箱，本地 RAG 直接读取该存储。' })
@@ -168,7 +167,6 @@ export struct LibraryPage {
       this.notice = `已新建「${base.name}」，当前已自动切换。`
       this.createVisible = false
       this.section = 'settings'
-      this.settingsTab = 'knowledge'
       this.refresh()
       this.onChanged()
     } catch (error) {
@@ -300,11 +298,6 @@ export struct LibraryPage {
     this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
       () => this.modelApiTab = value)
   }
-  private setSettingsTab(value: string): void {
-    this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
-      () => this.settingsTab = value)
-    if (value === 'documents') this.refresh()
-  }
 
   @Styles
   interactive() {
@@ -372,7 +365,7 @@ export struct LibraryPage {
           .backgroundColor(UiTheme.surface).fontColor(UiTheme.secondary)
           .border({ width: 1, color: UiTheme.border }).borderRadius(8)
           .bindMenu(this.databaseMenu())
-        if (this.section === 'settings' && this.settingsTab === 'documents') this.DocumentQuickMenu()
+        if (this.section === 'settings') this.DocumentQuickMenu()
       }.width('100%')
     } else {
       Column({ space: 8 * this.fontScale }) {
@@ -391,7 +384,7 @@ export struct LibraryPage {
           Button('＋ 新建').height(36 * this.fontScale).fontSize(10 * this.fontScale)
             .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
             .id('knowledge-base-create-compact').onClick(() => this.openCreate())
-          if (this.section === 'settings' && this.settingsTab === 'documents') this.DocumentQuickMenu()
+          if (this.section === 'settings') this.DocumentQuickMenu()
         }.width('100%')
       }.width('100%')
     }
@@ -554,11 +547,19 @@ export struct LibraryPage {
               Text(`${this.visible().length} 份资料`).fontSize(10 * this.fontScale).fontColor(UiTheme.muted).width('100%')
               this.DocumentListContent()
             }.width('100%')
-          }.width(this.contextWidth()).height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+          }.width(this.contextWidth()).height('100%').scrollBar(BarState.Off)
+            .nestedScroll({
+              scrollForward: NestedScrollMode.PARENT_FIRST,
+              scrollBackward: NestedScrollMode.PARENT_FIRST
+            }).align(Alignment.TopStart)
           Column().width(1).height('100%').backgroundColor(UiTheme.border).margin({ left: 13 * this.fontScale, right: 16 * this.fontScale })
           Scroll() {
             this.DocumentDetailContent()
-          }.layoutWeight(1).height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+          }.layoutWeight(1).height('100%').scrollBar(BarState.Off)
+            .nestedScroll({
+              scrollForward: NestedScrollMode.PARENT_FIRST,
+              scrollBackward: NestedScrollMode.PARENT_FIRST
+            }).align(Alignment.TopStart)
         }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)
       } else {
         Scroll() {
@@ -567,7 +568,11 @@ export struct LibraryPage {
             this.DocumentListContent()
             if (this.selected.length > 0 || this.editing) this.DocumentDetailContent()
           }.width('100%')
-        }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
+        }.width('100%').layoutWeight(1).scrollBar(BarState.Off)
+          .nestedScroll({
+            scrollForward: NestedScrollMode.PARENT_FIRST,
+            scrollBackward: NestedScrollMode.PARENT_FIRST
+          }).align(Alignment.TopStart)
       }
     }.width('100%').layoutWeight(1)
   }
@@ -663,15 +668,11 @@ export struct LibraryPage {
     }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
   }
   @Builder
-  SettingsSwitcher() {
-    Row({ space: 3 * this.fontScale }) {
-      SelectionTab({ label: '知识库', selected: this.settingsTab === 'knowledge',
-        onSelect: () => this.setSettingsTab('knowledge') })
-      SelectionTab({ label: '本地算法', selected: this.settingsTab === 'algorithm',
-        onSelect: () => this.setSettingsTab('algorithm') })
-      SelectionTab({ label: '资料管理', selected: this.settingsTab === 'documents',
-        onSelect: () => this.setSettingsTab('documents') })
-    }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
+  SettingsSectionTitle(title: string, detail: string) {
+    Column({ space: 3 * this.fontScale }) {
+      Text(title).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+      Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+    }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 2, top: 2 })
   }
   @Builder
   WorkspaceContent() {
@@ -695,25 +696,30 @@ export struct LibraryPage {
         }, (key: string) => key)
       }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
     } else if (this.section === 'settings') {
-      Column({ space: 10 * this.fontScale }) {
-        this.SettingsSwitcher()
-        ForEach([`${this.workspaceKey()}:${this.settingsTab}`], (key: string) => {
-          if (this.settingsTab === 'knowledge') {
-            RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
-              .layoutWeight(1).transition(UiMotion.reveal())
-          } else if (this.settingsTab === 'algorithm') {
-            RagAlgorithmPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() })
-              .layoutWeight(1).transition(UiMotion.reveal())
-          } else {
-            this.DocumentsView()
-          }
-        }, (key: string) => key)
-      }.width('100%').height('100%').alignItems(HorizontalAlign.Start)
+      Scroll() {
+        Column() {
+          ForEach([this.workspaceKey()], (key: string) => {
+            Column({ space: 14 * this.fontScale }) {
+              this.SettingsSectionTitle('知识库设置', '当前库范围、向量化与索引状态。')
+              Column() {
+                RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), embedded: true,
+                  onChanged: () => this.ragChanged() })
+              }.width('100%').height(620 * this.fontScale)
+              this.SettingsSectionTitle('本地算法', '检索权重、召回、阈值和切块参数。')
+              RagAlgorithmPanel({ viewportWidth: this.contentWidth(), embedded: true,
+                onChanged: () => this.ragChanged() }).width('100%')
+              this.SettingsSectionTitle('资料管理', '导入、编辑和检索范围。')
+              Column() { this.DocumentsView() }.width('100%').height(700 * this.fontScale)
+            }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale })
+          }, (key: string) => key)
+        }.width('100%')
+      }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).scrollBarWidth(4)
+        .scrollBarColor('#777777').align(Alignment.TopStart)
     } else {
       ForEach([this.workspaceKey()], (key: string) => {
         RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
           onImportFiles: () => this.pick(false), onImportImages: () => this.pick(true),
-          onOpenKnowledge: () => { this.setSection('settings'); this.settingsTab = 'knowledge' },
+          onOpenKnowledge: () => this.setSection('settings'),
           onChanged: () => this.ragChanged() })
           .layoutWeight(1).transition(UiMotion.reveal())
       }, (key: string) => key)

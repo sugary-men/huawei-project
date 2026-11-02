@@ -15,6 +15,7 @@ interface RagMenuItem {
 export struct RagKnowledgeBasePanel {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop viewportWidth: number = 900
+  @Prop embedded: boolean = false
   onChanged: () => void = () => {}
   @State archive: RagWorkspaceArchive = RagWorkspaceService.empty()
   @State documents: LibraryDocument[] = []
@@ -274,7 +275,12 @@ export struct RagKnowledgeBasePanel {
           }
         }.width('100%')
       }.width('100%').alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
-    }.height('100%').layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
+    }.height('100%').layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.PARENT_FIRST,
+        scrollBackward: NestedScrollMode.PARENT_FIRST
+      })
+      .align(Alignment.TopStart)
   }
 
   build() {

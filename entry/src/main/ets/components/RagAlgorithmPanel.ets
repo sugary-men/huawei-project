@@ -7,6 +7,7 @@ import { RagWorkspaceService } from '../services/RagWorkspaceService'
 export struct RagAlgorithmPanel {
   @StorageLink('campusFontScale') fontScale: number = 0.9
   @Prop viewportWidth: number = 900
+  @Prop embedded: boolean = false
   onChanged: () => void = () => {}
   @State value: RagAlgorithmSettings = RagWorkspaceService.emptyAlgorithm()
   @State notice: string = ''
@@ -63,9 +64,9 @@ export struct RagAlgorithmPanel {
         .onChange((next: number) => apply(next))
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
-  build() {
-    Scroll() {
-      Column({ space: 16 * this.fontScale }) {
+  @Builder
+  Content() {
+    Column({ space: 16 * this.fontScale }) {
         Row() {
           Column({ space: 3 * this.fontScale }) {
             Text('本地算法调整').fontSize(18 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
@@ -128,8 +129,17 @@ export struct RagAlgorithmPanel {
           .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
         Button('保存本地算法').height(40 * this.fontScale).fontSize(12 * this.fontScale)
           .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => this.save())
-      }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 12 * this.fontScale })
-    }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
-      .onAreaChange((_oldValue: Area, newValue: Area) => this.pageWidth = parseFloat(String(newValue.width)))
+    }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 12 * this.fontScale })
+  }
+  build() {
+    if (this.embedded) {
+      this.Content()
+    } else {
+      Scroll() { this.Content() }
+        .width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+        .onAreaChange((_oldValue: Area, newValue: Area) => {
+          this.pageWidth = parseFloat(String(newValue.width))
+        })
+    }
   }
 }
