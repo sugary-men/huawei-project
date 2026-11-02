@@ -32,9 +32,7 @@ export struct KnowledgeGraphView {
   private panStartY: number = 0
   private panOffsetX: number = 0
   private panOffsetY: number = 0
-  private draggingNodeId: string = ''
-  private dragStartX: number = 0
-  private dragStartY: number = 0
+  private panMoved: boolean = false
   private alive: boolean = true
   private timers: number[] = []
   onSelect: (node: KnowledgeGraphNode) => void = () => {}
@@ -146,26 +144,41 @@ export struct KnowledgeGraphView {
     })
     this.canvas.setLineDash([])
     this.canvas.globalAlpha = 1
+    this.nodes.forEach((node: KnowledgeGraphNode) => {
+      const selected = this.nodeSelected(node)
+      const hit = this.nodeHit(node)
+      const related = this.nodeRelated(node)
+      this.canvas.beginPath()
+      this.canvas.roundRect(node.x, node.y, node.width, node.height, 12)
+      this.canvas.fillStyle = node.kind === 'base' ? UiTheme.primary :
+        selected ? '#ECECEC' : hit ? '#F4F4F4' : UiTheme.surface
+      this.canvas.fill()
+      this.canvas.strokeStyle = selected ? UiTheme.primary : hit || related ? '#777777' : UiTheme.border
+      this.canvas.lineWidth = selected || hit ? 1.8 : 1
+      this.canvas.stroke()
+      this.canvas.fillStyle = node.kind === 'base' ? UiTheme.onPrimary : UiTheme.text
+      this.canvas.font = node.kind === 'base' ? '500 11px sans-serif' : '500 10px sans-serif'
+      this.canvas.textAlign = 'center'
+      this.canvas.textBaseline = 'middle'
+      const frame = KnowledgeGraphGeometry.frame(node, 1, 0, 0)
+      this.canvas.fillText(this.fitText(node.title, node.width - 18), frame.centerX, frame.centerY)
+    })
     this.canvas.restore()
+  }
+
+  private fitText(value: string, maxWidth: number): string {
+    if (this.canvas.measureText(value).width <= maxWidth) return value
+    let content = value
+    while (content.length > 1 &&
+      this.canvas.measureText(`${content}…`).width > maxWidth) {
+      content = content.slice(0, -1)
+    }
+    return `${content}…`
   }
 
   private selectNode(node: KnowledgeGraphNode): void {
     this.onSelect(node)
     this.scheduleDraw()
-  }
-
-  private startDrag(node: KnowledgeGraphNode): void {
-    this.draggingNodeId = node.id
-    this.dragStartX = node.x
-    this.dragStartY = node.y
-  }
-
-  private updateDrag(node: KnowledgeGraphNode, event: GestureEvent): void {
-    node.x = this.dragStartX + event.offsetX / this.graphScale
-    node.y = this.dragStartY + event.offsetY / this.graphScale
-    KnowledgeGraphLayoutService.avoidOverlap(node, this.nodes, this.graphWidth, this.graphHeight)
-    this.nodes = this.nodes.slice()
-    this.drawGraph()
   }
 
   private zoomBy(value: number): void {
@@ -196,9 +209,13 @@ export struct KnowledgeGraphView {
       return
     }
     if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+      if (event.type === TouchType.Up && !this.panMoved && event.changedTouches.length > 0) {
+        this.hitNode(event.changedTouches[0].x, event.changedTouches[0].y)
+      }
       this.pinchStartDistance = 0
       this.panStartX = 0
       this.panStartY = 0
+      this.panMoved = false
       return
     }
     if (event.touches.length !== 1) return
@@ -208,63 +225,28 @@ export struct KnowledgeGraphView {
       this.panStartY = touch.y
       this.panOffsetX = this.offsetX
       this.panOffsetY = this.offsetY
+      this.panMoved = false
     } else if (event.type === TouchType.Move && this.pinchStartDistance <= 0) {
-      this.offsetX = this.panOffsetX + touch.x - this.panStartX
-      this.offsetY = this.panOffsetY + touch.y - this.panStartY
-      this.drawGraph()
+      const deltaX = touch.x - this.panStartX
+      const deltaY = touch.y - this.panStartY
+      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        this.panMoved = true
+        this.offsetX = this.panOffsetX + deltaX
+        this.offsetY = this.panOffsetY + deltaY
+        this.drawGraph()
+      }
     }
   }
 
-  @Builder
-  NodeCard(node: KnowledgeGraphNode) {
-    Stack({ alignContent: Alignment.Center }) {
-      if (node.kind === 'base') {
-        Row({ space: 7 * this.fontScale }) {
-          Text('◇').fontSize(13 * this.fontScale).fontColor(UiTheme.onPrimary)
-          Column({ space: 2 * this.fontScale }) {
-            Text(node.title).fontSize(10 * this.fontScale).fontWeight(FontWeight.Medium)
-              .fontColor(UiTheme.onPrimary).maxLines(1).textAlign(TextAlign.Center)
-              .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-            Text(node.detail).fontSize(7 * this.fontScale).fontColor('#D2D2D2')
-              .maxLines(1).textAlign(TextAlign.Center)
-              .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-          }.layoutWeight(1).alignItems(HorizontalAlign.Center).justifyContent(FlexAlign.Center)
-        }.width('100%').height('100%').alignItems(VerticalAlign.Center).justifyContent(FlexAlign.Center)
-      } else {
-        Column({ space: 2 * this.fontScale }) {
-          Row({ space: 4 * this.fontScale }) {
-            if (this.nodeHit(node)) {
-              Text('●').fontSize(7 * this.fontScale).fontColor(UiTheme.text)
-            }
-            Text(node.title).fontSize(8 * this.fontScale).fontWeight(FontWeight.Medium)
-              .fontColor(UiTheme.text).maxLines(1).textAlign(TextAlign.Center)
-              .textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-          }.width('100%').alignItems(VerticalAlign.Center).justifyContent(FlexAlign.Center)
-          Text(node.detail).fontSize(7 * this.fontScale).fontColor(UiTheme.muted)
-            .maxLines(1).textAlign(TextAlign.Center)
-            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-        }.width('100%').height('100%').alignItems(HorizontalAlign.Center)
-          .justifyContent(FlexAlign.Center)
-      }
-    }.width(this.nodeFrame(node).width).height(this.nodeFrame(node).height).padding({ left: 8, right: 8 })
-      .backgroundColor(node.kind === 'base' ? UiTheme.primary :
-        this.nodeSelected(node) ? '#ECECEC' : this.nodeHit(node) ? '#F4F4F4' : UiTheme.surface)
-      .border({
-        width: this.nodeSelected(node) || this.nodeHit(node) ? 2 : 1,
-        color: this.nodeSelected(node) ? UiTheme.primary : this.nodeHit(node) ? '#777777' : UiTheme.border
-      })
-      .borderRadius(node.kind === 'base' ? 8 : 14)
-      .position({ x: this.nodeFrame(node).left, y: this.nodeFrame(node).top })
-      .shadow({ radius: this.nodeSelected(node) ? 8 : 0, color: '#18000000', offsetY: 2 })
-      .accessibilityText(node.kind === 'base' ? `知识库 ${node.title}` : `知识节点 ${node.title} ${node.detail}`)
-      .onClick(() => this.selectNode(node))
-      .gesture(
-        PanGesture({ fingers: 1, distance: 3 })
-          .onActionStart(() => this.startDrag(node))
-          .onActionUpdate((event: GestureEvent) => this.updateDrag(node, event))
-          .onActionEnd(() => this.draggingNodeId = '')
-          .onActionCancel(() => this.draggingNodeId = '')
-      )
+  private hitNode(screenX: number, screenY: number): void {
+    const selected = this.nodes.find((node: KnowledgeGraphNode) => {
+      const frame = this.nodeFrame(node)
+      return screenX >= frame.left && screenX <= frame.left + frame.width &&
+        screenY >= frame.top && screenY <= frame.top + frame.height
+    })
+    if (selected !== undefined) {
+      this.selectNode(selected)
+    }
   }
 
   build() {
@@ -275,9 +257,6 @@ export struct KnowledgeGraphView {
           this.drawGraph()
         })
         .onTouch((event: TouchEvent) => this.handleCanvasTouch(event))
-      ForEach(this.nodes, (node: KnowledgeGraphNode) => {
-        this.NodeCard(node)
-      }, (node: KnowledgeGraphNode) => node.id)
       Row({ space: 4 * this.fontScale }) {
         Button('−').width(26 * this.fontScale).height(26 * this.fontScale).fontSize(13 * this.fontScale)
           .padding(0).backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
