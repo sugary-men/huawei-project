@@ -38,7 +38,8 @@ import { ReplyActions } from '../components/ReplyActions'
 import { ApiProfilesSheet } from '../components/ApiProfilesSheet'
 import { ModelSelector } from '../components/ModelSelector'
 import { ChatSendButton } from '../components/ChatSendButton'
-import { FocusGuardService } from '../services/FocusGuardService'
+import { FocusWorkspaceController } from '../services/FocusWorkspaceController'
+import { FocusWorkspacePanel } from '../components/FocusWorkspacePanel'
 
 // Drive native layout each frame instead of stretching the final text layout.
 @AnimatableExtend(Row)
@@ -72,10 +73,6 @@ class ChatVoiceObserver implements VoiceObserver {
   onPartial(text: string): void { this.partial(text) }
   onComplete(text: string): void { this.complete(text) }
   onError(message: string): void { this.error(message) }
-}
-
-interface FocusTimerInput {
-  durationMinutes?: number
 }
 
 @Entry
@@ -150,19 +147,7 @@ struct Index {
   @State moduleNotice: string = ''
   @State moduleItems: ModuleItem[] = []
   @State moduleInput: string = ''
-  @State focusWorkMinutes: number = 25
-  @State focusBreakMinutes: number = 5
-  @State focusRemainingSeconds: number = 25 * 60
-  @State focusRunning: boolean = false
-  @State focusPhase: string = 'focus'
-  @State focusCompleted: number = 0
-  @State focusWhitelistTokens: string[] = []
-  @State focusGuardNotice: string = ''
-  @State focusGuardActive: boolean = false
-  @State focusGuardEnabled: boolean = true
-  @State focusGuardBusy: boolean = false
-  private focusTimerId: number = -1
-  private focusEndAt: number = 0
+  @State focusDialogVisible: boolean = false
   @State apiSettingsVisible: boolean = false
   @State apiConfigured: boolean = false
   @State apiProfiles: AgentProfileSummary[] = []
@@ -189,10 +174,10 @@ struct Index {
   private workspaceProfile(id: string = this.activeFeature): WorkspaceProfile { return WorkspaceConfig.profile(id, this.features) }
 
   private nfcEvent: (tagId: string) => void = (tagId: string): void => {
-    const focusFeature: FeatureDefinition | undefined = this.features.find((item: FeatureDefinition) => item.id === 'focus')
-    if (focusFeature !== undefined) this.chooseFeature(focusFeature)
-    this.moduleNotice = `NFC 标签 ${tagId} 已触发专注。`
-    this.runModule('nfc')
+    this.appSection = 'focus'
+    FocusWorkspaceController.setNotice(`NFC 标签 ${tagId} 已触发专注。`)
+    FocusWorkspaceController.hardwareAction('nfc',
+      this.getUIContext().getHostContext() as common.UIAbilityContext).catch(() => {})
   }
 
   aboutToAppear(): void {
@@ -214,6 +199,7 @@ struct Index {
     IntegrationService.initializeSchedule(this.getUIContext().getHostContext() as common.UIAbilityContext)
     IntegrationService.initializeFocus(host)
     IntegrationService.initializePrivacy(host)
+    FocusWorkspaceController.initialize()
     host.eventHub.on('focusNfcTap', this.nfcEvent)
     const pendingNfc = NfcFocusBridge.peek()
     this.refreshKnowledge()
@@ -257,7 +243,7 @@ struct Index {
     this.actionSerial++
     this.cancelVoice()
     this.stopSpeech()
-    this.stopFocusTimer()
+    FocusWorkspaceController.dispose()
     UiMotion.dispose()
   }
 
@@ -378,191 +364,6 @@ struct Index {
     } finally {
       if (token === this.actionSerial) this.actionBusy = false
     }
-  }
-
-  private focusTotalSeconds(): number {
-    return (this.focusPhase === 'focus' ? this.focusWorkMinutes : this.focusBreakMinutes) * 60
-  }
-
-  private focusProgress(): number {
-    const total = this.focusTotalSeconds()
-    if (total <= 0) return 0
-    return Math.max(0, Math.min(100, ((total - this.focusRemainingSeconds) / total) * 100))
-  }
-
-  private formatFocusTime(seconds: number): string {
-    const safe = Math.max(0, Math.floor(seconds))
-    const minutes = Math.floor(safe / 60)
-    const rest = safe % 60
-    return `${minutes < 10 ? `0${minutes}` : `${minutes}`}:${rest < 10 ? `0${rest}` : `${rest}`}`
-  }
-
-  private startFocusTimer(): void {
-    if (this.focusRunning) return
-    if (this.focusRemainingSeconds <= 0) this.focusRemainingSeconds = this.focusTotalSeconds()
-    this.focusRunning = true
-    this.focusEndAt = Date.now() + this.focusRemainingSeconds * 1000
-    this.focusTimerId = setInterval((): void => this.tickFocusTimer(), 1000)
-  }
-
-  private tickFocusTimer(): void {
-    const remaining = Math.max(0, Math.ceil((this.focusEndAt - Date.now()) / 1000))
-    this.focusRemainingSeconds = remaining
-    if (remaining > 0) return
-    this.stopFocusTimer()
-    this.finishFocusPhase()
-  }
-
-  private stopFocusTimer(): void {
-    if (this.focusTimerId >= 0) {
-      clearInterval(this.focusTimerId)
-      this.focusTimerId = -1
-    }
-    this.focusRunning = false
-  }
-
-  private pauseFocusTimer(): void {
-    if (!this.focusRunning) return
-    this.focusRemainingSeconds = Math.max(0, Math.ceil((this.focusEndAt - Date.now()) / 1000))
-    this.stopFocusTimer()
-  }
-
-  private resetFocusTimer(): void {
-    this.stopFocusTimer()
-    this.focusPhase = 'focus'
-    this.focusRemainingSeconds = this.focusWorkMinutes * 60
-  }
-
-  private finishFocusPhase(): void {
-    if (this.focusPhase === 'focus') {
-      this.focusCompleted += 1
-      this.focusPhase = 'break'
-      this.focusRemainingSeconds = this.focusBreakMinutes * 60
-      this.focusGuardActive = false
-      FocusGuardService.stopLock().catch(() => {})
-      this.focusGuardNotice = '专注完成，设备锁已到期；休息一下吧。'
-    } else {
-      this.focusPhase = 'focus'
-      this.focusRemainingSeconds = this.focusWorkMinutes * 60
-    }
-  }
-
-  private adjustFocusMinutes(delta: number): void {
-    if (this.focusRunning) return
-    this.focusWorkMinutes = Math.max(5, Math.min(120, this.focusWorkMinutes + delta))
-    if (this.focusPhase === 'focus') this.focusRemainingSeconds = this.focusWorkMinutes * 60
-  }
-
-  private async startFocusSession(): Promise<void> {
-    if (this.focusRunning) {
-      await this.pauseFocusSession()
-      return
-    }
-    if (this.focusPhase !== 'focus') {
-      this.focusPhase = 'focus'
-      this.focusRemainingSeconds = this.focusWorkMinutes * 60
-    }
-    this.startFocusTimer()
-    if (!this.focusGuardEnabled || this.focusGuardActive) return
-    this.focusGuardBusy = true
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-      const remainingMinutes = Math.max(1, Math.ceil(this.focusRemainingSeconds / 60))
-      const message = await FocusGuardService.startLock(context, remainingMinutes, true)
-      this.focusGuardActive = true
-      this.focusWhitelistTokens = FocusGuardService.whitelistTokens()
-      this.focusGuardNotice = message
-    } catch (error) {
-      this.focusGuardNotice = `番茄钟已开始，设备锁未开启：${FocusGuardService.friendlyError(error as Error)}`
-    } finally {
-      this.focusGuardBusy = false
-    }
-  }
-
-  private async pauseFocusSession(): Promise<void> {
-    this.pauseFocusTimer()
-    if (!this.focusGuardActive) return
-    try {
-      await FocusGuardService.stopLock()
-    } catch (_error) {}
-    this.focusGuardActive = false
-    this.focusGuardNotice = '番茄钟已暂停，设备锁已解除；继续时会按剩余时长重新开启。'
-  }
-
-  private async enableFocusGuard(): Promise<void> {
-    if (this.focusGuardBusy) return
-    this.focusGuardBusy = true
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-      const remainingMinutes = Math.max(1, Math.ceil(this.focusRemainingSeconds / 60))
-      const message = await FocusGuardService.startLock(context, remainingMinutes, true)
-      this.focusGuardActive = true
-      this.focusWhitelistTokens = FocusGuardService.whitelistTokens()
-      this.focusGuardNotice = message
-    } catch (error) {
-      this.focusGuardNotice = FocusGuardService.friendlyError(error as Error)
-    } finally {
-      this.focusGuardBusy = false
-    }
-  }
-
-  private async disableFocusGuard(): Promise<void> {
-    if (this.focusGuardBusy) return
-    this.focusGuardBusy = true
-    try {
-      this.focusGuardNotice = await FocusGuardService.stopLock()
-      this.focusGuardActive = false
-    } catch (error) {
-      this.focusGuardNotice = FocusGuardService.friendlyError(error as Error)
-    } finally {
-      this.focusGuardBusy = false
-    }
-  }
-
-  private async pickFocusWhitelist(): Promise<void> {
-    if (this.focusGuardBusy) return
-    this.focusGuardBusy = true
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-      this.focusWhitelistTokens = await FocusGuardService.pickWhitelist(context)
-      this.focusGuardNotice = `已选择 ${this.focusWhitelistTokens.length} 个白名单应用。`
-    } catch (error) {
-      this.focusGuardNotice = FocusGuardService.friendlyError(error as Error)
-    } finally {
-      this.focusGuardBusy = false
-    }
-  }
-
-  private async queryFocusGuardStatus(): Promise<void> {
-    if (this.focusGuardBusy) return
-    this.focusGuardBusy = true
-    try {
-      const state = await FocusGuardService.snapshot()
-      this.focusWhitelistTokens = FocusGuardService.whitelistTokens()
-      this.focusGuardActive = state.activeStrategy.length > 0
-      this.focusGuardNotice = `授权：${state.authorized ? '已授权' : '未授权'}；策略：${state.strategies.length} 个；白名单：${state.whitelistCount} 个应用。`
-    } catch (error) {
-      this.focusGuardNotice = FocusGuardService.friendlyError(error as Error)
-    } finally {
-      this.focusGuardBusy = false
-    }
-  }
-
-  private applyFocusLockToolTimer(input: string): void {
-    let minutes = this.focusWorkMinutes
-    try {
-      const parsed = JSON.parse(input || '{}') as FocusTimerInput
-      if (typeof parsed.durationMinutes === 'number' && Number.isFinite(parsed.durationMinutes)) {
-        minutes = Math.max(1, Math.min(1440, Math.round(parsed.durationMinutes)))
-      }
-    } catch (_error) {}
-    this.stopFocusTimer()
-    this.focusWorkMinutes = minutes
-    this.focusPhase = 'focus'
-    this.focusRemainingSeconds = minutes * 60
-    this.focusGuardActive = true
-    this.focusWhitelistTokens = FocusGuardService.whitelistTokens()
-    this.startFocusTimer()
   }
 
   private cancelVoice(): void {
@@ -903,18 +704,13 @@ struct Index {
         if (!moduleResult.ok) return JSON.stringify({ ok: false, message: moduleResult.message })
         if (result.featureId === 'focus' && result.action === 'start') {
           uiContext.runScopedTask(() => {
-            this.focusGuardActive = true
-            this.focusGuardNotice = moduleResult.message
-            this.applyFocusLockToolTimer(result.input || '')
+            FocusWorkspaceController.startToolSession(result.input || '')
+            FocusWorkspaceController.setNotice(moduleResult.message)
           })
         } else if (result.featureId === 'focus' && result.action === 'stop') {
-          uiContext.runScopedTask(() => {
-            this.focusGuardActive = false
-            this.focusGuardNotice = moduleResult.message
-            this.stopFocusTimer()
-          })
+          uiContext.runScopedTask(() => FocusWorkspaceController.stopToolSession(moduleResult.message))
         } else if (result.featureId === 'focus') {
-          uiContext.runScopedTask(() => { this.focusGuardNotice = moduleResult.message })
+          uiContext.runScopedTask(() => FocusWorkspaceController.setNotice(moduleResult.message))
         }
         const id = `module-${result.featureId}-${result.action}`
         const artifacts = result.state.artifacts.filter((item: WorkspaceArtifact) => item.id !== id)
@@ -941,8 +737,9 @@ struct Index {
   }
 
   private chooseFeature(feature: FeatureDefinition): void {
-    this.appSection = 'chat'
     if (feature.id === 'trash') { this.openRecycleBin(); return }
+    if (feature.id === 'focus') { this.appSection = 'focus'; return }
+    this.appSection = 'chat'
     this.stopReply()
     this.persistSession()
     this.cancelVoice()
@@ -1534,110 +1331,6 @@ struct Index {
   }
 
   @Builder
-  FocusContent() {
-    Column({ space: 14 * this.fontScale }) {
-      Row() {
-        Column({ space: 4 * this.fontScale }) {
-          Text('自律模式').fontSize(24 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('番茄钟 + 健康使用设备专注锁').fontSize(14 * this.fontScale).fontColor(UiTheme.muted)
-        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-        Text(this.focusGuardActive ? '设备锁生效中' : '本地番茄钟')
-          .fontSize(11 * this.fontScale).fontColor(this.focusGuardActive ? UiTheme.onPrimary : UiTheme.secondary)
-          .padding({ left: 10 * this.fontScale, right: 10 * this.fontScale, top: 6 * this.fontScale, bottom: 6 * this.fontScale })
-          .backgroundColor(this.focusGuardActive ? UiTheme.primary : UiTheme.raised).borderRadius(8)
-      }.width('100%').alignItems(VerticalAlign.Center)
-
-      Column({ space: 12 * this.fontScale }) {
-        Progress({ value: this.focusProgress(), total: 100, type: ProgressType.Ring })
-          .width(210 * this.fontScale).height(210 * this.fontScale).color(UiTheme.primary).style({ strokeWidth: 12 * this.fontScale })
-        Text(this.formatFocusTime(this.focusRemainingSeconds))
-          .fontSize(42 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-        Text(this.focusPhase === 'focus' ? '专注中' : '休息中').fontSize(13 * this.fontScale).fontColor(UiTheme.secondary)
-        Row({ space: 12 * this.fontScale }) {
-          Button('− 5').height(38 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.focusRunning).onClick(() => this.adjustFocusMinutes(-5))
-          Text(`${this.focusWorkMinutes} / ${this.focusBreakMinutes} 分钟`).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary)
-          Button('+ 5').height(38 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.focusRunning).onClick(() => this.adjustFocusMinutes(5))
-        }
-        Row({ space: 10 * this.fontScale }) {
-          Button(this.focusRunning ? '暂停番茄钟' : '开始专注')
-            .width(150 * this.fontScale).height(44 * this.fontScale).fontSize(13 * this.fontScale)
-            .fontColor(UiTheme.onPrimary).backgroundColor(UiTheme.primary)
-            .enabled(!this.focusGuardBusy).onClick(() => this.startFocusSession())
-          Button('重置').width(90 * this.fontScale).height(44 * this.fontScale).fontSize(13 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised).onClick(() => this.resetFocusTimer())
-        }
-        Text(`已完成 ${this.focusCompleted} 个番茄`).fontSize(12 * this.fontScale).fontColor(UiTheme.muted)
-      }.width('100%').padding({ top: 18 * this.fontScale, bottom: 18 * this.fontScale }).alignItems(HorizontalAlign.Center)
-        .backgroundColor(UiTheme.surface).borderRadius(10)
-
-      Column({ space: 10 * this.fontScale }) {
-        Row() {
-          Column({ space: 3 * this.fontScale }) {
-            Text('设备专注锁').fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text('调用鸿蒙“健康使用设备”，按白名单限制其他应用').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
-          }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-          Toggle({ type: ToggleType.Switch, isOn: this.focusGuardEnabled })
-            .onChange((value: boolean) => this.focusGuardEnabled = value)
-        }.width('100%').alignItems(VerticalAlign.Center)
-        Row({ space: 8 * this.fontScale }) {
-          Button(this.focusWhitelistTokens.length === 0 ? '选择 APP 白名单' : `白名单 ${this.focusWhitelistTokens.length} 个`)
-            .height(40 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.focusGuardBusy).onClick(() => this.pickFocusWhitelist())
-          Button('查询状态').height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.focusGuardBusy).onClick(() => this.queryFocusGuardStatus())
-        }.width('100%')
-        Row({ space: 8 * this.fontScale }) {
-          Button(this.focusGuardActive ? '重新开启设备锁' : '立即开启设备锁')
-            .height(40 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.onPrimary).backgroundColor(UiTheme.primary)
-            .enabled(!this.focusGuardBusy).onClick(() => this.enableFocusGuard())
-          Button('解除设备锁').height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.focusGuardBusy && this.focusGuardActive).onClick(() => this.disableFocusGuard())
-        }.width('100%')
-        Text(this.focusGuardNotice || '白名单内应用可继续使用，名单外应用在设定时长内被限制访问。')
-          .fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(19 * this.fontScale).width('100%')
-          .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(10)
-
-      Column({ space: 10 * this.fontScale }) {
-        Column({ space: 3 * this.fontScale }) {
-          Text('自律魔方硬件').fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('连接 CampusCube，或用 NFC 标签触发专注').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
-        }.width('100%').alignItems(HorizontalAlign.Start)
-        Row({ space: 8 * this.fontScale }) {
-          Button('扫描魔方').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.actionBusy).onClick(() => this.runModule('connect'))
-          Button('NFC 碰一碰').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.actionBusy).onClick(() => this.runModule('nfc'))
-        }.width('100%')
-        Row({ space: 8 * this.fontScale }) {
-          Button('硬件状态').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.actionBusy).onClick(() => this.runModule('hardware-status'))
-          Button('模拟姿态中断').layoutWeight(1).height(40 * this.fontScale).fontSize(12 * this.fontScale)
-            .fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
-            .enabled(!this.actionBusy).onClick(() => this.runModule('interrupt'))
-        }.width('100%')
-        if (this.moduleNotice.length > 0) {
-          Text(this.moduleNotice).fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(19 * this.fontScale)
-            .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(9)
-        }
-        ForEach(this.moduleItems, (item: ModuleItem) => {
-          Column({ space: 3 * this.fontScale }) {
-            Text(item.title).fontSize(12 * this.fontScale).fontColor(UiTheme.text).width('100%')
-            Text(item.detail).fontSize(11 * this.fontScale).fontColor(UiTheme.muted).lineHeight(18 * this.fontScale).width('100%')
-          }.width('100%').alignItems(HorizontalAlign.Start)
-        }, (item: ModuleItem) => item.id)
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(10)
-    }.width('100%').alignItems(HorizontalAlign.Start).padding({ top: 18 * this.fontScale, bottom: 8 * this.fontScale })
-  }
-
-  @Builder
   ModuleContent() {
     Column({ space: 10 }) {
       Text(this.selectedFeature().name).fontSize(24 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
@@ -1840,7 +1533,8 @@ struct Index {
               }
             }.width('100%').padding({ left: 10 * this.fontScale, right: 4 * this.fontScale })
             if (this.sideExpanded || this.sidebarQuery.trim().length > 0) {
-              ForEach(this.sidebarView.workspaces, (group: SidebarWorkspaceGroup) => {
+              ForEach(this.sidebarView.workspaces.filter((group: SidebarWorkspaceGroup) =>
+                group.feature.id !== 'focus'), (group: SidebarWorkspaceGroup) => {
                 this.SidebarWorkspace(group)
               }, (group: SidebarWorkspaceGroup) => `${group.feature.id}-${group.expanded}-${group.showAll}-${group.totalCount}-${group.sessions.map((session: SessionSummary) => `${session.id}-${session.title}-${session.updatedAt}`).join('|')}`)
             }
@@ -2036,12 +1730,10 @@ struct Index {
             .interactive().onClick(() => this.sendMessage(prompt))
         }, (prompt: string) => `welcome-${this.activeFeature}-${prompt}`)
       }.width('100%').margin({ top: 8 })
-      if (this.activeFeature === 'focus') {
-        this.FocusContent()
-      }
       if (this.activeFeature === 'home') {
         Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-          ForEach(this.features.filter((feature: FeatureDefinition) => feature.id !== 'home' && feature.id !== 'trash').slice(0, 4), (feature: FeatureDefinition) => {
+          ForEach(this.features.filter((feature: FeatureDefinition) =>
+            feature.id !== 'home' && feature.id !== 'trash' && feature.id !== 'focus').slice(0, 4), (feature: FeatureDefinition) => {
             Text(`${feature.name} →`).fontSize(12 * this.fontScale).fontColor(UiTheme.muted).padding(10).margin({ right: 5, bottom: 5 })
               .borderRadius(8).interactive().onClick(() => {
                 this.sidebarSelection = `workspace-${feature.id}`
@@ -2195,6 +1887,7 @@ struct Index {
     Column({ space: 6 * this.fontScale }) {
       this.RailItem('首页', 'chat', $r('app.media.ic_home'))
       this.RailItem('定时任务', 'tasks', $r('app.media.ic_clock'))
+      this.RailItem('自律魔方', 'focus', $r('app.media.ic_reply_check'))
       this.RailItem('资料库', 'library', $r('app.media.ic_library'))
       if (this.appSection === 'chat' && !this.isLeftPanelVisible) {
         Button({ type: ButtonType.Normal }) { Image($r('app.media.ic_sidebar')).width(20 * this.fontScale).height(20 * this.fontScale) }
@@ -2207,12 +1900,22 @@ struct Index {
       .backgroundColor('#242424').border({ width: { right: 1 }, color: '#333333' }).id('global-navigation')
   }
 
+  @Builder
+  FocusDialogSheet() {
+    FocusWorkspacePanel({ compact: true, showClose: true,
+      onClose: () => this.focusDialogVisible = false })
+      .width('100%').height('100%')
+  }
+
   build() {
     Row() {
       this.GlobalRail()
       Stack({ alignContent: Alignment.TopStart }) {
       if (this.appSection === 'tasks') {
         TaskCenterPage({ initialTab: this.taskCenterTab }).width('100%').height('100%').transition(UiMotion.page())
+      } else if (this.appSection === 'focus') {
+        FocusWorkspacePanel({ compact: false }).width('100%').height('100%')
+          .transition(UiMotion.page())
       } else if (this.appSection === 'library') {
         LibraryPage({ viewportWidth: this.viewportWidth,
           onUse: (id: string, attachment: boolean) => this.useLibraryDocument(id, attachment),
@@ -2234,6 +1937,15 @@ struct Index {
             Text(this.selectedFeature().description).fontSize(11 * this.fontScale).fontColor('#888888').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           }.alignItems(HorizontalAlign.Start).layoutWeight(1).margin({ right: 10 * this.fontScale })
           if (this.activeFeature !== 'trash') {
+          Button({ type: ButtonType.Normal }) {
+            Row({ space: 6 * this.fontScale }) {
+              Image($r('app.media.ic_reply_check')).width(16 * this.fontScale).height(16 * this.fontScale)
+              Text('自律魔方').fontSize(11 * this.fontScale).fontColor('#505050')
+            }
+          }.height(36 * this.fontScale).padding({ left: 10 * this.fontScale, right: 10 * this.fontScale })
+            .margin({ right: 8 * this.fontScale }).backgroundColor(UiTheme.raised).borderRadius(8)
+            .id('focus-floating-open').accessibilityText('打开自律魔方悬浮窗')
+            .interactive().onClick(() => this.focusDialogVisible = true)
           Text('＋ 上下文').fontSize(12 * this.fontScale).fontColor('#505050')
             .padding({ left: 10 * this.fontScale, right: 10 * this.fontScale, top: 8 * this.fontScale, bottom: 8 * this.fontScale }).backgroundColor(UiTheme.raised).borderRadius(8 * this.fontScale)
             .accessibilityText(this.contextPickerVisible ? '关闭课程资料选择' : '为当前对话添加课程资料')
@@ -2254,7 +1966,6 @@ struct Index {
             else if (this.activeFeature === 'budget') { this.BudgetContent() }
 // 合并保留：以下 main 旧实现停用，采用知识库分支（2026-10-30）。
 //             else if (this.activeFeature === 'forms' || this.activeFeature === 'focus' || this.activeFeature === 'study' || this.activeFeature === 'privacy') { this.ModuleContent() }
-            else if (this.activeFeature === 'focus') { this.FocusContent() }
             else if (this.activeFeature === 'forms' || this.activeFeature === 'study' || this.activeFeature === 'privacy') { this.ModuleContent() }
             else if (this.activeFeature !== 'home') { this.PlaceholderContent() }
             if (this.activeFeature !== 'trash') { this.WorkspaceAssistantContent() }
@@ -2426,5 +2137,8 @@ struct Index {
       .bindSheet($$this.contextPickerVisible, this.ContextSheet(), { height: '80%', width: 680,
         preferType: SheetType.CENTER, showClose: false, dragBar: false,
         onDisappear: () => { this.contextPickerVisible = false; this.searchSerial++; this.searchBusy = false } })
+      .bindSheet($$this.focusDialogVisible, this.FocusDialogSheet(), { height: '78%', width: 620,
+        preferType: SheetType.CENTER, showClose: false, dragBar: false,
+        onDisappear: () => { this.focusDialogVisible = false } })
   }
 }
