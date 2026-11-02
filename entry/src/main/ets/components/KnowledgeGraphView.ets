@@ -5,6 +5,7 @@ import {
   KnowledgeGraphNode
 } from '../models/KnowledgeGraphModels'
 import { KnowledgeChunk } from '../models/RagModels'
+import { KnowledgeGraphGeometry, KnowledgeGraphNodeFrame } from '../services/KnowledgeGraphGeometry'
 import { KnowledgeGraphLayoutService } from '../services/KnowledgeGraphLayoutService'
 
 @Component
@@ -96,17 +97,8 @@ export struct KnowledgeGraphView {
     return node.kind === 'chunk' && this.hitChunkIds.includes(node.chunkId)
   }
 
-  private nodeLeft(node: KnowledgeGraphNode): number {
-    return node.x * this.graphScale + this.offsetX
-  }
-  private nodeTop(node: KnowledgeGraphNode): number {
-    return node.y * this.graphScale + this.offsetY
-  }
-  private nodeWidth(node: KnowledgeGraphNode): number {
-    return node.width * this.graphScale
-  }
-  private nodeHeight(node: KnowledgeGraphNode): number {
-    return node.height * this.graphScale
+  private nodeFrame(node: KnowledgeGraphNode): KnowledgeGraphNodeFrame {
+    return KnowledgeGraphGeometry.frame(node, this.graphScale, this.offsetX, this.offsetY)
   }
 
   private edgeStart(node: KnowledgeGraphNode, target: KnowledgeGraphNode): number[] {
@@ -225,17 +217,19 @@ export struct KnowledgeGraphView {
 
   @Builder
   NodeCard(node: KnowledgeGraphNode) {
-    Button({ type: ButtonType.Normal }) {
+    Stack({ alignContent: Alignment.Center }) {
       if (node.kind === 'base') {
         Row({ space: 7 * this.fontScale }) {
           Text('◇').fontSize(13 * this.fontScale).fontColor(UiTheme.onPrimary)
           Column({ space: 2 * this.fontScale }) {
             Text(node.title).fontSize(10 * this.fontScale).fontWeight(FontWeight.Medium)
-              .fontColor(UiTheme.onPrimary).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+              .fontColor(UiTheme.onPrimary).maxLines(1).textAlign(TextAlign.Center)
+              .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
             Text(node.detail).fontSize(7 * this.fontScale).fontColor('#D2D2D2')
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        }.width('100%')
+              .maxLines(1).textAlign(TextAlign.Center)
+              .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+          }.layoutWeight(1).alignItems(HorizontalAlign.Center).justifyContent(FlexAlign.Center)
+        }.width('100%').height('100%').alignItems(VerticalAlign.Center).justifyContent(FlexAlign.Center)
       } else {
         Column({ space: 2 * this.fontScale }) {
           Row({ space: 4 * this.fontScale }) {
@@ -243,14 +237,16 @@ export struct KnowledgeGraphView {
               Text('●').fontSize(7 * this.fontScale).fontColor(UiTheme.text)
             }
             Text(node.title).fontSize(8 * this.fontScale).fontWeight(FontWeight.Medium)
-              .fontColor(UiTheme.text).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-          }.width('100%')
+              .fontColor(UiTheme.text).maxLines(1).textAlign(TextAlign.Center)
+              .textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
+          }.width('100%').alignItems(VerticalAlign.Center).justifyContent(FlexAlign.Center)
           Text(node.detail).fontSize(7 * this.fontScale).fontColor(UiTheme.muted)
-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-        }.width('100%').alignItems(HorizontalAlign.Start)
+            .maxLines(1).textAlign(TextAlign.Center)
+            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+        }.width('100%').height('100%').alignItems(HorizontalAlign.Center)
+          .justifyContent(FlexAlign.Center)
       }
-    }.width(this.nodeWidth(node)).height(this.nodeHeight(node)).padding({ left: 8, right: 8 })
+    }.width(this.nodeFrame(node).width).height(this.nodeFrame(node).height).padding({ left: 8, right: 8 })
       .backgroundColor(node.kind === 'base' ? UiTheme.primary :
         this.nodeSelected(node) ? '#ECECEC' : this.nodeHit(node) ? '#F4F4F4' : UiTheme.surface)
       .border({
@@ -258,7 +254,7 @@ export struct KnowledgeGraphView {
         color: this.nodeSelected(node) ? UiTheme.primary : this.nodeHit(node) ? '#777777' : UiTheme.border
       })
       .borderRadius(node.kind === 'base' ? 8 : 14)
-      .position({ x: this.nodeLeft(node), y: this.nodeTop(node) })
+      .position({ x: this.nodeFrame(node).left, y: this.nodeFrame(node).top })
       .shadow({ radius: this.nodeSelected(node) ? 8 : 0, color: '#18000000', offsetY: 2 })
       .accessibilityText(node.kind === 'base' ? `知识库 ${node.title}` : `知识节点 ${node.title} ${node.detail}`)
       .onClick(() => this.selectNode(node))
