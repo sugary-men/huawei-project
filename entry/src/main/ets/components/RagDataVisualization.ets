@@ -1,8 +1,11 @@
 import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
+import { KnowledgeGraphEdge, KnowledgeGraphNode } from '../models/KnowledgeGraphModels'
 import { KnowledgeChunk, RetrievalResult, SourceCitation } from '../models/RagModels'
 import { RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { IntegrationService } from '../services/IntegrationService'
+import { KnowledgeGraphLayoutService } from '../services/KnowledgeGraphLayoutService'
+import { KnowledgeGraphView } from './KnowledgeGraphView'
 
 interface SourceGroup {
   sourceId: string
@@ -16,31 +19,6 @@ interface BaseNetwork {
   base: RagKnowledgeBase
   sources: SourceGroup[]
   sourceIds: Set<string>
-}
-
-interface MindNode {
-  id: string
-  kind: string
-  baseId: string
-  sourceId: string
-  chunkId: string
-  title: string
-  detail: string
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-interface MindEdge {
-  from: string
-  to: string
-  kind: string
-}
-
-interface RelatedKnowledge {
-  index: number
-  score: number
 }
 
 interface DistributionItem {
@@ -66,16 +44,13 @@ export struct RagDataVisualization {
   @State busy: boolean = false
   @State archive: RagWorkspaceArchive | undefined = undefined
   @State networks: BaseNetwork[] = []
-  @State nodes: MindNode[] = []
+  @State nodes: KnowledgeGraphNode[] = []
   @State selectedBase: string = ''
   @State selectedSource: string = ''
   @State selectedChunk: string = ''
   @State result: RetrievalResult | undefined = undefined
   @State graphWidth: number = 900
   @State graphHeight: number = 520
-  @State graphScale: number = 1
-  @State offsetX: number = 0
-  @State offsetY: number = 0
   @State graphFilter: string = 'all'
   @State chartFilter: string = ''
   @State chartDimension: string = 'course'
@@ -85,25 +60,11 @@ export struct RagDataVisualization {
   @State pieHeight: number = 236
   @State loadError: string = ''
   @State notice: string = ''
-  private edges: MindEdge[] = []
-  private render: RenderingContextSettings = new RenderingContextSettings(true)
-  private canvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.render)
+  private edges: KnowledgeGraphEdge[] = []
   private pieRender: RenderingContextSettings = new RenderingContextSettings(true)
   private pieCanvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.pieRender)
-  private pinchStartScale: number = 1
-  private pinchStartDistance: number = 0
-  private pinchActive: boolean = false
-  private draggingNodeId: string = ''
-  private dragStartX: number = 0
-  private dragStartY: number = 0
-  private touchStartX: number = 0
-  private touchStartY: number = 0
-  private touchStartOffsetX: number = 0
-  private touchStartOffsetY: number = 0
 
   aboutToAppear(): void {
-    this.graphWidth = Math.max(240, this.viewportWidth - 370)
-    this.graphHeight = 540
     this.refresh()
   }
 
@@ -166,8 +127,6 @@ export struct RagDataVisualization {
     return result.sort((a: SourceGroup, b: SourceGroup): number => a.title.localeCompare(b.title))
   }
 
-  private rootNodeId(baseId: string): string { return `kb:${baseId}` }
-
   private graphChunks(network: BaseNetwork): KnowledgeChunk[] {
     const chunks: KnowledgeChunk[] = []
     network.sources.forEach((source: SourceGroup) => source.chunks.forEach((chunk: KnowledgeChunk) => chunks.push(chunk)))
@@ -186,134 +145,16 @@ export struct RagDataVisualization {
   }
 
   private buildMindMap(): void {
-    const width = Math.max(240, this.graphWidth)
-    const height = Math.max(300, this.graphHeight)
     const network = this.activeNetwork()
     if (network === undefined) {
       this.nodes = []
       this.edges = []
       return
     }
-    const nodes: MindNode[] = []
-    const edges: MindEdge[] = []
-    const allChunks = this.graphChunks(network)
-    const centerX = width / 2
-    const centerY = height / 2
-    const root: MindNode = {
-      id: this.rootNodeId(network.base.id), kind: 'base', baseId: network.base.id, sourceId: '',
-      chunkId: '', title: network.base.name,
-      detail: `${allChunks.length} 个知识节点 · ${network.sources.length} 个来源`,
-      x: centerX - 76, y: centerY - 24, width: 152, height: 48
-    }
-    nodes.push(root)
-    const ringX = Math.max(72, Math.min(width * 0.36, 340))
-    const ringY = Math.max(72, Math.min(height * 0.36, 235))
-    allChunks.forEach((chunk: KnowledgeChunk, index: number) => {
-      const angle = -Math.PI / 2 + Math.PI * 2 * index / Math.max(1, allChunks.length)
-      const node: MindNode = {
-        id: `knowledge:${network.base.id}:${chunk.id}`, kind: 'chunk', baseId: network.base.id,
-        sourceId: chunk.sourceId, chunkId: chunk.id, title: chunk.title,
-        detail: `${chunk.location} · ${this.modalityLabel(chunk.modality || 'text')}`,
-        x: centerX + Math.cos(angle) * ringX - 68,
-        y: centerY + Math.sin(angle) * ringY - 21,
-        width: 136, height: 42
-      }
-      nodes.push(node)
-      edges.push({ from: root.id, to: node.id, kind: 'branch' })
-    })
-    for (let left = 0; left < Math.min(allChunks.length, 220); left++) {
-      const related: RelatedKnowledge[] = []
-      for (let right = 0; right < Math.min(allChunks.length, 220); right++) {
-        if (left === right) continue
-        const score = this.relationScore(allChunks[left], allChunks[right])
-        if (score > 0.05) related.push({ index: right, score: score } as RelatedKnowledge)
-      }
-      related.sort((a: RelatedKnowledge, b: RelatedKnowledge): number => b.score - a.score)
-      const sameSource = allChunks.reduce((total: number, chunk: KnowledgeChunk): number =>
-        total + (chunk.sourceId === allChunks[left].sourceId ? 1 : 0), 0)
-      const limit = sameSource > 8 ? 2 : 3
-      related.slice(0, Math.min(limit, related.length)).forEach((item: RelatedKnowledge) => {
-        const from = nodes[left + 1].id
-        const to = nodes[item.index + 1].id
-        const exists = edges.some((edge: MindEdge) =>
-          (edge.from === from && edge.to === to) || (edge.from === to && edge.to === from))
-        if (!exists) edges.push({ from: from, to: to, kind: 'semantic' })
-      })
-    }
-    this.resolveCollisions(nodes, width, height, true)
-    this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => {
-      this.nodes = nodes
-      this.edges = edges
-    })
-  }
-
-  private relationScore(a: KnowledgeChunk, b: KnowledgeChunk): number {
-    if (a.sourceId === b.sourceId && a.location !== b.location) return 0.12
-    let semantic = 0
-    if (a.vectorModel === b.vectorModel && a.vector.length === b.vector.length &&
-      a.vector.length > 0) {
-      let dot = 0
-      let aa = 0
-      let bb = 0
-      for (let i = 0; i < a.vector.length; i++) {
-        dot += a.vector[i] * b.vector[i]
-        aa += a.vector[i] * a.vector[i]
-        bb += b.vector[i] * b.vector[i]
-      }
-      semantic = aa > 0 && bb > 0 ? Math.max(0, Math.min(1, dot / Math.sqrt(aa * bb))) : 0
-    }
-    const tokensA = new Set<string>(`${a.title} ${a.content}`.toLowerCase().split(/\s+/))
-    const tokensB = new Set<string>(`${b.title} ${b.content}`.toLowerCase().split(/\s+/))
-    let shared = 0
-    tokensA.forEach((token: string) => { if (tokensB.has(token)) shared++ })
-    const lexical = shared / Math.max(1, Math.min(tokensA.size, tokensB.size))
-    return semantic * 0.75 + lexical * 0.25
-  }
-
-  private resolveCollisions(nodes: MindNode[], width: number, height: number, repulse: boolean = false): void {
-    const iterations = nodes.length > 120 ? 8 : nodes.length > 60 ? 18 : 34
-    for (let iteration = 0; iteration < iterations; iteration++) {
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i]
-          const b = nodes[j]
-          if (repulse && iteration < 4) {
-            const dx = (a.x + a.width / 2) - (b.x + b.width / 2)
-            const dy = (a.y + a.height / 2) - (b.y + b.height / 2)
-            const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy))
-            if (distance < 190) {
-              const force = (190 - distance) * 0.012
-              a.x += dx / distance * force
-              a.y += dy / distance * force
-              b.x -= dx / distance * force
-              b.y -= dy / distance * force
-            }
-          }
-          const overlapX = (a.width + b.width) / 2 + 10 - Math.abs((a.x + a.width / 2) - (b.x + b.width / 2))
-          const overlapY = (a.height + b.height) / 2 + 8 - Math.abs((a.y + a.height / 2) - (b.y + b.height / 2))
-          if (overlapX <= 0 || overlapY <= 0) continue
-          if (overlapX < overlapY) {
-            const direction = a.x + a.width / 2 < b.x + b.width / 2 ? -1 : 1
-            const push = overlapX * (a.kind === 'base' ? 0.25 : 0.5)
-            a.x += direction * push
-            b.x -= direction * push
-          } else {
-            const direction = a.y + a.height / 2 < b.y + b.height / 2 ? -1 : 1
-            const push = overlapY * (a.kind === 'base' ? 0.25 : 0.5)
-            a.y += direction * push
-            b.y -= direction * push
-          }
-        }
-      }
-      nodes.forEach((node: MindNode) => {
-        node.x = Math.max(18, Math.min(width - node.width - 18, node.x))
-        node.y = Math.max(18, Math.min(height - node.height - 18, node.y))
-      })
-    }
-  }
-
-  private node(id: string): MindNode | undefined {
-    return this.nodes.find((item: MindNode) => item.id === id)
+    const layout = KnowledgeGraphLayoutService.build(network.base.id, network.base.name,
+      this.graphChunks(network), this.graphWidth, this.graphHeight)
+    this.nodes = layout.nodes
+    this.edges = layout.edges
   }
   private selectedBaseData(): RagKnowledgeBase | undefined {
     return this.networks.find((network: BaseNetwork) => network.base.id === this.selectedBase)?.base
@@ -335,110 +176,39 @@ export struct RagDataVisualization {
   private short(value: string, max: number): string {
     return value.length > max ? `${value.slice(0, max)}…` : value
   }
-  private nodeSelected(node: MindNode): boolean {
+  private nodeSelected(node: KnowledgeGraphNode): boolean {
     if (node.kind === 'base') return node.baseId === this.selectedBase && this.selectedSource.length === 0
-    if (node.kind === 'chunk') return this.selectedChunk === this.chunkIdFromNode(node)
-    return node.baseId === this.selectedBase && node.sourceId === this.selectedSource
+    return this.selectedChunk === node.chunkId
   }
-  private chunkIdFromNode(node: MindNode): string {
-    return node.chunkId
-  }
-  private chunkForNode(node: MindNode): KnowledgeChunk | undefined {
+  private chunkForNode(node: KnowledgeGraphNode): KnowledgeChunk | undefined {
     return this.activeChunks().find((chunk: KnowledgeChunk) => chunk.id === node.chunkId)
   }
-  private nodeHit(node: MindNode): boolean {
-    if (this.result === undefined) return false
-    if (node.kind === 'chunk') {
-      const chunkId = this.chunkIdFromNode(node)
-      return this.result.sources.some((source: SourceCitation) => source.chunkId === chunkId)
-    }
-    if (node.kind === 'source') {
-      return this.result.sources.some((source: SourceCitation) =>
-        source.sourceId === node.sourceId &&
-        this.networks.find((network: BaseNetwork) => network.base.id === node.baseId)?.sourceIds.has(source.sourceId) === true)
-    }
-    return false
+  private nodeHit(node: KnowledgeGraphNode): boolean {
+    return node.kind === 'chunk' && this.result?.sources.some((source: SourceCitation) =>
+      source.chunkId === node.chunkId) === true
   }
-  private nodeRelated(node: MindNode): boolean {
-    const activeId = this.selectedChunk.length > 0
-      ? `knowledge:${this.selectedBase}:${this.selectedChunk}` : this.rootNodeId(this.selectedBase)
-    return this.edges.some((edge: MindEdge) =>
-      (edge.from === activeId && edge.to === node.id) || (edge.to === activeId && edge.from === node.id))
-  }
-  private edgeRelated(edge: MindEdge): boolean {
-    const activeId = this.selectedChunk.length > 0
-      ? `knowledge:${this.selectedBase}:${this.selectedChunk}` : this.rootNodeId(this.selectedBase)
-    return edge.from === activeId || edge.to === activeId
-  }
-  private relatedNodes(): MindNode[] {
+  private relatedNodes(): KnowledgeGraphNode[] {
     if (!this.selectedChunk) return []
-    const activeId = `knowledge:${this.selectedBase}:${this.selectedChunk}`
+    const activeId = `chunk:${this.selectedBase}:${this.selectedChunk}`
     const ids = new Set<string>()
-    this.edges.forEach((edge: MindEdge) => {
+    this.edges.forEach((edge: KnowledgeGraphEdge) => {
       if (edge.from === activeId) ids.add(edge.to)
       if (edge.to === activeId) ids.add(edge.from)
     })
-    return this.nodes.filter((node: MindNode) => node.kind === 'chunk' && ids.has(node.id))
+    return this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk' && ids.has(node.id))
   }
-  private nodeLeft(node: MindNode): number { return node.x * this.graphScale + this.offsetX }
-  private nodeTop(node: MindNode): number { return node.y * this.graphScale + this.offsetY }
-  private nodeWidth(node: MindNode): number { return node.width * this.graphScale }
-  private nodeHeight(node: MindNode): number { return node.height * this.graphScale }
-  private selectNode(node: MindNode): void {
+  private selectNode(node: KnowledgeGraphNode): void {
     this.getUIContext().animateTo({ duration: UiMotion.section, curve: Curve.EaseOut }, () => {
       this.selectedBase = node.baseId
       if (node.kind === 'chunk') {
         this.selectedSource = node.sourceId
-        this.selectedChunk = this.chunkIdFromNode(node)
+        this.selectedChunk = node.chunkId
       } else {
-        this.selectedSource = node.kind === 'base' || this.selectedSource === node.sourceId ? '' : node.sourceId
-        if (node.kind === 'base') this.selectedChunk = ''
+        this.selectedSource = ''
+        this.selectedChunk = ''
       }
     })
-    this.chartTooltip = node.kind === 'base'
-      ? `${node.title} · ${node.detail}` : `${node.title} · ${node.detail}`
-    this.drawMindMap()
-  }
-
-  private drawMindMap(): void {
-    const width = Math.max(240, this.graphWidth)
-    const height = Math.max(300, this.graphHeight)
-    this.canvas.clearRect(0, 0, width, height)
-    this.canvas.fillStyle = '#FAFAFA'
-    this.canvas.fillRect(0, 0, width, height)
-    this.canvas.save()
-    this.canvas.translate(this.offsetX, this.offsetY)
-    this.canvas.scale(this.graphScale, this.graphScale)
-    this.edges.forEach((edge: MindEdge) => {
-      const from = this.node(edge.from)
-      const to = this.node(edge.to)
-      if (from === undefined || to === undefined) return
-      const active = this.edgeRelated(edge)
-      const fromX = from.x + from.width / 2
-      const fromY = from.y + from.height / 2
-      const toX = to.x + to.width / 2
-      const toY = to.y + to.height / 2
-      this.canvas.beginPath()
-      this.canvas.moveTo(fromX, fromY)
-      this.canvas.setLineDash(edge.kind === 'semantic' ? [3, 5] : [])
-      this.canvas.globalAlpha = active ? 0.9 : edge.kind === 'semantic' ? 0.26 : 0.42
-      this.canvas.strokeStyle = active ? '#343434' : edge.kind === 'semantic' ? '#B8B8B8' : '#C7C7C7'
-      this.canvas.lineWidth = active ? 1.7 : edge.kind === 'semantic' ? 0.8 : 1
-      const direction = toX >= fromX ? 1 : -1
-      this.canvas.bezierCurveTo(fromX + 32 * direction, fromY, toX - 32 * direction, toY, toX, toY)
-      this.canvas.stroke()
-    })
-    this.canvas.globalAlpha = 1
-    this.canvas.setLineDash([])
-    this.nodes.forEach((node: MindNode) => {
-      if (!this.nodeSelected(node) && !this.nodeHit(node) && !this.nodeRelated(node)) return
-      this.canvas.beginPath()
-      this.canvas.roundRect(node.x - 4, node.y - 4, node.width + 8, node.height + 8, 10)
-      this.canvas.strokeStyle = this.nodeSelected(node) ? '#202020' : this.nodeHit(node) ? '#666666' : '#A0A0A0'
-      this.canvas.lineWidth = this.nodeSelected(node) ? 2.2 : this.nodeHit(node) ? 1.5 : 0.9
-      this.canvas.stroke()
-    })
-    this.canvas.restore()
+    this.chartTooltip = `${node.title} · ${node.detail}`
   }
 
   private async search(): Promise<void> {
@@ -469,7 +239,6 @@ export struct RagDataVisualization {
       this.notice = this.result.sources.length > 0
         ? `命中 ${this.result.sources.length} 个知识片段，已在图谱中高亮。`
         : (this.result.notice || '没有达到阈值的检索结果。')
-      this.drawMindMap()
     } catch (error) {
       this.result = { query: query, revision: '', status: 'miss', mode: 'keyword',
         notice: (error as Error).message || '检索失败。', sources: [], context: '' }
@@ -635,70 +404,6 @@ export struct RagDataVisualization {
     this.drawPie()
     this.buildMindMap()
   }
-  private resetView(): void {
-    this.offsetX = 0
-    this.offsetY = 0
-    this.graphScale = 1
-    this.buildMindMap()
-    this.drawMindMap()
-  }
-  private zoomBy(value: number): void {
-    this.graphScale = Math.max(0.65, Math.min(2.2, this.graphScale + value))
-    this.drawMindMap()
-  }
-  private startNodeDrag(node: MindNode): void {
-    this.draggingNodeId = node.id
-    this.dragStartX = node.x
-    this.dragStartY = node.y
-    this.selectNode(node)
-  }
-  private moveNode(node: MindNode, event: GestureEvent): void {
-    node.x = this.dragStartX + event.offsetX / this.graphScale
-    node.y = this.dragStartY + event.offsetY / this.graphScale
-    this.resolveCollisions(this.nodes, Math.max(240, this.graphWidth), Math.max(300, this.graphHeight), true)
-    this.nodes = this.nodes.slice()
-    this.drawMindMap()
-  }
-  private handleTouch(event: TouchEvent): void {
-    if (event.touches.length >= 2) {
-      const dx = event.touches[0].x - event.touches[1].x
-      const dy = event.touches[0].y - event.touches[1].y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      if (!this.pinchActive || this.pinchStartDistance <= 0) {
-        this.pinchActive = true
-        this.pinchStartDistance = Math.max(1, distance)
-        this.pinchStartScale = this.graphScale
-      } else if (event.type === TouchType.Move) {
-        this.graphScale = Math.max(0.65, Math.min(2.2,
-          this.pinchStartScale * distance / this.pinchStartDistance))
-        this.drawMindMap()
-      }
-    } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-      this.pinchActive = false
-      this.pinchStartDistance = 0
-      this.touchStartX = 0
-      this.touchStartY = 0
-    } else if (event.touches.length === 1) {
-      const touch = event.touches[0]
-      if (event.type === TouchType.Down || this.touchStartX === 0) {
-        this.touchStartX = touch.x
-        this.touchStartY = touch.y
-        this.touchStartOffsetX = this.offsetX
-        this.touchStartOffsetY = this.offsetY
-      } else if (event.type === TouchType.Move && !this.pinchActive) {
-        this.offsetX = this.touchStartOffsetX + touch.x - this.touchStartX
-        this.offsetY = this.touchStartOffsetY + touch.y - this.touchStartY
-        this.drawMindMap()
-      }
-    }
-  }
-
-  @Styles
-  interactive() {
-    .hoverEffect(HoverEffect.Highlight)
-    .stateStyles({ normal: { .opacity(1) }, pressed: { .opacity(0.82) } })
-    .animation({ duration: UiMotion.press, curve: Curve.EaseOut })
-  }
   @Builder
   GraphFilterButton(label: string, value: string) {
     Button(label).height(27 * this.fontScale).fontSize(9 * this.fontScale)
@@ -709,7 +414,6 @@ export struct RagDataVisualization {
         this.graphFilter = value
         this.chartFilter = ''
         this.buildMindMap()
-        setTimeout(() => this.drawMindMap(), 20)
       })
   }
   @Builder
@@ -720,85 +424,18 @@ export struct RagDataVisualization {
       .borderRadius(6).onClick(() => this.setChartDimension(value))
   }
   @Builder
-  MindNodeButton(node: MindNode) {
-    Button({ type: ButtonType.Normal }) {
-      if (node.kind === 'base') {
-        Row({ space: 8 * this.fontScale }) {
-          Text('◇').fontSize(13 * this.fontScale).fontColor(UiTheme.onPrimary)
-          Column({ space: 2 * this.fontScale }) {
-            Text(this.short(node.title, 14)).fontSize(10 * this.fontScale).fontWeight(FontWeight.Medium)
-              .fontColor(UiTheme.onPrimary).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(node.detail).fontSize(7 * this.fontScale).fontColor('#CFCFCF').maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        }.width('100%')
-      } else if (node.kind === 'source') {
-        Column({ space: 1 * this.fontScale }) {
-          Text(this.short(node.title, 15)).fontSize(8 * this.fontScale).fontColor(UiTheme.text)
-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-          Text(node.detail).fontSize(7 * this.fontScale).fontColor(UiTheme.muted).maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-        }.width('100%').alignItems(HorizontalAlign.Start)
-      } else {
-        Row({ space: 4 * this.fontScale }) {
-          Text('·').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
-          Text(this.short(node.title, 11)).fontSize(7 * this.fontScale).fontColor(UiTheme.text)
-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-        }.width('100%')
-      }
-    }.width(this.nodeWidth(node)).height(this.nodeHeight(node)).padding({ left: 8, right: 8 })
-      .backgroundColor(node.kind === 'base' ? (this.nodeSelected(node) ? '#3B3B3B' : UiTheme.primary) :
-        this.nodeSelected(node) ? '#ECECEC' : this.nodeHit(node) ? '#F1F1F1' : UiTheme.surface)
-      .border({ width: this.nodeSelected(node) || this.nodeHit(node) ? 2 : 1,
-        color: this.nodeSelected(node) ? UiTheme.primary : this.nodeHit(node) ? '#787878' : UiTheme.border })
-      .borderRadius(node.kind === 'base' ? 8 * this.fontScale : 13 * this.fontScale)
-      .position({ x: this.nodeLeft(node), y: this.nodeTop(node) })
-      .shadow({ radius: this.nodeSelected(node) ? 10 : 0, color: '#1A000000', offsetY: 3 })
-      .animation({ duration: UiMotion.section, curve: Curve.EaseOut })
-      .accessibilityText(node.kind === 'base' ? `知识库 ${node.title}` : `知识片段 ${node.title} ${node.detail}`)
-      .interactive().onClick(() => this.selectNode(node))
-      .gesture(
-        PanGesture({ fingers: 1, distance: 2 })
-          .onActionStart(() => this.startNodeDrag(node))
-          .onActionUpdate((event: GestureEvent) => this.moveNode(node, event))
-          .onActionEnd(() => { this.draggingNodeId = '' })
-          .onActionCancel(() => { this.draggingNodeId = '' })
-      )
-  }
-  @Builder
   MindMapCanvas() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      Canvas(this.canvas).width('100%').height('100%').onReady(() => this.drawMindMap())
-        .onTouch((event: TouchEvent) => this.handleTouch(event))
-      ForEach(this.nodes, (node: MindNode) => {
-        this.MindNodeButton(node)
-      }, (node: MindNode) => node.id)
-      Row({ space: 4 * this.fontScale }) {
-        Button('−').width(25 * this.fontScale).height(25 * this.fontScale).fontSize(13 * this.fontScale)
-          .padding(0).backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
-          .border({ width: 1, color: UiTheme.border }).borderRadius(5).id('rag-zoom-out')
-          .onClick(() => this.zoomBy(-0.15))
-        Text(`${Math.round(this.graphScale * 100)}%`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-          .width(38 * this.fontScale).textAlign(TextAlign.Center)
-        Button('＋').width(25 * this.fontScale).height(25 * this.fontScale).fontSize(13 * this.fontScale)
-          .padding(0).backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
-          .border({ width: 1, color: UiTheme.border }).borderRadius(5).id('rag-zoom-in')
-          .onClick(() => this.zoomBy(0.15))
-        Button('重置').height(25 * this.fontScale).fontSize(9 * this.fontScale)
-          .backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
-          .border({ width: 1, color: UiTheme.border }).borderRadius(5).id('rag-graph-reset')
-          .onClick(() => this.resetView())
-      }.padding(8 * this.fontScale).position({ x: Math.max(10, this.graphWidth - 182), y: 10 })
-    }.width('100%').height('100%').backgroundColor('#FAFAFA')
-      .border({ width: 1, color: UiTheme.border }).borderRadius(9).clip(true)
-      .onAreaChange((_oldValue: Area, newValue: Area) => {
-        const width = parseFloat(String(newValue.width))
-        const height = parseFloat(String(newValue.height))
-        if (Number.isFinite(width) && width > 0) this.graphWidth = width
-        if (Number.isFinite(height) && height > 0) this.graphHeight = height
-        this.buildMindMap()
-        setTimeout(() => this.drawMindMap(), 25)
-      })
+    ForEach([`${this.selectedBase}:${this.graphFilter}:${this.chartFilter}:${this.result?.revision || ''}`],
+      (key: string) => {
+        KnowledgeGraphView({
+          baseId: this.selectedBase,
+          baseName: this.selectedBaseData()?.name || '当前知识库',
+          chunks: this.activeNetwork() === undefined ? [] : this.graphChunks(this.activeNetwork() as BaseNetwork),
+          selectedChunk: this.selectedChunk,
+          hitChunkIds: this.result?.sources.map((source: SourceCitation) => source.chunkId) || [],
+          onSelect: (node: KnowledgeGraphNode) => this.selectNode(node)
+        }).width('100%').height('100%')
+      }, (key: string) => key)
   }
   @Builder
   WordCloudView() {
@@ -963,7 +600,8 @@ export struct RagDataVisualization {
         .backgroundColor(UiTheme.raised).border({ width: { bottom: 1 }, color: UiTheme.border })
       Scroll() {
         Column() {
-          ForEach(this.nodes.filter((node: MindNode) => node.kind === 'chunk'), (node: MindNode, index: number) => {
+          ForEach(this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk'),
+            (node: KnowledgeGraphNode, index: number) => {
             Row() {
               Text(node.title).width('38%').fontSize(9 * this.fontScale).maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -978,8 +616,8 @@ export struct RagDataVisualization {
                 index % 2 === 0 ? UiTheme.surface : '#FBFBFB')
               .border({ width: { bottom: 1 }, color: UiTheme.border }).hoverEffect(HoverEffect.Highlight)
               .onClick(() => this.selectNode(node))
-          }, (node: MindNode) => node.id)
-          if (this.nodes.filter((node: MindNode) => node.kind === 'chunk').length === 0) {
+          }, (node: KnowledgeGraphNode) => node.id)
+          if (this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk').length === 0) {
             Row() { this.EmptyState('暂无知识节点', '导入资料或清除图表筛选后再查看表格。') }
               .width('100%').padding(12 * this.fontScale)
           }
@@ -1008,7 +646,6 @@ export struct RagDataVisualization {
                   this.selectedSource = source.sourceId
                   this.selectedChunk = source.chunkId
                   this.buildMindMap()
-                  setTimeout(() => this.drawMindMap(), 20)
                 }
               })
           }, (source: SourceCitation) => source.chunkId)
@@ -1032,13 +669,13 @@ export struct RagDataVisualization {
               })
             if (this.relatedNodes().length > 0) {
               Text('关联节点').fontSize(9 * this.fontScale).fontColor(UiTheme.muted).margin({ top: 5 })
-              ForEach(this.relatedNodes().slice(0, 6), (node: MindNode) => {
+              ForEach(this.relatedNodes().slice(0, 6), (node: KnowledgeGraphNode) => {
                 Button({ type: ButtonType.Normal }) {
                   Text(`${node.title} · ${node.detail}`).fontSize(8 * this.fontScale).fontColor(UiTheme.text)
                     .width('100%').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
                 }.height(29 * this.fontScale).padding({ left: 8, right: 8 })
                   .backgroundColor(UiTheme.raised).width('100%').onClick(() => this.selectNode(node))
-              }, (node: MindNode) => node.id)
+              }, (node: KnowledgeGraphNode) => node.id)
             }
           } else {
             ForEach((this.selectedSourceData() as SourceGroup).chunks.slice(0, 6),
@@ -1068,7 +705,6 @@ export struct RagDataVisualization {
                   this.selectedChunk = ''
                   this.graphFilter = 'source'
                   this.buildMindMap()
-                  setTimeout(() => this.drawMindMap(), 20)
                 })
             }, (source: SourceGroup) => source.sourceId)
         } else {
