@@ -39,6 +39,8 @@ import { ApiProfilesSheet } from '../components/ApiProfilesSheet'
 import { ModelSelector } from '../components/ModelSelector'
 import { ChatSendButton } from '../components/ChatSendButton'
 import { FocusGuardService } from '../services/FocusGuardService'
+import { HarmonyFocusModuleAdapter } from '../services/HarmonyFocusModuleAdapter'
+import { FocusSessionSnapshot } from '../models/FocusModels'
 
 // Drive native layout each frame instead of stretching the final text layout.
 @AnimatableExtend(Row)
@@ -154,6 +156,7 @@ struct Index {
   @State focusBreakMinutes: number = 5
   @State focusRemainingSeconds: number = 25 * 60
   @State focusRunning: boolean = false
+  @State focusInterrupted: boolean = false
   @State focusPhase: string = 'focus'
   @State focusCompleted: number = 0
   @State focusWhitelistTokens: string[] = []
@@ -217,6 +220,7 @@ struct Index {
 //     const pendingNfc = NfcFocusBridge.peek()
 //     if (pendingNfc.length > 0) this.nfcEvent(pendingNfc)
     IntegrationService.initializeFocus(host)
+    this.bindHardwareFocusState()
     IntegrationService.initializePrivacy(host)
     this.refreshKnowledge()
     const savedSidebar = SessionService.sidebar()
@@ -235,6 +239,38 @@ struct Index {
     this.loadLocalAgentConfig()
   }
 
+  private bindHardwareFocusState(): void {
+    const adapter = IntegrationService.hardware
+    if (adapter instanceof HarmonyFocusModuleAdapter) {
+      adapter.setFocusStateListener((snapshot: FocusSessionSnapshot): void => this.handleHardwareFocusState(snapshot))
+    }
+  }
+
+  private handleHardwareFocusState(snapshot: FocusSessionSnapshot): void {
+    const adapter = IntegrationService.hardware
+    if (adapter instanceof HarmonyFocusModuleAdapter) this.moduleItems = adapter.currentItems()
+    if (snapshot.phase === 'focusing') {
+      this.focusInterrupted = false
+      this.focusPhase = 'focus'
+      const remaining = snapshot.expectedEndAt > Date.now()
+        ? Math.ceil((snapshot.expectedEndAt - Date.now()) / 1000)
+        : snapshot.durationMinutes * 60
+      this.focusRemainingSeconds = Math.max(1, remaining)
+      if (snapshot.lastTrigger === 'ble-steady') this.moduleNotice = '魔方已摆正，自动开始专注。'
+      this.startFocusTimer()
+      return
+    }
+    if (snapshot.phase === 'interrupted' || snapshot.phase === 'completed') {
+      this.focusInterrupted = snapshot.phase === 'interrupted'
+      this.stopFocusTimer()
+      this.focusGuardActive = false
+      FocusGuardService.stopLock().catch(() => {})
+      const reason = snapshot.interruptionReason || (snapshot.phase === 'completed' ? '专注完成' : '专注已中断')
+      this.focusGuardNotice = reason
+      if (snapshot.phase === 'interrupted') this.moduleNotice = reason
+    }
+  }
+
   private async loadLocalAgentConfig(): Promise<void> {
     const token = ++this.apiLoadSerial
     this.apiProfilesLoading = true
@@ -249,6 +285,8 @@ struct Index {
     const host = this.getUIContext().getHostContext() as common.UIAbilityContext
     // 旧 NFC 订阅随旧硬件入口停用，保留对应清理代码。
     // host.eventHub.off('focusNfcTap', this.nfcEvent)
+    const adapter = IntegrationService.hardware
+    if (adapter instanceof HarmonyFocusModuleAdapter) adapter.clearFocusStateListener()
     IntegrationService.disposeDeviceServices()
     this.apiLoadSerial++
     if (this.messageClockTimer >= 0) clearInterval(this.messageClockTimer)
@@ -401,6 +439,7 @@ struct Index {
   private startFocusTimer(): void {
     if (this.focusRunning) return
     if (this.focusRemainingSeconds <= 0) this.focusRemainingSeconds = this.focusTotalSeconds()
+    this.focusInterrupted = false
     this.focusRunning = true
     this.focusEndAt = Date.now() + this.focusRemainingSeconds * 1000
     this.focusTimerId = setInterval((): void => this.tickFocusTimer(), 1000)
@@ -430,6 +469,8 @@ struct Index {
 
   private resetFocusTimer(): void {
     this.stopFocusTimer()
+    this.focusInterrupted = false
+    IntegrationService.hardware.execute('stop', '').catch(() => {})
     this.focusPhase = 'focus'
     this.focusRemainingSeconds = this.focusWorkMinutes * 60
   }
@@ -440,6 +481,7 @@ struct Index {
       this.focusPhase = 'break'
       this.focusRemainingSeconds = this.focusBreakMinutes * 60
       this.focusGuardActive = false
+      IntegrationService.hardware.execute('stop', '').catch(() => {})
       FocusGuardService.stopLock().catch(() => {})
       this.focusGuardNotice = '专注完成，设备锁已到期；休息一下吧。'
     } else {
@@ -463,7 +505,12 @@ struct Index {
       this.focusPhase = 'focus'
       this.focusRemainingSeconds = this.focusWorkMinutes * 60
     }
-    this.startFocusTimer()
+    try {
+      const result = await IntegrationService.hardware.execute('start', String(this.focusWorkMinutes))
+      this.moduleNotice = result.message
+      this.moduleItems = result.ok ? result.items : []
+    } catch (_error) {}
+    if (!this.focusRunning) this.startFocusTimer()
     if (!this.focusGuardEnabled || this.focusGuardActive) return
     this.focusGuardBusy = true
     try {
@@ -481,6 +528,7 @@ struct Index {
   }
 
   private async pauseFocusSession(): Promise<void> {
+    IntegrationService.hardware.execute('stop', '').catch(() => {})
     this.pauseFocusTimer()
     if (!this.focusGuardActive) return
     try {
@@ -1555,7 +1603,8 @@ struct Index {
           .width(210 * this.fontScale).height(210 * this.fontScale).color(UiTheme.primary).style({ strokeWidth: 12 * this.fontScale })
         Text(this.formatFocusTime(this.focusRemainingSeconds))
           .fontSize(42 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-        Text(this.focusPhase === 'focus' ? '专注中' : '休息中').fontSize(13 * this.fontScale).fontColor(UiTheme.secondary)
+        Text(this.focusInterrupted ? '已中断' : this.focusRunning ? (this.focusPhase === 'focus' ? '专注中' : '休息中') : '已暂停')
+          .fontSize(13 * this.fontScale).fontColor(this.focusInterrupted ? '#C44747' : UiTheme.secondary)
         Row({ space: 12 * this.fontScale }) {
           Button('− 5').height(38 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
             .enabled(!this.focusRunning).onClick(() => this.adjustFocusMinutes(-5))

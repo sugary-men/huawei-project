@@ -4,10 +4,22 @@ import { BusinessError } from '@kit.BasicServicesKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { util } from '@kit.ArkTS'
 import { ModuleAdapter, ModuleItem, ModuleResult } from '../models/IntegrationModels'
-import { FocusDevice, FocusSessionSnapshot } from '../models/FocusModels'
+import { FocusDevice, FocusModeListener, FocusSessionSnapshot } from '../models/FocusModels'
 import { FocusModeManager } from './FocusModeManager'
 import { FocusOrientationSample, FocusProtocol } from './FocusProtocol'
 import { NfcFocusBridge } from './NfcFocusBridge'
+
+class AdapterFocusModeListener implements FocusModeListener {
+  private callback: (snapshot: FocusSessionSnapshot) => void
+
+  constructor(callback: (snapshot: FocusSessionSnapshot) => void) {
+    this.callback = callback
+  }
+
+  onChanged(snapshot: FocusSessionSnapshot): void {
+    this.callback(snapshot)
+  }
+}
 
 export class HarmonyFocusModuleAdapter implements ModuleAdapter {
   private static readonly LOG_DOMAIN: number = 0xD004
@@ -22,9 +34,15 @@ export class HarmonyFocusModuleAdapter implements ModuleAdapter {
   private client: ble.GattClientDevice | undefined = undefined
   private scanResolve: ((ok: boolean) => void) | undefined = undefined
   private lastSample: FocusOrientationSample | undefined = undefined
+  private stateListener: ((snapshot: FocusSessionSnapshot) => void) | undefined = undefined
 
   constructor(context: common.UIAbilityContext) {
     this.context = context
+    this.manager.setListener(new AdapterFocusModeListener((snapshot: FocusSessionSnapshot): void => {
+      hilog.info(HarmonyFocusModuleAdapter.LOG_DOMAIN, HarmonyFocusModuleAdapter.LOG_TAG,
+        'focus state: ' + snapshot.phase + ' tilt=' + snapshot.tiltDegrees.toFixed(1))
+      if (this.stateListener !== undefined) this.stateListener(snapshot)
+    }))
   }
 
   async execute(action: string, input: string): Promise<ModuleResult> {
@@ -35,6 +53,18 @@ export class HarmonyFocusModuleAdapter implements ModuleAdapter {
     if (action === 'lock') return this.screenLockStatus()
     if (action === 'interrupt') return this.interrupt()
     return this.status()
+  }
+
+  setFocusStateListener(listener: (snapshot: FocusSessionSnapshot) => void): void {
+    this.stateListener = listener
+  }
+
+  clearFocusStateListener(): void {
+    this.stateListener = undefined
+  }
+
+  currentItems(): ModuleItem[] {
+    return this.items()
   }
 
   snapshot(): FocusSessionSnapshot {
