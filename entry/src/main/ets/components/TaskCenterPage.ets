@@ -1,6 +1,7 @@
 import { UiTheme } from '../config/UiTheme'
 import { UiMotion } from '../config/UiMotion'
 import { AgentTaskPage } from './AgentTaskPage'
+import { SelectionTab } from './SelectionTab'
 import { SystemSchedulePanel } from './SystemSchedulePanel'
 
 @Component
@@ -25,35 +26,25 @@ export struct TaskCenterPage {
       }
     })
   }
-  @Builder
-  Tab(label: string, id: string, index: number) {
-    Button({ type: ButtonType.Normal }) {
-      Column({ space: 4 * this.fontScale }) {
-        Text(label).fontSize(12 * this.fontScale)
-          .fontColor(this.tab === id ? UiTheme.surface : UiTheme.text)
-        Row().width(this.tab === id ? 18 * this.fontScale : 0)
-          .height(2 * this.fontScale)
-          .backgroundColor(this.tab === id ? UiTheme.surface : Color.Transparent)
-          .borderRadius(1)
-      }.height(34 * this.fontScale).justifyContent(FlexAlign.Center)
-    }.width(92 * this.fontScale).height(38 * this.fontScale).borderRadius(7 * this.fontScale)
-      .backgroundColor(this.tab === id ? UiTheme.primary : UiTheme.raised).fontColor(this.tab === id ? UiTheme.surface : UiTheme.text)
-      .hoverEffect(HoverEffect.Highlight)
-      .stateStyles({ normal: { .opacity(1).scale({ x: 1, y: 1 }) }, pressed: { .opacity(0.78).scale({ x: 0.98, y: 0.98 }) } })
-      .animation({ duration: UiMotion.duration(UiMotion.press), curve: UiMotion.enterCurve })
-      .id(`task-center-${id}`).onClick(() => this.selectTab(id, index))
-  }
   build() {
     Column() {
       Column({ space: 12 * this.fontScale }) {
         Text('定时任务').fontSize(25 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text).width('100%')
         Scroll(this.tabScroller) {
           Row({ space: 6 * this.fontScale }) {
-            this.Tab('Agent任务', 'agent', 0)
-            this.Tab('日历', 'calendar', 1)
-            this.Tab('提醒', 'reminders', 2)
-            this.Tab('备忘录', 'memos', 3)
-          }.padding({ left: 1, right: 1 })
+            SelectionTab({ label: 'Agent任务', selected: this.tab === 'agent',
+              itemId: 'task-center-agent', itemWidth: 92,
+              onSelect: () => this.selectTab('agent', 0) })
+            SelectionTab({ label: '日历', selected: this.tab === 'calendar',
+              itemId: 'task-center-calendar', itemWidth: 92,
+              onSelect: () => this.selectTab('calendar', 1) })
+            SelectionTab({ label: '提醒', selected: this.tab === 'reminders',
+              itemId: 'task-center-reminders', itemWidth: 92,
+              onSelect: () => this.selectTab('reminders', 2) })
+            SelectionTab({ label: '备忘录', selected: this.tab === 'memos',
+              itemId: 'task-center-memos', itemWidth: 92,
+              onSelect: () => this.selectTab('memos', 3) })
+          }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
         }.width('100%').scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring).nestedScroll({
             scrollForward: NestedScrollMode.SELF_FIRST,

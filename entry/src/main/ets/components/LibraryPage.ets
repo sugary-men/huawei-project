@@ -15,6 +15,7 @@ import { RagDataVisualization } from './RagDataVisualization'
 import { RagKnowledgeBasePanel } from './RagKnowledgeBasePanel'
 import { RagOperationsPanel } from './RagOperationsPanel'
 import { RagRerankPanel } from './RagRerankPanel'
+import { SelectionTab } from './SelectionTab'
 
 interface LibraryMenuOption {
   value: string
@@ -653,31 +654,23 @@ export struct LibraryPage {
       .backgroundColor(UiTheme.background)
   }
   @Builder
-  WorkspaceSegment(label: string, value: string, current: string, action: (value: string) => void) {
-    Button(label).height(31 * this.fontScale).fontSize(10 * this.fontScale)
-      .backgroundColor(current === value ? UiTheme.primary : Color.Transparent)
-      .fontColor(current === value ? UiTheme.onPrimary : UiTheme.secondary)
-      .borderRadius(6).hoverEffect(HoverEffect.Highlight)
-      .onClick(() => action(value))
-  }
-  @Builder
   ModelApiSwitcher() {
     Row({ space: 3 * this.fontScale }) {
-      this.WorkspaceSegment('重排序模型', 'rerank', this.modelApiTab,
-        (value: string) => this.setModelApiTab(value))
-      this.WorkspaceSegment('API 管理', 'api', this.modelApiTab,
-        (value: string) => this.setModelApiTab(value))
+      SelectionTab({ label: '重排序模型', selected: this.modelApiTab === 'rerank',
+        onSelect: () => this.setModelApiTab('rerank') })
+      SelectionTab({ label: 'API 管理', selected: this.modelApiTab === 'api',
+        onSelect: () => this.setModelApiTab('api') })
     }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
   }
   @Builder
   SettingsSwitcher() {
     Row({ space: 3 * this.fontScale }) {
-      this.WorkspaceSegment('知识库', 'knowledge', this.settingsTab,
-        (value: string) => this.setSettingsTab(value))
-      this.WorkspaceSegment('本地算法', 'algorithm', this.settingsTab,
-        (value: string) => this.setSettingsTab(value))
-      this.WorkspaceSegment('资料管理', 'documents', this.settingsTab,
-        (value: string) => this.setSettingsTab(value))
+      SelectionTab({ label: '知识库', selected: this.settingsTab === 'knowledge',
+        onSelect: () => this.setSettingsTab('knowledge') })
+      SelectionTab({ label: '本地算法', selected: this.settingsTab === 'algorithm',
+        onSelect: () => this.setSettingsTab('algorithm') })
+      SelectionTab({ label: '资料管理', selected: this.settingsTab === 'documents',
+        onSelect: () => this.setSettingsTab('documents') })
     }.padding(3 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8).alignSelf(ItemAlign.Start)
   }
   @Builder
