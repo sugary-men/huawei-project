@@ -62,23 +62,6 @@ export struct RagKnowledgeBasePanel {
     this.notice = ''
   }
 
-  private createBase(): void {
-    this.selectedId = ''
-    this.name = ''
-    this.description = ''
-    this.embeddingMode = this.profiles('embedding').length > 0 ? 'online' : 'local'
-    this.embeddingProfileId = this.archive.apiProfiles.find((profile: RagApiProfile) =>
-      profile.kind === 'embedding')?.id || ''
-    this.rerankMode = 'local'
-    this.rerankProfileId = ''
-    this.includeBuiltIn = false
-    this.includeAllLocal = false
-    this.documentIds = []
-    this.notice = this.embeddingMode === 'online'
-      ? '填写名称和资料范围；可直接保存，也可构建在线索引。'
-      : '当前以本地模式创建，可先保存使用，之后再配置在线 Embedding。'
-  }
-
   private profiles(kind: string): RagApiProfile[] {
     return this.archive.apiProfiles.filter((profile: RagApiProfile) => profile.kind === kind)
   }
@@ -178,38 +161,32 @@ export struct RagKnowledgeBasePanel {
   }
 
   @Builder
-  BaseList() {
+  CurrentBaseSummary() {
     Column({ space: 8 * this.fontScale }) {
-      Row() {
-        Text('知识库').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text).layoutWeight(1)
-        Button('＋ 新建').height(30 * this.fontScale).fontSize(10 * this.fontScale).backgroundColor(UiTheme.raised)
-          .fontColor(UiTheme.text).interactive().onClick(() => this.createBase())
-      }.width('100%')
-      Scroll() {
+      Text('当前知识库').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium)
+        .fontColor(UiTheme.muted).width('100%')
+      if (this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
+        base.id === this.archive.activeBaseId) !== undefined) {
         Column({ space: 7 * this.fontScale }) {
-          ForEach(this.archive.knowledgeBases, (base: RagKnowledgeBase) => {
-            Column({ space: 4 * this.fontScale }) {
-              Row() {
-                Text(base.name).fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-                if (this.archive.activeBaseId === base.id) {
-                  Text('当前').fontSize(9 * this.fontScale).fontColor(UiTheme.onPrimary).backgroundColor(UiTheme.primary)
-                    .padding({ left: 6, right: 6, top: 2, bottom: 2 }).borderRadius(5)
-                }
-              }.width('100%')
-              Text(`${base.embeddingMode === 'online' ? '在线 Embedding' : '本地哈希'} · ${base.chunkCount || '待索引'} 片`)
-                .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-              if (base.embeddingMode === 'local') {
-                Text('未启用语义检索 · 本地检索可用').fontSize(8 * this.fontScale)
-                  .fontColor(UiTheme.secondary)
-              }
-            }.width('100%').padding(10 * this.fontScale).alignItems(HorizontalAlign.Start)
-              .backgroundColor(this.selectedId === base.id ? UiTheme.surface : Color.Transparent)
-              .border({ width: 1, color: this.selectedId === base.id ? '#BDBDBD' : UiTheme.border }).borderRadius(8)
-              .interactive().onClick(() => { this.editBase(base); this.workspace()?.activateBase(base.id) })
-          }, (base: RagKnowledgeBase) => base.id)
-        }.width('100%')
-      }.layoutWeight(1).scrollBar(BarState.Auto).align(Alignment.TopStart)
+          Text(this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
+            base.id === this.archive.activeBaseId)?.name || '').fontSize(15 * this.fontScale)
+            .fontWeight(FontWeight.Medium).fontColor(UiTheme.text).width('100%')
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
+            base.id === this.archive.activeBaseId)?.embeddingMode === 'online'
+            ? '在线 Embedding' : '未启用语义检索 · 本地检索可用')
+            .fontSize(9 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+          Text(`${this.archive.knowledgeBases.find((base: RagKnowledgeBase) =>
+            base.id === this.archive.activeBaseId)?.chunkCount || '待索引'} 个知识片段`)
+            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).width('100%')
+        }.width('100%').padding(12 * this.fontScale).alignItems(HorizontalAlign.Start)
+          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(8)
+      } else {
+        Text('暂无知识库').fontSize(11 * this.fontScale).fontColor(UiTheme.muted).width('100%')
+      }
+      Text('如需切换或新建知识库，请使用页面顶部的知识库入口。')
+        .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).lineHeight(15 * this.fontScale)
+        .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8)
     }.width(this.wide() ? 270 : '100%').height(this.wide() ? '100%' : 205).padding(12 * this.fontScale).backgroundColor('#F7F7F7')
       .border({ width: { right: 1 }, color: UiTheme.border })
   }
@@ -220,16 +197,10 @@ export struct RagKnowledgeBasePanel {
       Column({ space: 10 * this.fontScale }) {
         Row() {
           Column({ space: 3 * this.fontScale }) {
-            Text(this.selectedId ? '知识库设置' : '新建知识库').fontSize(17 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text(this.selectedId ? `ID ${this.selectedId}` : '可先线下创建，再补充在线 Embedding')
+            Text('知识库设置').fontSize(17 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+            Text(this.selectedId ? `ID ${this.selectedId}` : '使用顶部入口选择或新建知识库')
               .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          if (this.selectedId) {
-            Button('设为当前').height(30 * this.fontScale).fontSize(10 * this.fontScale).backgroundColor(UiTheme.raised)
-              .fontColor(UiTheme.text).onClick(() => {
-                this.workspace()?.activateBase(this.selectedId); this.refresh(this.selectedId); this.onChanged()
-              })
-          }
         }.width('100%')
         TextInput({ text: this.name, placeholder: '知识库名称' }).height(38 * this.fontScale).fontSize(12 * this.fontScale)
           .backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.name = value)
@@ -309,14 +280,14 @@ export struct RagKnowledgeBasePanel {
   build() {
     if (this.wide()) {
       Row() {
-        this.BaseList()
+        this.CurrentBaseSummary()
         this.BaseForm()
       }.width('100%').height('100%').alignItems(VerticalAlign.Top).backgroundColor(UiTheme.surface)
         .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
         .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
     } else {
       Column() {
-        this.BaseList()
+        this.CurrentBaseSummary()
         this.BaseForm()
       }.width('100%').height('100%').backgroundColor(UiTheme.surface)
         .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
