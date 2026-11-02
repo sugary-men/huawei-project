@@ -30,6 +30,7 @@ export struct LibraryPage {
   @State draftTitle: string = ''
   @State draftText: string = ''
   @State activeBaseId: string = 'kb-local'
+  @State ragRevision: number = 0
   private alive: boolean = true
   onUse: (id: string, attachment: boolean) => void = () => {}
   onUseSource: (source: SourceCitation) => void = () => {}
@@ -156,6 +157,7 @@ export struct LibraryPage {
   }
   private ragChanged(): void {
     this.activeBaseId = IntegrationService.ragWorkspace?.activeBase().id || this.activeBaseId
+    this.ragRevision++
     this.onChanged()
   }
 
@@ -406,9 +408,11 @@ export struct LibraryPage {
       } else if (this.section === 'knowledge') {
         RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() }).layoutWeight(1)
       } else if (this.section === 'visualization') {
-        RagDataVisualization({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-          onUse: (source: SourceCitation) => this.onUseSource(source) })
-          .layoutWeight(1)
+        ForEach([`${this.activeBaseId}:${this.ragRevision}`], (key: string) => {
+          RagDataVisualization({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+            onUse: (source: SourceCitation) => this.onUseSource(source) })
+            .layoutWeight(1).transition(UiMotion.reveal())
+        }, (key: string) => key)
       } else if (this.section === 'api') {
         RagApiPanel({ viewportWidth: this.contentWidth(), onChanged: () => this.ragChanged() }).layoutWeight(1)
       } else {

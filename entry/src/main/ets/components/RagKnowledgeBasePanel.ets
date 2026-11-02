@@ -147,11 +147,15 @@ export struct RagKnowledgeBasePanel {
     }
     this.busy = true
     try {
+      const base = workspace.saveBase(this.selectedId, this.name, this.description, this.embeddingMode,
+        this.embeddingProfileId, this.rerankMode, this.rerankProfileId, this.includeBuiltIn,
+        this.includeAllLocal, this.documentIds)
+      this.selectedId = base.id
       const docs = library.documents().filter((document: LibraryDocument) => {
         if (document.text.trim().length === 0) return false
-        if (document.id.startsWith('rag:')) return this.includeBuiltIn
-        if (this.includeAllLocal) return true
-        return this.documentIds.includes(document.id)
+        if (document.id.startsWith('rag:')) return base.includeBuiltIn
+        if (base.includeAllLocal) return true
+        return base.documentIds.includes(document.id)
       })
       if (docs.length === 0) throw new Error('当前知识库没有可索引的文本或图片描述。')
       const algorithm = workspace.algorithm()
@@ -169,8 +173,8 @@ export struct RagKnowledgeBasePanel {
         model: profile.model, apiKey: profile.apiKey, dimensions: profile.dimensions })
       const index = await RagIndexBuilder.build(sources, embedder, {
         maxChars: algorithm.chunkChars, overlapChars: algorithm.chunkOverlap, batchSize: 24 })
-      workspace.storeIndex(this.selectedId, index, embedder.modelId)
-      this.refresh(this.selectedId)
+      workspace.storeIndex(base.id, index, embedder.modelId)
+      this.refresh(base.id)
       this.notice = `索引构建完成：${index.chunks.length} 个片段，模型 ${embedder.modelId}。`
       this.onChanged()
     } catch (error) {

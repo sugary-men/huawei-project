@@ -132,6 +132,14 @@ export class RagWorkspaceService {
       let base = state.knowledgeBases.find((item: RagKnowledgeBase) => item.id === id)
       if (base === undefined) {
         if (state.knowledgeBases.length >= 20) throw new Error('最多保存20个知识库。')
+        if (embeddingMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
+          profile.id === embeddingProfileId && profile.kind === 'embedding')) {
+          throw new Error('在线向量化需要选择一个Embedding API。')
+        }
+        if (rerankMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
+          profile.id === rerankProfileId && profile.kind === 'rerank')) {
+          throw new Error('在线重排序需要选择一个Rerank API。')
+        }
         base = { id: `kb:${util.generateRandomUUID()}`, name: title, description: description.trim().slice(0, 300),
           embeddingMode: embeddingMode === 'online' ? 'online' : 'local', embeddingProfileId: embeddingProfileId,
           rerankMode: rerankMode === 'online' ? 'online' : rerankMode === 'none' ? 'none' : 'local',
@@ -139,6 +147,14 @@ export class RagWorkspaceService {
           documentIds: ids, createdAt: now, updatedAt: now, lastIndexedAt: 0, chunkCount: 0 }
         state.knowledgeBases.push(base)
       } else {
+        if (embeddingMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
+          profile.id === embeddingProfileId && profile.kind === 'embedding')) {
+          throw new Error('在线向量化需要选择一个Embedding API。')
+        }
+        if (rerankMode === 'online' && !state.apiProfiles.some((profile: RagApiProfile) =>
+          profile.id === rerankProfileId && profile.kind === 'rerank')) {
+          throw new Error('在线重排序需要选择一个Rerank API。')
+        }
         base.name = title
         base.description = description.trim().slice(0, 300)
         base.embeddingMode = embeddingMode === 'online' ? 'online' : 'local'
@@ -203,10 +219,21 @@ export class RagWorkspaceService {
   removeProfile(id: string): RagWorkspaceArchive {
     return this.store.change((state: RagWorkspaceArchive): RagWorkspaceArchive => {
       state.apiProfiles = state.apiProfiles.filter((profile: RagApiProfile) => profile.id !== id)
+      const invalidated = new Set<string>()
       state.knowledgeBases.forEach((base: RagKnowledgeBase) => {
-        if (base.embeddingProfileId === id) base.embeddingProfileId = ''
-        if (base.rerankProfileId === id) base.rerankProfileId = ''
+        if (base.embeddingProfileId === id) {
+          base.embeddingMode = 'local'
+          base.embeddingProfileId = ''
+          base.lastIndexedAt = 0
+          base.chunkCount = 0
+          invalidated.add(base.id)
+        }
+        if (base.rerankProfileId === id) {
+          base.rerankMode = 'local'
+          base.rerankProfileId = ''
+        }
       })
+      state.indexes = state.indexes.filter((index: RagStoredIndex) => !invalidated.has(index.baseId))
       return state
     })
   }
