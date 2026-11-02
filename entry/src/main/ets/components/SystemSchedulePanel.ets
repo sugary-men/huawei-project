@@ -212,12 +212,15 @@ export struct SystemSchedulePanel {
               }
               if (this.tab === 'reminders' && !this.calendarForm()) {
                 Row({ space: 8 }) {
-                  Button(this.reminderKind === 'alarm' ? '✓ 闹钟' : '闹钟').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('alarm'))
-                  Button(this.reminderKind === 'timer' ? '✓ 倒计时' : '倒计时').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('timer'))
-                  Button(this.reminderKind === 'calendar' ? '✓ 日期提醒' : '日期提醒').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('calendar'))
+                  SelectionTab({ label: this.reminderKind === 'alarm' ? '✓ 闹钟' : '闹钟',
+                    selected: this.reminderKind === 'alarm', showIndicator: false,
+                    onSelect: () => this.setReminderKind('alarm') })
+                  SelectionTab({ label: this.reminderKind === 'timer' ? '✓ 倒计时' : '倒计时',
+                    selected: this.reminderKind === 'timer', showIndicator: false,
+                    onSelect: () => this.setReminderKind('timer') })
+                  SelectionTab({ label: this.reminderKind === 'calendar' ? '✓ 日期提醒' : '日期提醒',
+                    selected: this.reminderKind === 'calendar', showIndicator: false,
+                    onSelect: () => this.setReminderKind('calendar') })
                 }
                 if (this.reminderKind === 'alarm') this.Field('下次响铃时刻（设备时间 HH:mm）', this.alarmTime, 'system-alarm-time', (value: string) => this.alarmTime = value)
                 else if (this.reminderKind === 'timer') this.Field('倒计时秒数', this.seconds, 'system-timer-seconds', (value: string) => this.seconds = value)
