@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-02T00:00:00.000Z",
+  "generator": "test/fixtures/generate.cjs",
+  "counts": {
+    "documents": 12,
+    "images": 4,
+    "knowledgeNodes": 120,
+    "edges": 159
+  },
+  "files": [
+    "library.json",
+    "knowledge-graph.json",
+    "rag-workspace.seed.json",
+    "images/knowledge-card-01.png",
+    "images/knowledge-card-02.png",
+    "images/knowledge-card-03.png",
+    "images/knowledge-card-04.png"
+  ]
+}

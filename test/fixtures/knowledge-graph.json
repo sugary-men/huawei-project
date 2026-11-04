@@ -1,0 +1,2822 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-02T00:00:00.000Z",
+  "viewport": {
+    "width": 900,
+    "height": 560
+  },
+  "base": {
+    "id": "fixture",
+    "name": "离线测试知识库"
+  },
+  "nodes": [
+    {
+      "id": "base:fixture",
+      "kind": "base",
+      "label": "离线测试知识库",
+      "sourceId": "",
+      "chunkId": "",
+      "tags": [
+        "测试"
+      ],
+      "content": "120 节点关系图验收数据",
+      "x": 450,
+      "y": 280
+    },
+    {
+      "id": "chunk:001",
+      "kind": "chunk",
+      "label": "操作系统节点 1",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-1",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 1，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 542.82,
+      "y": 280
+    },
+    {
+      "id": "chunk:002",
+      "kind": "chunk",
+      "label": "数据结构节点 2",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-2",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 2，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 374.59,
+      "y": 349.09
+    },
+    {
+      "id": "chunk:003",
+      "kind": "chunk",
+      "label": "计算机网络节点 3",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-3",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 3，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 459.58,
+      "y": 170.89
+    },
+    {
+      "id": "chunk:004",
+      "kind": "chunk",
+      "label": "数据库系统节点 4",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-4",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 4，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 520.36,
+      "y": 371.77
+    },
+    {
+      "id": "chunk:005",
+      "kind": "chunk",
+      "label": "软件工程节点 5",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-5",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 5，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 330.82,
+      "y": 258.92
+    },
+    {
+      "id": "chunk:006",
+      "kind": "chunk",
+      "label": "人工智能节点 6",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-6",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 6，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 556.23,
+      "y": 212.43
+    },
+    {
+      "id": "chunk:007",
+      "kind": "chunk",
+      "label": "操作系统节点 7",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-7",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 7，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 416.15,
+      "y": 405.91
+    },
+    {
+      "id": "chunk:008",
+      "kind": "chunk",
+      "label": "数据结构节点 8",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-8",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 8，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 387.99,
+      "y": 160.59
+    },
+    {
+      "id": "chunk:009",
+      "kind": "chunk",
+      "label": "计算机网络节点 9",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-9",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 9，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 580.06,
+      "y": 327.5
+    },
+    {
+      "id": "chunk:010",
+      "kind": "chunk",
+      "label": "数据库系统节点 10",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-10",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 10，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 318.59,
+      "y": 334.25
+    },
+    {
+      "id": "chunk:011",
+      "kind": "chunk",
+      "label": "软件工程节点 11",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-11",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 11，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 511.75,
+      "y": 148.04
+    },
+    {
+      "id": "chunk:012",
+      "kind": "chunk",
+      "label": "人工智能节点 12",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-12",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 12，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 494.61,
+      "y": 422.22
+    },
+    {
+      "id": "chunk:013",
+      "kind": "chunk",
+      "label": "操作系统节点 13",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-13",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 13，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 318.24,
+      "y": 203.64
+    },
+    {
+      "id": "chunk:014",
+      "kind": "chunk",
+      "label": "数据结构节点 14",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-14",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 14，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 601.77,
+      "y": 246.63
+    },
+    {
+      "id": "chunk:015",
+      "kind": "chunk",
+      "label": "计算机网络节点 15",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-15",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 15，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 358.91,
+      "y": 409.57
+    },
+    {
+      "id": "chunk:016",
+      "kind": "chunk",
+      "label": "数据库系统节点 16",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-16",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 16，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 429.27,
+      "y": 120.05
+    },
+    {
+      "id": "chunk:017",
+      "kind": "chunk",
+      "label": "软件工程节点 17",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-17",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 17，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 575.48,
+      "y": 385.75
+    },
+    {
+      "id": "chunk:018",
+      "kind": "chunk",
+      "label": "人工智能节点 18",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-18",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 18，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 283.32,
+      "y": 286.89
+    },
+    {
+      "id": "chunk:019",
+      "kind": "chunk",
+      "label": "操作系统节点 19",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-19",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 19，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 570.13,
+      "y": 160.45
+    },
+    {
+      "id": "chunk:020",
+      "kind": "chunk",
+      "label": "数据结构节点 20",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-20",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 20，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 442.05,
+      "y": 451.88
+    },
+    {
+      "id": "chunk:021",
+      "kind": "chunk",
+      "label": "计算机网络节点 21",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-21",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 21，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 338.14,
+      "y": 145.96
+    },
+    {
+      "id": "chunk:022",
+      "kind": "chunk",
+      "label": "数据库系统节点 22",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-22",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 22，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 625.46,
+      "y": 303.61
+    },
+    {
+      "id": "chunk:023",
+      "kind": "chunk",
+      "label": "软件工程节点 23",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-23",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 23，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 302.7,
+      "y": 382.49
+    },
+    {
+      "id": "chunk:024",
+      "kind": "chunk",
+      "label": "人工智能节点 24",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-24",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 24，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 489.9,
+      "y": 102.63
+    },
+    {
+      "id": "chunk:025",
+      "kind": "chunk",
+      "label": "操作系统节点 25",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-25",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 25，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 541.54,
+      "y": 439.74
+    },
+    {
+      "id": "chunk:026",
+      "kind": "chunk",
+      "label": "数据结构节点 26",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-26",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 26，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 272.45,
+      "y": 223.36
+    },
+    {
+      "id": "chunk:027",
+      "kind": "chunk",
+      "label": "计算机网络节点 27",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-27",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 27，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 621.2,
+      "y": 200.9
+    },
+    {
+      "id": "chunk:028",
+      "kind": "chunk",
+      "label": "数据库系统节点 28",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-28",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 28，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 376.35,
+      "y": 455.97
+    },
+    {
+      "id": "chunk:029",
+      "kind": "chunk",
+      "label": "软件工程节点 29",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-29",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 29，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 384.71,
+      "y": 98.49
+    },
+    {
+      "id": "chunk:030",
+      "kind": "chunk",
+      "label": "人工智能节点 30",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-30",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 30，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 622.61,
+      "y": 370.72
+    },
+    {
+      "id": "chunk:031",
+      "kind": "chunk",
+      "label": "操作系统节点 31",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-31",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 31，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 259.44,
+      "y": 330.23
+    },
+    {
+      "id": "chunk:032",
+      "kind": "chunk",
+      "label": "数据结构节点 32",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-32",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 32，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 557.68,
+      "y": 112.53
+    },
+    {
+      "id": "chunk:033",
+      "kind": "chunk",
+      "label": "计算机网络节点 33",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-33",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 33，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 484.06,
+      "y": 478.2
+    },
+    {
+      "id": "chunk:034",
+      "kind": "chunk",
+      "label": "数据库系统节点 34",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-34",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 34，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 289.45,
+      "y": 155.66
+    },
+    {
+      "id": "chunk:035",
+      "kind": "chunk",
+      "label": "软件工程节点 35",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-35",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 35，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 654.32,
+      "y": 263.07
+    },
+    {
+      "id": "chunk:036",
+      "kind": "chunk",
+      "label": "人工智能节点 36",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-36",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 36，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 309.48,
+      "y": 431.9
+    },
+    {
+      "id": "chunk:037",
+      "kind": "chunk",
+      "label": "操作系统节点 37",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-37",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 37，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 451.02,
+      "y": 71.18
+    },
+    {
+      "id": "chunk:038",
+      "kind": "chunk",
+      "label": "数据结构节点 38",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-38",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 38，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 591.55,
+      "y": 436.04
+    },
+    {
+      "id": "chunk:039",
+      "kind": "chunk",
+      "label": "计算机网络节点 39",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-39",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 39，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 238.38,
+      "y": 260.39
+    },
+    {
+      "id": "chunk:040",
+      "kind": "chunk",
+      "label": "数据库系统节点 40",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-40",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 40，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 620.73,
+      "y": 150.42
+    },
+    {
+      "id": "chunk:041",
+      "kind": "chunk",
+      "label": "软件工程节点 41",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-41",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 41，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 411.32,
+      "y": 492.64
+    },
+    {
+      "id": "chunk:042",
+      "kind": "chunk",
+      "label": "人工智能节点 42",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-42",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 42，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 333.94,
+      "y": 95.58
+    },
+    {
+      "id": "chunk:043",
+      "kind": "chunk",
+      "label": "操作系统节点 43",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-43",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 43，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 661.84,
+      "y": 338.06
+    },
+    {
+      "id": "chunk:044",
+      "kind": "chunk",
+      "label": "数据结构节点 44",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-44",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 44，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 253.04,
+      "y": 381.08
+    },
+    {
+      "id": "chunk:045",
+      "kind": "chunk",
+      "label": "计算机网络节点 45",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-45",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 45，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 527.55,
+      "y": 70.82
+    },
+    {
+      "id": "chunk:046",
+      "kind": "chunk",
+      "label": "数据库系统节点 46",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-46",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 46，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 534.75,
+      "y": 488.19
+    },
+    {
+      "id": "chunk:047",
+      "kind": "chunk",
+      "label": "软件工程节点 47",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-47",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 47，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 245.36,
+      "y": 183.02
+    },
+    {
+      "id": "chunk:048",
+      "kind": "chunk",
+      "label": "人工智能节点 48",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-48",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 48，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 667.99,
+      "y": 212.79
+    },
+    {
+      "id": "chunk:049",
+      "kind": "chunk",
+      "label": "操作系统节点 49",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-49",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 49，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 333.83,
+      "y": 478.22
+    },
+    {
+      "id": "chunk:050",
+      "kind": "chunk",
+      "label": "数据结构节点 50",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-50",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 50，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 401.42,
+      "y": 53.78
+    },
+    {
+      "id": "chunk:051",
+      "kind": "chunk",
+      "label": "计算机网络节点 51",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-51",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 51，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 639.94,
+      "y": 414.92
+    },
+    {
+      "id": "chunk:052",
+      "kind": "chunk",
+      "label": "数据库系统节点 52",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-52",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 52，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 217.23,
+      "y": 309.01
+    },
+    {
+      "id": "chunk:053",
+      "kind": "chunk",
+      "label": "软件工程节点 53",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-53",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 53，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 603.06,
+      "y": 100.18
+    },
+    {
+      "id": "chunk:054",
+      "kind": "chunk",
+      "label": "人工智能节点 54",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-54",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 54，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 458.66,
+      "y": 517.55
+    },
+    {
+      "id": "chunk:055",
+      "kind": "chunk",
+      "label": "操作系统节点 55",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-55",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 55，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 282.07,
+      "y": 109.59
+    },
+    {
+      "id": "chunk:056",
+      "kind": "chunk",
+      "label": "数据结构节点 56",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-56",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 56，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 690.47,
+      "y": 292.3
+    },
+    {
+      "id": "chunk:057",
+      "kind": "chunk",
+      "label": "计算机网络节点 57",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-57",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 57，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 263.21,
+      "y": 434.33
+    },
+    {
+      "id": "chunk:058",
+      "kind": "chunk",
+      "label": "数据库系统节点 58",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-58",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 58，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 483.69,
+      "y": 38.53
+    },
+    {
+      "id": "chunk:059",
+      "kind": "chunk",
+      "label": "软件工程节点 59",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-59",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 59，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 589.11,
+      "y": 482.04
+    },
+    {
+      "id": "chunk:060",
+      "kind": "chunk",
+      "label": "人工智能节点 60",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-60",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 60，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 209.51,
+      "y": 224.66
+    },
+    {
+      "id": "chunk:061",
+      "kind": "chunk",
+      "label": "操作系统节点 61",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-61",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 61，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 665.99,
+      "y": 157.63
+    },
+    {
+      "id": "chunk:062",
+      "kind": "chunk",
+      "label": "数据结构节点 62",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-62",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 62，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 372.95,
+      "y": 517.51
+    },
+    {
+      "id": "chunk:063",
+      "kind": "chunk",
+      "label": "计算机网络节点 63",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-63",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 63，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 345.78,
+      "y": 51.5
+    },
+    {
+      "id": "chunk:064",
+      "kind": "chunk",
+      "label": "数据库系统节点 64",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-64",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 64，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 682.51,
+      "y": 378.64
+    },
+    {
+      "id": "chunk:065",
+      "kind": "chunk",
+      "label": "软件工程节点 65",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-65",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 65，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 210.58,
+      "y": 364.8
+    },
+    {
+      "id": "chunk:066",
+      "kind": "chunk",
+      "label": "人工智能节点 66",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-66",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 66，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 569.92,
+      "y": 54.5
+    },
+    {
+      "id": "chunk:067",
+      "kind": "chunk",
+      "label": "操作系统节点 67",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-67",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 67，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 514.24,
+      "y": 528.64
+    },
+    {
+      "id": "chunk:068",
+      "kind": "chunk",
+      "label": "数据结构节点 68",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-68",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 68，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 233.51,
+      "y": 139.3
+    },
+    {
+      "id": "chunk:069",
+      "kind": "chunk",
+      "label": "计算机网络节点 69",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-69",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 69，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 706.03,
+      "y": 237.28
+    },
+    {
+      "id": "chunk:070",
+      "kind": "chunk",
+      "label": "数据库系统节点 70",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-70",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 70，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 289.22,
+      "y": 485.52
+    },
+    {
+      "id": "chunk:071",
+      "kind": "chunk",
+      "label": "软件工程节点 71",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-71",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 71，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 429.62,
+      "y": 18.49
+    },
+    {
+      "id": "chunk:072",
+      "kind": "chunk",
+      "label": "人工智能节点 72",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-72",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 72，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 642.66,
+      "y": 459.98
+    },
+    {
+      "id": "chunk:073",
+      "kind": "chunk",
+      "label": "操作系统节点 73",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-73",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 73，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 185.02,
+      "y": 277.41
+    },
+    {
+      "id": "chunk:074",
+      "kind": "chunk",
+      "label": "数据结构节点 74",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-74",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 74，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 648.12,
+      "y": 102.03
+    },
+    {
+      "id": "chunk:075",
+      "kind": "chunk",
+      "label": "计算机网络节点 75",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-75",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 75，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 424,
+      "y": 546.38
+    },
+    {
+      "id": "chunk:076",
+      "kind": "chunk",
+      "label": "数据库系统节点 76",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-76",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 76，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 288.45,
+      "y": 64.97
+    },
+    {
+      "id": "chunk:077",
+      "kind": "chunk",
+      "label": "软件工程节点 77",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-77",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 77，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 715.66,
+      "y": 329.67
+    },
+    {
+      "id": "chunk:078",
+      "kind": "chunk",
+      "label": "人工智能节点 78",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-78",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 78，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 219.46,
+      "y": 423.51
+    },
+    {
+      "id": "chunk:079",
+      "kind": "chunk",
+      "label": "操作系统节点 79",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-79",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 79，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 523.4,
+      "y": 17.21
+    },
+    {
+      "id": "chunk:080",
+      "kind": "chunk",
+      "label": "数据结构节点 80",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-80",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 80，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 573.97,
+      "y": 524.49
+    },
+    {
+      "id": "chunk:081",
+      "kind": "chunk",
+      "label": "计算机网络节点 81",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-81",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 81，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 192.25,
+      "y": 183.01
+    },
+    {
+      "id": "chunk:082",
+      "kind": "chunk",
+      "label": "数据库系统节点 82",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-82",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 82，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 706.75,
+      "y": 176.94
+    },
+    {
+      "id": "chunk:083",
+      "kind": "chunk",
+      "label": "软件工程节点 83",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-83",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 83，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 329.76,
+      "y": 530.56
+    },
+    {
+      "id": "chunk:084",
+      "kind": "chunk",
+      "label": "人工智能节点 84",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-84",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 84，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 369.05,
+      "y": 12.83
+    },
+    {
+      "id": "chunk:085",
+      "kind": "chunk",
+      "label": "操作系统节点 85",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-85",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 85，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 691.23,
+      "y": 422.96
+    },
+    {
+      "id": "chunk:086",
+      "kind": "chunk",
+      "label": "数据结构节点 86",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-86",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 86，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 174.35,
+      "y": 337.79
+    },
+    {
+      "id": "chunk:087",
+      "kind": "chunk",
+      "label": "计算机网络节点 87",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-87",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 87，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 614.94,
+      "y": 50.2
+    },
+    {
+      "id": "chunk:088",
+      "kind": "chunk",
+      "label": "数据库系统节点 88",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-88",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 88，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 483.76,
+      "y": 562.07
+    },
+    {
+      "id": "chunk:089",
+      "kind": "chunk",
+      "label": "软件工程节点 89",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-89",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 89，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 233.65,
+      "y": 94.02
+    },
+    {
+      "id": "chunk:090",
+      "kind": "chunk",
+      "label": "人工智能节点 90",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-90",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 90，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 736.36,
+      "y": 270.96
+    },
+    {
+      "id": "chunk:091",
+      "kind": "chunk",
+      "label": "操作系统节点 91",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-91",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 91，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 244.1,
+      "y": 480.94
+    },
+    {
+      "id": "chunk:092",
+      "kind": "chunk",
+      "label": "数据结构节点 92",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-92",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 92，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 466.16,
+      "y": -8.45
+    },
+    {
+      "id": "chunk:093",
+      "kind": "chunk",
+      "label": "计算机网络节点 93",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-93",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 93，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 633.68,
+      "y": 504.53
+    },
+    {
+      "id": "chunk:094",
+      "kind": "chunk",
+      "label": "数据库系统节点 94",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-94",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 94，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 161.73,
+      "y": 238.35
+    },
+    {
+      "id": "chunk:095",
+      "kind": "chunk",
+      "label": "软件工程节点 95",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-95",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 95，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 691.67,
+      "y": 115.33
+    },
+    {
+      "id": "chunk:096",
+      "kind": "chunk",
+      "label": "人工智能节点 96",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-96",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 96，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 382.77,
+      "y": 565.81
+    },
+    {
+      "id": "chunk:097",
+      "kind": "chunk",
+      "label": "操作系统节点 97",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-97",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 97，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 305.95,
+      "y": 22.83
+    },
+    {
+      "id": "chunk:098",
+      "kind": "chunk",
+      "label": "数据结构节点 98",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-98",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 98，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 731.03,
+      "y": 372.69
+    },
+    {
+      "id": "chunk:099",
+      "kind": "chunk",
+      "label": "计算机网络节点 99",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-99",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 99，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 179.12,
+      "y": 401.96
+    },
+    {
+      "id": "chunk:100",
+      "kind": "chunk",
+      "label": "数据库系统节点 100",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-100",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 100，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 567.81,
+      "y": 6.04
+    },
+    {
+      "id": "chunk:101",
+      "kind": "chunk",
+      "label": "软件工程节点 101",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-101",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 101，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 548.56,
+      "y": 562.66
+    },
+    {
+      "id": "chunk:102",
+      "kind": "chunk",
+      "label": "人工智能节点 102",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-102",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 102，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 185.39,
+      "y": 137.62
+    },
+    {
+      "id": "chunk:103",
+      "kind": "chunk",
+      "label": "操作系统节点 103",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-103",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 103，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 742.39,
+      "y": 205.97
+    },
+    {
+      "id": "chunk:104",
+      "kind": "chunk",
+      "label": "数据结构节点 104",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-104",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 104，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 283.79,
+      "y": 533.03
+    },
+    {
+      "id": "chunk:105",
+      "kind": "chunk",
+      "label": "计算机网络节点 105",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-105",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 105，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 401.46,
+      "y": -19.95
+    },
+    {
+      "id": "chunk:106",
+      "kind": "chunk",
+      "label": "数据库系统节点 106",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-106",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 106，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 689.28,
+      "y": 469.07
+    },
+    {
+      "id": "chunk:107",
+      "kind": "chunk",
+      "label": "软件工程节点 107",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-107",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 107，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 144.74,
+      "y": 302.29
+    },
+    {
+      "id": "chunk:108",
+      "kind": "chunk",
+      "label": "人工智能节点 108",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-108",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 108，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 660.78,
+      "y": 56.56
+    },
+    {
+      "id": "chunk:109",
+      "kind": "chunk",
+      "label": "操作系统节点 109",
+      "sourceId": "document-01",
+      "chunkId": "fixture-chunk-109",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 109，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 445.49,
+      "y": 588.23
+    },
+    {
+      "id": "chunk:110",
+      "kind": "chunk",
+      "label": "数据结构节点 110",
+      "sourceId": "document-02",
+      "chunkId": "fixture-chunk-110",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 110，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 244.39,
+      "y": 48.86
+    },
+    {
+      "id": "chunk:111",
+      "kind": "chunk",
+      "label": "计算机网络节点 111",
+      "sourceId": "document-03",
+      "chunkId": "fixture-chunk-111",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 111，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 758.82,
+      "y": 311.66
+    },
+    {
+      "id": "chunk:112",
+      "kind": "chunk",
+      "label": "数据库系统节点 112",
+      "sourceId": "document-04",
+      "chunkId": "fixture-chunk-112",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 112，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 200.03,
+      "y": 465.9
+    },
+    {
+      "id": "chunk:113",
+      "kind": "chunk",
+      "label": "软件工程节点 113",
+      "sourceId": "document-05",
+      "chunkId": "fixture-chunk-113",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 113，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 508.95,
+      "y": -26.99
+    },
+    {
+      "id": "chunk:114",
+      "kind": "chunk",
+      "label": "人工智能节点 114",
+      "sourceId": "document-06",
+      "chunkId": "fixture-chunk-114",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 114，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 614.46,
+      "y": 547.1
+    },
+    {
+      "id": "chunk:115",
+      "kind": "chunk",
+      "label": "操作系统节点 115",
+      "sourceId": "document-07",
+      "chunkId": "fixture-chunk-115",
+      "tags": [
+        "操作系统",
+        "文件管理"
+      ],
+      "content": "操作系统知识片段 115，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 147.28,
+      "y": 193.85
+    },
+    {
+      "id": "chunk:116",
+      "kind": "chunk",
+      "label": "数据结构节点 116",
+      "sourceId": "document-08",
+      "chunkId": "fixture-chunk-116",
+      "tags": [
+        "数据结构",
+        "进程调度"
+      ],
+      "content": "数据结构知识片段 116，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 732.35,
+      "y": 138.56
+    },
+    {
+      "id": "chunk:117",
+      "kind": "chunk",
+      "label": "计算机网络节点 117",
+      "sourceId": "document-09",
+      "chunkId": "fixture-chunk-117",
+      "tags": [
+        "计算机网络",
+        "关系模型"
+      ],
+      "content": "计算机网络知识片段 117，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 336.96,
+      "y": 576.01
+    },
+    {
+      "id": "chunk:118",
+      "kind": "chunk",
+      "label": "数据库系统节点 118",
+      "sourceId": "document-10",
+      "chunkId": "fixture-chunk-118",
+      "tags": [
+        "数据库系统",
+        "索引"
+      ],
+      "content": "数据库系统知识片段 118，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 333.01,
+      "y": -15.6
+    },
+    {
+      "id": "chunk:119",
+      "kind": "chunk",
+      "label": "软件工程节点 119",
+      "sourceId": "document-11",
+      "chunkId": "fixture-chunk-119",
+      "tags": [
+        "软件工程",
+        "检索"
+      ],
+      "content": "软件工程知识片段 119，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 736.88,
+      "y": 419.4
+    },
+    {
+      "id": "chunk:120",
+      "kind": "chunk",
+      "label": "人工智能节点 120",
+      "sourceId": "document-12",
+      "chunkId": "fixture-chunk-120",
+      "tags": [
+        "人工智能",
+        "测试"
+      ],
+      "content": "人工智能知识片段 120，用于验证缩放、平移、拖拽、边高亮与详情联动。",
+      "x": 143.3,
+      "y": 371.29
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-root-1",
+      "source": "base:fixture",
+      "target": "chunk:001",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-2",
+      "source": "base:fixture",
+      "target": "chunk:002",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-3",
+      "source": "base:fixture",
+      "target": "chunk:003",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-4",
+      "source": "base:fixture",
+      "target": "chunk:004",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-4",
+      "source": "chunk:003",
+      "target": "chunk:004",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-5",
+      "source": "base:fixture",
+      "target": "chunk:005",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-6",
+      "source": "base:fixture",
+      "target": "chunk:006",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-7",
+      "source": "base:fixture",
+      "target": "chunk:007",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-7",
+      "source": "chunk:006",
+      "target": "chunk:007",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-8",
+      "source": "base:fixture",
+      "target": "chunk:008",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-9",
+      "source": "base:fixture",
+      "target": "chunk:009",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-10",
+      "source": "base:fixture",
+      "target": "chunk:010",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-10",
+      "source": "chunk:009",
+      "target": "chunk:010",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-11",
+      "source": "base:fixture",
+      "target": "chunk:011",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-12",
+      "source": "base:fixture",
+      "target": "chunk:012",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-13",
+      "source": "base:fixture",
+      "target": "chunk:013",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-13",
+      "source": "chunk:012",
+      "target": "chunk:013",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-14",
+      "source": "base:fixture",
+      "target": "chunk:014",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-15",
+      "source": "base:fixture",
+      "target": "chunk:015",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-16",
+      "source": "base:fixture",
+      "target": "chunk:016",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-16",
+      "source": "chunk:015",
+      "target": "chunk:016",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-17",
+      "source": "base:fixture",
+      "target": "chunk:017",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-18",
+      "source": "base:fixture",
+      "target": "chunk:018",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-19",
+      "source": "base:fixture",
+      "target": "chunk:019",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-19",
+      "source": "chunk:018",
+      "target": "chunk:019",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-20",
+      "source": "base:fixture",
+      "target": "chunk:020",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-21",
+      "source": "base:fixture",
+      "target": "chunk:021",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-22",
+      "source": "base:fixture",
+      "target": "chunk:022",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-22",
+      "source": "chunk:021",
+      "target": "chunk:022",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-23",
+      "source": "base:fixture",
+      "target": "chunk:023",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-24",
+      "source": "base:fixture",
+      "target": "chunk:024",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-25",
+      "source": "base:fixture",
+      "target": "chunk:025",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-25",
+      "source": "chunk:024",
+      "target": "chunk:025",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-26",
+      "source": "base:fixture",
+      "target": "chunk:026",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-27",
+      "source": "base:fixture",
+      "target": "chunk:027",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-28",
+      "source": "base:fixture",
+      "target": "chunk:028",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-28",
+      "source": "chunk:027",
+      "target": "chunk:028",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-29",
+      "source": "base:fixture",
+      "target": "chunk:029",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-30",
+      "source": "base:fixture",
+      "target": "chunk:030",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-31",
+      "source": "base:fixture",
+      "target": "chunk:031",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-31",
+      "source": "chunk:030",
+      "target": "chunk:031",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-32",
+      "source": "base:fixture",
+      "target": "chunk:032",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-33",
+      "source": "base:fixture",
+      "target": "chunk:033",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-34",
+      "source": "base:fixture",
+      "target": "chunk:034",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-34",
+      "source": "chunk:033",
+      "target": "chunk:034",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-35",
+      "source": "base:fixture",
+      "target": "chunk:035",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-36",
+      "source": "base:fixture",
+      "target": "chunk:036",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-37",
+      "source": "base:fixture",
+      "target": "chunk:037",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-37",
+      "source": "chunk:036",
+      "target": "chunk:037",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-38",
+      "source": "base:fixture",
+      "target": "chunk:038",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-39",
+      "source": "base:fixture",
+      "target": "chunk:039",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-40",
+      "source": "base:fixture",
+      "target": "chunk:040",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-40",
+      "source": "chunk:039",
+      "target": "chunk:040",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-41",
+      "source": "base:fixture",
+      "target": "chunk:041",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-42",
+      "source": "base:fixture",
+      "target": "chunk:042",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-43",
+      "source": "base:fixture",
+      "target": "chunk:043",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-43",
+      "source": "chunk:042",
+      "target": "chunk:043",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-44",
+      "source": "base:fixture",
+      "target": "chunk:044",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-45",
+      "source": "base:fixture",
+      "target": "chunk:045",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-46",
+      "source": "base:fixture",
+      "target": "chunk:046",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-46",
+      "source": "chunk:045",
+      "target": "chunk:046",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-47",
+      "source": "base:fixture",
+      "target": "chunk:047",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-48",
+      "source": "base:fixture",
+      "target": "chunk:048",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-49",
+      "source": "base:fixture",
+      "target": "chunk:049",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-49",
+      "source": "chunk:048",
+      "target": "chunk:049",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-50",
+      "source": "base:fixture",
+      "target": "chunk:050",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-51",
+      "source": "base:fixture",
+      "target": "chunk:051",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-52",
+      "source": "base:fixture",
+      "target": "chunk:052",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-52",
+      "source": "chunk:051",
+      "target": "chunk:052",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-53",
+      "source": "base:fixture",
+      "target": "chunk:053",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-54",
+      "source": "base:fixture",
+      "target": "chunk:054",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-55",
+      "source": "base:fixture",
+      "target": "chunk:055",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-55",
+      "source": "chunk:054",
+      "target": "chunk:055",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-56",
+      "source": "base:fixture",
+      "target": "chunk:056",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-57",
+      "source": "base:fixture",
+      "target": "chunk:057",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-58",
+      "source": "base:fixture",
+      "target": "chunk:058",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-58",
+      "source": "chunk:057",
+      "target": "chunk:058",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-59",
+      "source": "base:fixture",
+      "target": "chunk:059",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-60",
+      "source": "base:fixture",
+      "target": "chunk:060",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-61",
+      "source": "base:fixture",
+      "target": "chunk:061",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-61",
+      "source": "chunk:060",
+      "target": "chunk:061",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-62",
+      "source": "base:fixture",
+      "target": "chunk:062",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-63",
+      "source": "base:fixture",
+      "target": "chunk:063",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-64",
+      "source": "base:fixture",
+      "target": "chunk:064",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-64",
+      "source": "chunk:063",
+      "target": "chunk:064",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-65",
+      "source": "base:fixture",
+      "target": "chunk:065",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-66",
+      "source": "base:fixture",
+      "target": "chunk:066",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-67",
+      "source": "base:fixture",
+      "target": "chunk:067",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-67",
+      "source": "chunk:066",
+      "target": "chunk:067",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-68",
+      "source": "base:fixture",
+      "target": "chunk:068",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-69",
+      "source": "base:fixture",
+      "target": "chunk:069",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-70",
+      "source": "base:fixture",
+      "target": "chunk:070",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-70",
+      "source": "chunk:069",
+      "target": "chunk:070",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-71",
+      "source": "base:fixture",
+      "target": "chunk:071",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-72",
+      "source": "base:fixture",
+      "target": "chunk:072",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-73",
+      "source": "base:fixture",
+      "target": "chunk:073",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-73",
+      "source": "chunk:072",
+      "target": "chunk:073",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-74",
+      "source": "base:fixture",
+      "target": "chunk:074",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-75",
+      "source": "base:fixture",
+      "target": "chunk:075",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-76",
+      "source": "base:fixture",
+      "target": "chunk:076",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-76",
+      "source": "chunk:075",
+      "target": "chunk:076",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-77",
+      "source": "base:fixture",
+      "target": "chunk:077",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-78",
+      "source": "base:fixture",
+      "target": "chunk:078",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-79",
+      "source": "base:fixture",
+      "target": "chunk:079",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-79",
+      "source": "chunk:078",
+      "target": "chunk:079",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-80",
+      "source": "base:fixture",
+      "target": "chunk:080",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-81",
+      "source": "base:fixture",
+      "target": "chunk:081",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-82",
+      "source": "base:fixture",
+      "target": "chunk:082",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-82",
+      "source": "chunk:081",
+      "target": "chunk:082",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-83",
+      "source": "base:fixture",
+      "target": "chunk:083",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-84",
+      "source": "base:fixture",
+      "target": "chunk:084",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-85",
+      "source": "base:fixture",
+      "target": "chunk:085",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-85",
+      "source": "chunk:084",
+      "target": "chunk:085",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-86",
+      "source": "base:fixture",
+      "target": "chunk:086",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-87",
+      "source": "base:fixture",
+      "target": "chunk:087",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-88",
+      "source": "base:fixture",
+      "target": "chunk:088",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-88",
+      "source": "chunk:087",
+      "target": "chunk:088",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-89",
+      "source": "base:fixture",
+      "target": "chunk:089",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-90",
+      "source": "base:fixture",
+      "target": "chunk:090",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-91",
+      "source": "base:fixture",
+      "target": "chunk:091",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-91",
+      "source": "chunk:090",
+      "target": "chunk:091",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-92",
+      "source": "base:fixture",
+      "target": "chunk:092",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-93",
+      "source": "base:fixture",
+      "target": "chunk:093",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-94",
+      "source": "base:fixture",
+      "target": "chunk:094",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-94",
+      "source": "chunk:093",
+      "target": "chunk:094",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-95",
+      "source": "base:fixture",
+      "target": "chunk:095",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-96",
+      "source": "base:fixture",
+      "target": "chunk:096",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-97",
+      "source": "base:fixture",
+      "target": "chunk:097",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-97",
+      "source": "chunk:096",
+      "target": "chunk:097",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-98",
+      "source": "base:fixture",
+      "target": "chunk:098",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-99",
+      "source": "base:fixture",
+      "target": "chunk:099",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-100",
+      "source": "base:fixture",
+      "target": "chunk:100",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-100",
+      "source": "chunk:099",
+      "target": "chunk:100",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-101",
+      "source": "base:fixture",
+      "target": "chunk:101",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-102",
+      "source": "base:fixture",
+      "target": "chunk:102",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-103",
+      "source": "base:fixture",
+      "target": "chunk:103",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-103",
+      "source": "chunk:102",
+      "target": "chunk:103",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-104",
+      "source": "base:fixture",
+      "target": "chunk:104",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-105",
+      "source": "base:fixture",
+      "target": "chunk:105",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-106",
+      "source": "base:fixture",
+      "target": "chunk:106",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-106",
+      "source": "chunk:105",
+      "target": "chunk:106",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-107",
+      "source": "base:fixture",
+      "target": "chunk:107",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-108",
+      "source": "base:fixture",
+      "target": "chunk:108",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-109",
+      "source": "base:fixture",
+      "target": "chunk:109",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-109",
+      "source": "chunk:108",
+      "target": "chunk:109",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-110",
+      "source": "base:fixture",
+      "target": "chunk:110",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-111",
+      "source": "base:fixture",
+      "target": "chunk:111",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-112",
+      "source": "base:fixture",
+      "target": "chunk:112",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-112",
+      "source": "chunk:111",
+      "target": "chunk:112",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-113",
+      "source": "base:fixture",
+      "target": "chunk:113",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-114",
+      "source": "base:fixture",
+      "target": "chunk:114",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-115",
+      "source": "base:fixture",
+      "target": "chunk:115",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-115",
+      "source": "chunk:114",
+      "target": "chunk:115",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-116",
+      "source": "base:fixture",
+      "target": "chunk:116",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-117",
+      "source": "base:fixture",
+      "target": "chunk:117",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-118",
+      "source": "base:fixture",
+      "target": "chunk:118",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-semantic-118",
+      "source": "chunk:117",
+      "target": "chunk:118",
+      "kind": "semantic",
+      "weight": 0.68
+    },
+    {
+      "id": "edge-root-119",
+      "source": "base:fixture",
+      "target": "chunk:119",
+      "kind": "branch",
+      "weight": 0.45
+    },
+    {
+      "id": "edge-root-120",
+      "source": "base:fixture",
+      "target": "chunk:120",
+      "kind": "branch",
+      "weight": 0.45
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "activeBaseId": "kb-fixture",
+  "knowledgeBases": [
+    {
+      "id": "kb-fixture",
+      "name": "离线测试知识库",
+      "description": "由 generate.cjs 生成，不依赖网络",
+      "embeddingMode": "local",
+      "embeddingProfileId": "",
+      "rerankMode": "local",
+      "rerankProfileId": "",
+      "includeBuiltIn": false,
+      "includeAllLocal": true,
+      "documentIds": [
+        "image-01",
+        "image-02",
+        "image-03",
+        "image-04",
+        "document-05",
+        "document-06",
+        "document-07",
+        "document-08",
+        "document-09",
+        "document-10",
+        "document-11",
+        "document-12"
+      ],
+      "createdAt": 1762041600000,
+      "updatedAt": 1762041600000,
+      "lastIndexedAt": 0,
+      "chunkCount": 120
+    }
+  ],
+  "apiProfiles": [],
+  "indexes": [],
+  "algorithm": {
+    "lexicalWeight": 0.55,
+    "semanticWeight": 0.45,
+    "bm25K1": 1.2,
+    "bm25B": 0.75,
+    "localRerank": true,
+    "rerankWeight": 0.25,
+    "topK": 4,
+    "minScore": 0.2,
+    "maxPerSource": 2,
+    "contextChars": 2400,
+    "chunkChars": 800,
+    "chunkOverlap": 120
+  }
+}

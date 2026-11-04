@@ -32,17 +32,16 @@
         "reason": "$string:microphone_reason",
         "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
       },
-      // main 旧硬件权限停用，恢复 BLE/NFC 入口时一并恢复：
-      // {
-      //   "name": "ohos.permission.ACCESS_BLUETOOTH",
-      //   "reason": "$string:bluetooth_reason",
-      //   "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
-      // },
-      // {
-      //   "name": "ohos.permission.NFC_TAG",
-      //   "reason": "$string:nfc_reason",
-      //   "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
-      // },
+      {
+        "name": "ohos.permission.ACCESS_BLUETOOTH",
+        "reason": "$string:bluetooth_reason",
+        "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.NFC_TAG",
+        "reason": "$string:nfc_reason",
+        "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
+      },
       {
         "name": "ohos.permission.MANAGE_SCREEN_TIME_GUARD",
         "reason": "$string:screen_time_guard_reason",

@@ -5,6 +5,7 @@ import { ScheduleArgs, ScheduleEntry, ScheduleResult } from '../models/ScheduleM
 import { IntegrationService } from '../services/IntegrationService'
 import { ScheduleService } from '../services/ScheduleService'
 import { ScheduleOverviewService } from '../services/ScheduleOverviewService'
+import { SelectionTab } from './SelectionTab'
 
 @Component
 export struct SystemSchedulePanel {
@@ -180,12 +181,15 @@ export struct SystemSchedulePanel {
         .interactive().onClick(() => this.refreshTime())
       Row({ space: 8 * this.fontScale }) {
         if (!this.embedded) {
-        Button('日历').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'calendar' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'calendar' ? UiTheme.surface : UiTheme.text).id('system-tab-calendar').enabled(!this.busy).interactive().onClick(() => this.switchTab('calendar'))
-        Button('提醒').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'reminders' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'reminders' ? UiTheme.surface : UiTheme.text).id('system-tab-reminders').enabled(!this.busy).interactive().onClick(() => this.switchTab('reminders'))
-        Button('备忘录').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(this.tab === 'memos' ? UiTheme.primary : UiTheme.raised)
-          .fontColor(this.tab === 'memos' ? UiTheme.surface : UiTheme.text).id('system-tab-memos').enabled(!this.busy).interactive().onClick(() => this.switchTab('memos'))
+          SelectionTab({ label: '日历', selected: this.tab === 'calendar', showIndicator: false,
+            itemId: 'system-tab-calendar', disabled: this.busy,
+            onSelect: () => this.switchTab('calendar') })
+          SelectionTab({ label: '提醒', selected: this.tab === 'reminders', showIndicator: false,
+            itemId: 'system-tab-reminders', disabled: this.busy,
+            onSelect: () => this.switchTab('reminders') })
+          SelectionTab({ label: '备忘录', selected: this.tab === 'memos', showIndicator: false,
+            itemId: 'system-tab-memos', disabled: this.busy,
+            onSelect: () => this.switchTab('memos') })
         }
         Blank()
         Button(this.busy ? '处理中' : '刷新').fontSize(12 * this.fontScale).height(32 * this.fontScale).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
@@ -208,12 +212,15 @@ export struct SystemSchedulePanel {
               }
               if (this.tab === 'reminders' && !this.calendarForm()) {
                 Row({ space: 8 }) {
-                  Button(this.reminderKind === 'alarm' ? '✓ 闹钟' : '闹钟').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('alarm'))
-                  Button(this.reminderKind === 'timer' ? '✓ 倒计时' : '倒计时').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('timer'))
-                  Button(this.reminderKind === 'calendar' ? '✓ 日期提醒' : '日期提醒').fontSize(11 * this.fontScale).height(30 * this.fontScale)
-                    .backgroundColor(UiTheme.surface).fontColor(UiTheme.text).interactive().onClick(() => this.setReminderKind('calendar'))
+                  SelectionTab({ label: this.reminderKind === 'alarm' ? '✓ 闹钟' : '闹钟',
+                    selected: this.reminderKind === 'alarm', showIndicator: false,
+                    onSelect: () => this.setReminderKind('alarm') })
+                  SelectionTab({ label: this.reminderKind === 'timer' ? '✓ 倒计时' : '倒计时',
+                    selected: this.reminderKind === 'timer', showIndicator: false,
+                    onSelect: () => this.setReminderKind('timer') })
+                  SelectionTab({ label: this.reminderKind === 'calendar' ? '✓ 日期提醒' : '日期提醒',
+                    selected: this.reminderKind === 'calendar', showIndicator: false,
+                    onSelect: () => this.setReminderKind('calendar') })
                 }
                 if (this.reminderKind === 'alarm') this.Field('下次响铃时刻（设备时间 HH:mm）', this.alarmTime, 'system-alarm-time', (value: string) => this.alarmTime = value)
                 else if (this.reminderKind === 'timer') this.Field('倒计时秒数', this.seconds, 'system-timer-seconds', (value: string) => this.seconds = value)
@@ -260,7 +267,9 @@ export struct SystemSchedulePanel {
               .fontSize(12 * this.fontScale).fontColor(UiTheme.muted).padding(16 * this.fontScale).width('100%').id('system-schedule-empty').transition(UiMotion.fade())
           }
         }.width('100%').alignItems(HorizontalAlign.Start)
+          .padding({ right: 14 * this.fontScale, bottom: 8 * this.fontScale })
       }.layoutWeight(1).width('100%').align(Alignment.TopStart).scrollBar(BarState.Auto)
+        .scrollBarWidth(4).scrollBarColor('#777777')
     }.padding(22 * this.fontScale).width('100%').height('100%').backgroundColor(UiTheme.surface)
   }
 }

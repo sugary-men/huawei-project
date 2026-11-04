@@ -133,14 +133,15 @@ export class WorkspaceService {
         return { featureId: 'focus', state: WorkspaceService.copy(state), message: '等待解除设备专注锁。', action: 'stop', input: '' }
       }
       if (args.action === 'status') {
-        return { featureId: 'focus', state: WorkspaceService.copy(state), message: '等待设备专注锁状态。', action: 'connect', input: '' }
+        return { featureId: 'focus', state: WorkspaceService.copy(state), message: '等待设备专注锁状态。', action: 'status', input: '' }
       }
       throw new Error('action 必须是 start、stop 或 status。')
     }
     if (name === 'run_workspace_action') {
       const action = WorkspaceService.text(args.action as string, 80)
       const allowed = featureId === 'forms' ? ['templates', 'draft', 'export'] : featureId === 'study'
-        ? ['timetable', 'reminders', 'plan', 'checkin'] : featureId === 'focus' ? ['connect', 'start', 'stop', 'nfc', 'lock', 'interrupt'] : []
+        ? ['timetable', 'reminders', 'plan', 'checkin']
+        : featureId === 'focus' ? ['connect', 'start', 'stop', 'status', 'nfc', 'lock', 'interrupt', 'hardware-status'] : []
       if (!allowed.includes(action)) throw new Error('当前工作区不支持该业务操作。')
       return { featureId: featureId, state: WorkspaceService.copy(state), message: '等待业务服务结果。', action: action,
         input: WorkspaceService.text(args.input === undefined ? '' : args.input, 4000) }
