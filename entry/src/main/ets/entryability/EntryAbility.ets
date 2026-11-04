@@ -4,18 +4,26 @@ import { window } from '@kit.ArkUI';
 import { SessionService } from '../services/SessionService';
 import { IntegrationService } from '../services/IntegrationService';
 import { AgentTaskRuntime } from '../services/AgentTaskRuntime';
+import { NfcFocusBridge } from '../services/NfcFocusBridge';
 
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     SessionService.initialize(this.context);
+    const nfcTagId = NfcFocusBridge.handleWant(want);
+    if (nfcTagId.length > 0) this.context.eventHub.emit('focusNfcTap', nfcTagId);
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+  }
+
+  onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    const nfcTagId = NfcFocusBridge.handleWant(want);
+    if (nfcTagId.length > 0) this.context.eventHub.emit('focusNfcTap', nfcTagId);
   }
 
   onDestroy(): void {

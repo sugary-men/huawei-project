@@ -10,6 +10,9 @@ const stubs = name => {
   if (name === '@kit.ArkTS') return { util: { generateRandomUUID: () => 'uuid-form' } };
   if (name === '@kit.CoreFileKit') return { fileIo: {} };
   if (name === '@kit.AbilityKit') return { common: {} };
+  if (name === '@kit.CryptoArchitectureKit') return { cryptoFramework: { createMd: () => ({ update() {}, digest() { return new Uint8Array(32) } }) } };
+  // 其余鸿蒙 Kit 只被 IntegrationService 的字段类型或未调用路径引用，用惰性桩避免逐个维护。
+  if (name.startsWith('@kit.')) return new Proxy({}, { get: () => (() => ({})) });
   throw Error(`Unexpected dependency ${name}`);
 };
 const standIns = {
@@ -17,7 +20,10 @@ const standIns = {
   'services/HarmonyScheduleAdapter': { HarmonyScheduleAdapter: class {} },
   'services/LibraryService': { LibraryService: class {} },
   'services/LlmClient': { LlmClient: class {} },
-  'services/OpenAiCompatibleGateway': { OpenAiCompatibleGateway: class {} }
+  'services/OpenAiCompatibleGateway': { OpenAiCompatibleGateway: class {} },
+  'services/StudentQueryEmbedder': { StudentQueryEmbedder: class { async embed() { return [] } } },
+  'services/FocusIntegrationAdapter': { FocusIntegrationAdapter: class {} },
+  'services/RagWorkspaceService': { RagWorkspaceService: class {} }
 };
 const cache = new Map();
 function load(file) {

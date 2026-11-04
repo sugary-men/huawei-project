@@ -7,6 +7,9 @@ export interface KnowledgeChunk {
   content: string
   vector: number[]
   vectorModel: string
+  modality?: string
+  mediaPath?: string
+  mediaMimeType?: string
 }
 
 export interface KnowledgeIndex {
@@ -21,6 +24,7 @@ export interface KnowledgeRepository {
 export interface QueryEmbedder {
   modelId: string
   embed(query: string): Promise<number[]>
+  embedBatch?(queries: string[]): Promise<number[][]>
 }
 
 export interface RetrievalOptions {
@@ -40,6 +44,9 @@ export interface SourceCitation {
   course: string
   excerpt: string
   score: number
+  modality?: string
+  mediaPath?: string
+  mediaMimeType?: string
 }
 
 export interface RetrievalResult {
@@ -55,4 +62,18 @@ export interface RetrievalResult {
 export interface RankedChunk {
   chunk: KnowledgeChunk
   score: number
+}
+
+export interface RagRankingPolicy {
+  lexicalWeight: number
+  semanticWeight: number
+  bm25K1: number
+  bm25B: number
+  localRerank: boolean
+  rerankWeight: number
+}
+
+export interface RerankProvider {
+  modelId: string
+  rerank(query: string, candidates: RankedChunk[]): Promise<RankedChunk[]>
 }

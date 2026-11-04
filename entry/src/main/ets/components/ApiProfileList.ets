@@ -42,13 +42,18 @@ export struct ApiProfileList {
             Button({ type: ButtonType.Normal }) {
               Row({ space: 8 * this.fontScale }) {
                 Column({ space: 3 * this.fontScale }) {
-                  Text(profile.name).fontSize(12 * this.fontScale).fontColor(UiTheme.text).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+                  Text(profile.name).fontSize(12 * this.fontScale)
+                    .fontColor(profile.id === this.selectedId ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
                   Text(profile.model).fontSize(10 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
                 }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-                Text(profile.id === this.activeId ? '✓' : '').fontSize(12 * this.fontScale).fontColor(UiTheme.primary).width(16 * this.fontScale)
+                Text(profile.id === this.activeId ? '✓' : '').fontSize(12 * this.fontScale)
+                  .fontColor(UiTheme.choiceIndicator).width(16 * this.fontScale)
               }.width('100%')
             }.hoverEffect(HoverEffect.Highlight).width('100%').height(48 * this.fontScale).padding({ left: 10 * this.fontScale, right: 10 * this.fontScale })
-              .borderRadius(6 * this.fontScale).backgroundColor(profile.id === this.selectedId ? UiTheme.raised : Color.Transparent)
+              .borderRadius(6 * this.fontScale)
+              .backgroundColor(profile.id === this.selectedId ?
+                UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
               .id(`${this.prefix}-${profile.id}`).accessibilityText(`${profile.name}，${profile.model}${profile.id === this.activeId ? '，当前使用' : ''}`)
               .onClick(() => this.onSelect(profile.id))
           }, (profile: AgentProfileSummary) => `${profile.id}-${profile.name}-${profile.model}`)

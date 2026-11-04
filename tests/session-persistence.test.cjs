@@ -158,7 +158,8 @@ try {
   assert.equal(service.current(), undefined, 'deleting the last conversation must clear the active id');
   service = boot();
   assert.equal(service.list().length, 0);
-  assert.equal(service.workspaces().length, 10, 'old archives must migrate to defaults plus protected trash');
+  assert.equal(service.workspaces().length, 11, 'old archives must migrate to defaults plus protected trash');
+  assert.ok(service.workspaces().some(item => item.id === 'privacy'), 'existing archives must receive the new privacy workspace');
   assert.equal(service.deleteWorkspace('home'), false);
   assert.equal(service.deleteWorkspace('trash'), false);
   assert.throws(() => service.create('trash', 'invalid', []));

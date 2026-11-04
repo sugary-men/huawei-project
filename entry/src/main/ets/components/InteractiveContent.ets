@@ -50,15 +50,17 @@ export struct InteractiveContent {
       Flex({ wrap: FlexWrap.Wrap }) {
         Button(this.decision() === 'confirmed' ? '再次检查' : '确认内容').height(28 * this.fontScale).fontSize((this.compact ? 10 : 11) * this.fontScale)
           .fontWeight(FontWeight.Regular).borderRadius(7 * this.fontScale).padding({ left: 12 * this.fontScale, right: 12 * this.fontScale, top: 0, bottom: 0 })
-          .fontColor(this.decision() === 'confirmed' ? UiTheme.onPrimary : UiTheme.primary)
-          .backgroundColor(this.decision() === 'confirmed' ? UiTheme.primary : UiTheme.raised).margin({ right: 6 * this.fontScale, bottom: 5 * this.fontScale })
+          .fontColor(this.decision() === 'confirmed' ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+          .backgroundColor(this.decision() === 'confirmed' ?
+            UiTheme.choiceSelectedBackground : UiTheme.raised).margin({ right: 6 * this.fontScale, bottom: 5 * this.fontScale })
           .enabled(this.editable).id(InteractionService.elementId(this.documentId, 'confirm'))
           .accessibilityText('提交当前填写内容，让Agent检查并回复').actionFeedback()
           .onClick(() => { this.setEditing(false); this.emit({ controlId: 'decision', value: 'confirmed', submit: true }) })
         Button(this.decision() === 'needs_changes' ? '✓ 需要调整' : '需要调整').height(28 * this.fontScale).fontSize((this.compact ? 10 : 11) * this.fontScale)
           .fontWeight(FontWeight.Regular).borderRadius(7 * this.fontScale).padding({ left: 12 * this.fontScale, right: 12 * this.fontScale, top: 0, bottom: 0 })
-          .fontColor(this.decision() === 'needs_changes' ? UiTheme.onPrimary : UiTheme.primary)
-          .backgroundColor(this.decision() === 'needs_changes' ? UiTheme.primary : UiTheme.raised).margin({ right: 6 * this.fontScale, bottom: 5 * this.fontScale })
+          .fontColor(this.decision() === 'needs_changes' ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+          .backgroundColor(this.decision() === 'needs_changes' ?
+            UiTheme.choiceSelectedBackground : UiTheme.raised).margin({ right: 6 * this.fontScale, bottom: 5 * this.fontScale })
           .enabled(this.editable).id(InteractionService.elementId(this.documentId, 'revise')).actionFeedback()
           .onClick(() => { this.setEditing(true); this.emit({ controlId: 'decision', value: this.decision() === 'needs_changes' ? 'none' : 'needs_changes' }) })
         Button(this.editing ? '收起填写' : '填写 / 补充').height(28 * this.fontScale).fontSize((this.compact ? 10 : 11) * this.fontScale)

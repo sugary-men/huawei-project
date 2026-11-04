@@ -15,6 +15,7 @@ export class ToolRegistry {
     {"name":"update_task_panel","label":"更新任务面板与产物","category":"workspace","confirmation":false,"blocksTimeout":false,"background":false,"limit":40000},
     {"name":"switch_workspace","label":"切换工作区","category":"workspace","confirmation":false,"blocksTimeout":false,"background":false,"limit":40000},
     {"name":"run_workspace_action","label":"调用工作区服务","category":"workspace","confirmation":false,"blocksTimeout":false,"background":false,"limit":40000},
+    {"name":"focus_lock","label":"设备专注锁","category":"workspace","confirmation":false,"blocksTimeout":true,"background":false,"limit":12000},
     {"name":"get_system_time","label":"读取设备时间","category":"schedule","confirmation":false,"blocksTimeout":true,"background":true,"limit":20000},
     {"name":"query_calendar_events","label":"查询系统日历","category":"schedule","confirmation":false,"blocksTimeout":true,"background":true,"limit":20000},
     {"name":"create_calendar_event","label":"创建日程","category":"schedule","confirmation":true,"blocksTimeout":true,"background":false,"limit":20000},

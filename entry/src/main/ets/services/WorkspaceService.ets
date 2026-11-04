@@ -50,7 +50,8 @@ export class WorkspaceService {
         "artifacts":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"title":{"type":"string"},"content":{"type":"string","description":"用户可见的Markdown产物"}},"required":["id","title","content"],"additionalProperties":false}}
       },"additionalProperties":false}}},
       {"type":"function","function":{"name":"switch_workspace","description":"用户要求或当前目标适合专门工作区时切换。保留当前对话、目标、摘要和产物，更换任务模板；后续按返回的新角色要求处理。不要来回切换。","parameters":{"type":"object","properties":{"featureId":{"type":"string","enum":["home","career","schedule","budget","forms","focus","health","weather","study"]}},"required":["featureId"],"additionalProperties":false}}},
-      {"type":"function","function":{"name":"run_workspace_action","description":"按用户请求调用当前工作区已有业务适配器，只能根据实际返回结果判断成功。未接入服务会返回失败。表单工作区：templates 模板清单、draft 生成草稿、fill 按字段回填、export 导出或复制草稿；学习工作区：timetable 课程表、import 导入课表、reminders 待办、plan 学习计划、checkin 打卡、summary 今日概览。","parameters":{"type":"object","properties":{"action":{"type":"string"},"input":{"type":"string"}},"required":["action","input"],"additionalProperties":false}}}
+{"type":"function","function":{"name":"run_workspace_action","description":"按用户请求调用当前工作区已有业务适配器，只能根据实际返回结果判断成功。未接入服务会返回失败。表单工作区：templates 模板清单、draft 生成草稿、fill 按字段回填、export 导出或复制草稿；学习工作区：timetable 课程表、import 导入课表、reminders 待办、plan 学习计划、checkin 打卡、summary 今日概览。","parameters":{"type":"object","properties":{"action":{"type":"string"},"input":{"type":"string"}},"required":["action","input"],"additionalProperties":false}}},
+      {"type":"function","function":{"name":"focus_lock","description":"在自律魔方工作区中开启、解除或查询鸿蒙健康使用设备的专注锁。仅在用户明确要求锁机、专注或限制其他应用时调用；开始时会拉起系统授权页和应用白名单选择器。只有工具返回 ok:true 才能声称设备锁已生效。","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["start","stop","status"]},"durationMinutes":{"type":"integer","description":"专注时长，1-1440 分钟；action=start 时必填"},"useWhitelist":{"type":"boolean","description":"是否打开系统应用选择器确认白名单，默认 true"}},"required":["action"],"additionalProperties":false}}}
     ]`) as AgentToolDefinition[]
     const parameters = tools[2].function.parameters.properties
     if (parameters !== undefined) parameters['featureId'].enum = features.filter((item: FeatureDefinition) => item.id !== 'trash').map((item: FeatureDefinition) => item.id)
@@ -118,10 +119,29 @@ export class WorkspaceService {
       next.updatedAt = Date.now()
       return { featureId: target, state: next, message: `已归入${WorkspaceConfig.profile(target, features).name}，保留对话和产物。` }
     }
+    if (name === 'focus_lock') {
+      if (featureId !== 'focus') throw new Error('请先切换到“自律魔方”工作区，再使用设备专注锁。')
+      if (args.action === 'start') {
+        const minutes = typeof args.durationMinutes === 'number' ? Math.round(args.durationMinutes) : 0
+        if (minutes < 1 || minutes > 1440) throw new Error('专注时长需在 1-1440 分钟之间。')
+        return {
+          featureId: 'focus', state: WorkspaceService.copy(state), message: '等待设备专注锁结果。',
+          action: 'start', input: JSON.stringify({ durationMinutes: minutes, useWhitelist: args.useWhitelist !== false })
+        }
+      }
+      if (args.action === 'stop') {
+        return { featureId: 'focus', state: WorkspaceService.copy(state), message: '等待解除设备专注锁。', action: 'stop', input: '' }
+      }
+      if (args.action === 'status') {
+        return { featureId: 'focus', state: WorkspaceService.copy(state), message: '等待设备专注锁状态。', action: 'status', input: '' }
+      }
+      throw new Error('action 必须是 start、stop 或 status。')
+    }
     if (name === 'run_workspace_action') {
       const action = WorkspaceService.text(args.action as string, 80)
       const allowed = featureId === 'forms' ? ['templates', 'draft', 'fill', 'export'] : featureId === 'study'
-        ? ['timetable', 'import', 'reminders', 'plan', 'checkin', 'summary'] : featureId === 'focus' ? ['connect', 'start', 'stop'] : []
+        ? ['timetable', 'import', 'reminders', 'plan', 'checkin', 'summary']
+        : featureId === 'focus' ? ['connect', 'start', 'stop', 'status', 'nfc', 'lock', 'interrupt', 'hardware-status'] : []
       if (!allowed.includes(action)) throw new Error('当前工作区不支持该业务操作。')
       return { featureId: featureId, state: WorkspaceService.copy(state), message: '等待业务服务结果。', action: action,
         input: WorkspaceService.text(args.input === undefined ? '' : args.input, 4000) }

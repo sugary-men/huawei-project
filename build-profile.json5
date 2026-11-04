@@ -1,42 +1,56 @@
 {
-  "app": {
-    "signingConfigs": [],
-    "products": [
+  app: {
+    signingConfigs: [
       {
-        "name": "default",
-        "signingConfig": "default",
-        "targetSdkVersion": "6.0.2(22)",
-        "compatibleSdkVersion": "6.0.2(22)",
-        "runtimeOS": "HarmonyOS",
-        "buildOption": {
-          "strictMode": {
-            "caseSensitiveCheck": true,
-            "useNormalizedOHMUrl": true
-          }
-        }
-      }
+        name: 'default',
+        type: 'HarmonyOS',
+        material: {
+          certpath: 'C:\\Users\\DELL\\.ohos\\config\\default_huawei-project_dRldW5v4BxvGhSaAkIwl1l4KjQnkkZrWlmChXr9PYY=.cer',
+          keyAlias: 'debugKey',
+          keyPassword: '0000001b7da0f9d7c134bd44919025e0da9a1408df163013b46c495dcd3d195141195716cc7a5d99bea550',
+          profile: 'C:\\Users\\DELL\\.ohos\\config\\default_huawei-project_dRldW5v4BxvGhSaAkIwl1l4KjQnkkZrWlmChXr9PYY=.p7b',
+          signAlg: 'SHA256withECDSA',
+          storeFile: 'C:\\Users\\DELL\\.ohos\\config\\default_huawei-project_dRldW5v4BxvGhSaAkIwl1l4KjQnkkZrWlmChXr9PYY=.p12',
+          storePassword: '0000001b7da0f9d7c134bd44919025e0da9a1408df163013b46c495dcd3d195141195716cc7a5d99bea550',
+        },
+      },
     ],
-    "buildModeSet": [
+    products: [
       {
-        "name": "debug",
+        name: 'default',
+        signingConfig: 'default',
+        targetSdkVersion: '6.0.2(22)',
+        compatibleSdkVersion: '6.0.2(22)',
+        runtimeOS: 'HarmonyOS',
+        buildOption: {
+          strictMode: {
+            caseSensitiveCheck: true,
+            useNormalizedOHMUrl: true,
+          },
+        },
+      },
+    ],
+    buildModeSet: [
+      {
+        name: 'debug',
       },
       {
-        "name": "release"
-      }
-    ]
+        name: 'release',
+      },
+    ],
   },
-  "modules": [
+  modules: [
     {
-      "name": "entry",
-      "srcPath": "./entry",
-      "targets": [
+      name: 'entry',
+      srcPath: './entry',
+      targets: [
         {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    }
-  ]
+          name: 'default',
+          applyToProducts: [
+            'default',
+          ],
+        },
+      ],
+    },
+  ],
 }

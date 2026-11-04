@@ -51,7 +51,7 @@ class FakeGateway {
     const { seen, observer } = recorder();
     const gateway = new FakeGateway(async (request, sink) => {
       assert.equal(request.featureId, 'home');
-      assert.equal(request.tools.length, 15, 'the turn still exposes the full registered tool list');
+      assert.equal(request.tools.length, 16, 'the turn still exposes the full registered tool list');
       sink.onDelta('你');
       sink.onDelta('好');
     });

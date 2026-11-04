@@ -82,6 +82,8 @@ export interface WorkspaceUpdate {
   featureId?: string
   action?: string
   input?: string
+  durationMinutes?: number
+  useWhitelist?: boolean
 }
 
 export interface WorkspaceToolResult {

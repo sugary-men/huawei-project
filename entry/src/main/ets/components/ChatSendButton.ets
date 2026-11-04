@@ -7,11 +7,11 @@ export struct ChatSendButton {
 
   build() {
     Button({ type: ButtonType.Circle }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Image($r('app.media.ic_chat_send')).width(16 * this.fontScale).height(16 * this.fontScale)
-          .objectFit(ImageFit.Contain).id('chat-send-icon')
-      }.width('100%').height('100%')
-    }.width(32 * this.fontScale).height(32 * this.fontScale).padding(0).backgroundColor(UiTheme.primary)
+      SymbolGlyph($r('sys.symbol.paperplane'))
+        .width(16 * this.fontScale).height(16 * this.fontScale).fontSize(16 * this.fontScale)
+        .fontColor([UiTheme.iconIvory]).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+        .effectStrategy(SymbolEffectStrategy.NONE).id('chat-send-icon')
+    }.width(32 * this.fontScale).height(32 * this.fontScale).padding(0).backgroundColor(UiTheme.accent)
       .id('chat-send').accessibilityText('发送消息').hoverEffect(HoverEffect.Highlight).onClick(() => this.onSend())
   }
 }

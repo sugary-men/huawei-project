@@ -23,8 +23,8 @@ function load(file) {
 const { WorkspaceService: service } = load('services/WorkspaceService');
 const { WORKSPACE_PROFILES: profiles, WorkspaceConfig } = load('config/WorkspaceConfig');
 const { ChatService } = load('services/ChatService');
-assert.equal(profiles.length, 9);
-assert.equal(new Set(profiles.map(p => p.instruction)).size, 9);
+assert.equal(profiles.length, 10);
+assert.equal(new Set(profiles.map(p => p.instruction)).size, 10);
 for (const profile of profiles) {
   assert.ok(profile.instruction.length > 50);
   assert.ok(profile.starters.length >= 2);
@@ -61,13 +61,20 @@ for (const [name, args, feature] of [['delete_session', '{}', 'home'], ['switch_
   assert.throws(() => service.applyTool(name, args, feature, state));
 }
 assert.equal(service.applyTool('run_workspace_action', '{"action":"plan","input":"test"}', 'study', state).action, 'plan');
-assert.equal(new Set(service.tools().map(tool => tool.function.name)).size, 4);
+assert.equal(new Set(service.tools().map(tool => tool.function.name)).size, 5);
+const focusStart = service.applyTool('focus_lock', '{"action":"start","durationMinutes":25}', 'focus', state);
+assert.equal(focusStart.action, 'start');
+assert.deepEqual(JSON.parse(focusStart.input), { durationMinutes: 25, useWhitelist: true });
+assert.equal(service.applyTool('focus_lock', '{"action":"stop"}', 'focus', state).action, 'stop');
+assert.equal(service.applyTool('focus_lock', '{"action":"status"}', 'focus', state).action, 'status');
+assert.throws(() => service.applyTool('focus_lock', '{"action":"start","durationMinutes":0}', 'focus', state), /1-1440/);
+assert.throws(() => service.applyTool('focus_lock', '{"action":"start","durationMinutes":25}', 'home', state), /自律魔方/);
 const request = ChatService.request('请继续', 'study', [], { context: '', sources: [] }, [], state, async () => '{}');
 assert.ok(request.systemInstruction.includes('课程资料与学习计划助手'));
 assert.ok(request.systemInstruction.includes('准备期中考试'));
 assert.ok(request.systemInstruction.includes('周三前完成'));
 assert.ok(request.systemInstruction.includes('人工修改'));
-assert.equal(request.tools.length, 15);
+assert.equal(request.tools.length, 16);
 assert.ok(request.tools.some(tool => tool.function.name === 'manage_agent_task'));
 assert.ok(request.tools.some(tool => tool.function.name === 'create_calendar_event'));
 assert.ok(request.tools.some(tool => tool.function.name === 'create_system_reminder'));

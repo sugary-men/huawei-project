@@ -30,7 +30,7 @@ const { StudyToolService } = load('services/StudyToolService');
 const { ChatService } = load('services/ChatService');
 const { FEATURE_CATALOG } = load('config/FeatureCatalog');
 
-const WORKSPACE = ['read_workspace', 'update_task_panel', 'switch_workspace', 'run_workspace_action'];
+const WORKSPACE = ['read_workspace', 'update_task_panel', 'switch_workspace', 'run_workspace_action', 'focus_lock'];
 const SCHEDULE = ['get_system_time', 'query_calendar_events', 'create_calendar_event', 'update_calendar_event',
   'delete_calendar_event', 'create_system_reminder', 'list_system_reminders', 'cancel_system_reminder', 'manage_memo'];
 const ALL = WORKSPACE.concat(SCHEDULE, ['manage_agent_task', 'manage_study']);
@@ -40,7 +40,7 @@ const json = text => JSON.parse(text);
 // 单一登记处：定义、展示名、分类与限制必须和三个服务实际提供的工具完全一致。
 const descriptors = ToolRegistry.descriptors();
 assert.deepEqual(Array.from(descriptors).map(item => item.name), ALL);
-assert.equal(new Set(descriptors.map(item => item.name)).size, 15);
+assert.equal(new Set(descriptors.map(item => item.name)).size, 16);
 assert.equal(ToolRegistry.category('manage_study'), 'study');
 assert.equal(ToolRegistry.label('manage_study'), '管理学习课程');
 const provided = WorkspaceService.tools().concat(ScheduleService.tools(), AgentTaskService.tools(), StudyToolService.tools());
@@ -53,14 +53,16 @@ for (const item of descriptors) {
   assert.equal(item.definition.type, 'function');
   assert.equal(typeof item.definition.function.parameters, 'object');
 }
-assert.equal(new Set(descriptors.map(item => item.label)).size, 15, 'labels must stay distinguishable in the execution timeline');
+assert.equal(new Set(descriptors.map(item => item.label)).size, 16, 'labels must stay distinguishable in the execution timeline');
 assert.equal(ToolRegistry.label('manage_memo'), '管理备忘录');
 assert.equal(ToolRegistry.label('not_a_tool'), '工具请求');
 assert.equal(ToolRegistry.handles('create_system_reminder'), true);
 assert.equal(ToolRegistry.handles('create_workspace'), false);
 assert.equal(ToolRegistry.category('manage_agent_task'), 'agentTask');
 for (const name of SCHEDULE.concat(['manage_agent_task'])) assert.equal(ToolRegistry.blocksTimeout(name), true, `${name} must suspend the model timeout`);
-for (const name of WORKSPACE) assert.equal(ToolRegistry.blocksTimeout(name), false);
+for (const name of WORKSPACE.filter(item => item !== 'focus_lock')) assert.equal(ToolRegistry.blocksTimeout(name), false);
+// 专注锁会拉起系统授权页与应用选择器，属于必须暂停模型超时的等待。
+assert.equal(ToolRegistry.blocksTimeout('focus_lock'), true);
 
 // 后台定时任务只能读：清单由登记表决定，运行时不再另写一份。
 assert.deepEqual(Array.from(ToolRegistry.backgroundTools()).map(tool => tool.function.name),
@@ -74,9 +76,9 @@ const dynamic = [{ id: 'home', name: '智能助理' }, { id: 'custom', name: '�
   { id: 'trash', name: '回收站' }];
 assert.deepEqual(Array.from(ToolRegistry.descriptor('switch_workspace', dynamic).definition.function.parameters.properties.featureId.enum),
   ['home', 'custom']);
-assert.equal(ToolRegistry.descriptors(dynamic).length, 15);
+assert.equal(ToolRegistry.descriptors(dynamic).length, 16);
 
-// 对话请求里的工具清单来自注册表，且与旧行为一致（15 个）。
+// 对话请求里的工具清单来自注册表，且与旧行为一致（16 个）。
 const request = ChatService.request('继续', 'home', [], { context: '' }, [], undefined, async () => '{}');
 assert.deepEqual(Array.from(request.tools).map(tool => tool.function.name), ALL);
 assert.equal(ChatService.request('继续', 'home', [], { context: '' }).tools, undefined, 'integrations without a tool executor still get no tools');

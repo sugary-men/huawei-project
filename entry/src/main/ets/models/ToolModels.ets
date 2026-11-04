@@ -51,6 +51,9 @@ export interface ToolExecution {
   workspace?: WorkspaceToolResult
   moduleNotice?: string
   moduleItems?: ModuleItem[]
+  // 业务适配器实际收到的动作与入参，页面据此做模块特有联动（如专注锁状态）。
+  moduleAction?: string
+  moduleInput?: string
 }
 
 // 系统能力由页面注入真实实现；工具层只做校验与分发，便于脱离设备单测。

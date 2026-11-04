@@ -33,6 +33,7 @@ interface SessionArchive {
   sessions: ChatSession[]
   sidebar?: SidebarPreferences
   workspaces?: FeatureDefinition[]
+  workspaceCatalogVersion?: number
 }
 
 export class SessionService {
@@ -61,7 +62,16 @@ export class SessionService {
         ? '本地历史记录读取失败，原文件已保留。' : '已从本地备份恢复历史对话。'
     }
     if (loaded === undefined) { SessionService.storageBlocked = true; return }
+    if ((loaded.workspaceCatalogVersion || 1) < 2) {
+      loaded.workspaceCatalogVersion = 2
+      if (Array.isArray(loaded.workspaces) && !loaded.workspaces.some((item: FeatureDefinition) => item.id === 'privacy')) {
+        const privacy = FEATURE_CATALOG.find((item: FeatureDefinition) => item.id === 'privacy')
+        if (privacy !== undefined) loaded.workspaces.push(JSON.parse(JSON.stringify(privacy)) as FeatureDefinition)
+        SessionService.dirty = true
+      }
+    }
     SessionService.archive = loaded
+    if (SessionService.dirty) SessionService.schedule(false)
     loaded.sessions.forEach((session: ChatSession) => {
       session.messages.forEach((message: AgentMessage) => {
         message.executions = ExecutionTraceService.restore(message.executions)
@@ -297,7 +307,7 @@ export class SessionService {
     if (removed === undefined) return false
     const previous = SessionService.archive
     SessionService.archive = { version: 1, activeSessionId: previous.activeSessionId, sidebar: previous.sidebar, workspaces: previous.workspaces,
-      sessions: previous.sessions.filter((session: ChatSession) => session.id !== id) }
+      workspaceCatalogVersion: previous.workspaceCatalogVersion, sessions: previous.sessions.filter((session: ChatSession) => session.id !== id) }
     if (previous.activeSessionId === id) SessionService.archive.activeSessionId = SessionService.list()[0]?.id || ''
     SessionService.dirty = true
     // A recovery snapshot must not bring a deleted conversation back.

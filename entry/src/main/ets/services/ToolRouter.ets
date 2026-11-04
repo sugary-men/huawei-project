@@ -59,11 +59,13 @@ export class ToolRouter {
   private static async module(result: WorkspaceToolResult, context: ToolContext): Promise<ToolExecution> {
     if (context.module === undefined) return ToolRouter.failure('业务服务尚未初始化。')
     const action = result.action === undefined ? '' : result.action
-    const moduleResult: ModuleResult = await context.module(result.featureId, action, result.input === undefined ? '' : result.input)
+    const input = result.input === undefined ? '' : result.input
+    const moduleResult: ModuleResult = await context.module(result.featureId, action, input)
     if (!context.isActive()) return ToolRouter.cancelled('操作结果已过期，不再更新当前会话。')
     if (!moduleResult.ok) {
       return { output: JSON.stringify({ ok: false, message: moduleResult.message }), ok: false, cancelled: false,
-        message: moduleResult.message, moduleNotice: moduleResult.message, moduleItems: [] }
+        message: moduleResult.message, moduleNotice: moduleResult.message, moduleItems: [],
+        moduleAction: action, moduleInput: input }
     }
     const id = `module-${result.featureId}-${action}`
     const artifacts: WorkspaceArtifact[] = result.state.artifacts.filter((item: WorkspaceArtifact) => item.id !== id)
@@ -76,7 +78,7 @@ export class ToolRouter {
     const output = JSON.stringify({ ok: true, message: moduleResult.message,
       workspace: WorkspaceService.snapshot(result.featureId, state, context.features) })
     return { output: ToolRouter.cap(output), ok: true, cancelled: false, message: moduleResult.message, workspace: next,
-      moduleNotice: moduleResult.message, moduleItems: moduleResult.items }
+      moduleNotice: moduleResult.message, moduleItems: moduleResult.items, moduleAction: action, moduleInput: input }
   }
 
   private static receipt(output: string, category: string): ToolExecution {

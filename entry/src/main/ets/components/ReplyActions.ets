@@ -1,6 +1,7 @@
 import { pasteboard } from '@kit.BasicServicesKit'
 import { MarkdownParser } from '../services/MarkdownParser'
 import { UiTheme } from '../config/UiTheme'
+import { UiMotion } from '../config/UiMotion'
 
 @Component
 export struct ReplyActions {
@@ -35,22 +36,26 @@ export struct ReplyActions {
   actionFeedback() {
     .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ normal: { .opacity(1).scale({ x: 1, y: 1 }) }, pressed: { .opacity(0.6).scale({ x: 0.94, y: 0.94 }) } })
-    .animation({ duration: 120, curve: Curve.EaseOut })
+    .animation({ duration: UiMotion.press, curve: UiMotion.enterCurve })
   }
 
   build() {
     Row({ space: 2 * this.fontScale }) {
       Button({ type: ButtonType.Normal }) {
-        Image(this.speaking ? $r('app.media.ic_reply_stop') : $r('app.media.ic_reply_speaker'))
-          .width(16 * this.fontScale).height(16 * this.fontScale)
+        SymbolGlyph(this.speaking ? $r('sys.symbol.speaker_slash') : $r('sys.symbol.speaker_wave_2'))
+          .width(16 * this.fontScale).height(16 * this.fontScale).fontSize(16 * this.fontScale)
+          .fontColor([UiTheme.iconIvory]).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+          .effectStrategy(SymbolEffectStrategy.NONE)
       }.actionFeedback().width(32 * this.fontScale).height(32 * this.fontScale).padding(0).borderRadius(6 * this.fontScale)
-        .backgroundColor(this.speaking ? UiTheme.raised : Color.Transparent)
+        .backgroundColor(this.speaking ? UiTheme.accent : UiTheme.accentStrong)
         .id(`reply-speech-${this.documentId}`).accessibilityText(this.speaking ? '停止朗读' : '朗读回答').onClick(() => this.onSpeak())
       Button({ type: ButtonType.Normal }) {
-        Image(this.copied ? $r('app.media.ic_reply_check') : $r('app.media.ic_reply_copy'))
-          .width(16 * this.fontScale).height(16 * this.fontScale)
+        SymbolGlyph(this.copied ? $r('sys.symbol.checkmark') : $r('sys.symbol.doc_text_on_doc_text'))
+          .width(16 * this.fontScale).height(16 * this.fontScale).fontSize(16 * this.fontScale)
+          .fontColor([UiTheme.iconIvory]).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+          .effectStrategy(SymbolEffectStrategy.NONE)
       }.actionFeedback().width(32 * this.fontScale).height(32 * this.fontScale).padding(0).borderRadius(6 * this.fontScale)
-        .backgroundColor(Color.Transparent).id(`reply-copy-${this.documentId}`)
+        .backgroundColor(UiTheme.accentStrong).id(`reply-copy-${this.documentId}`)
         .accessibilityText(this.copied ? '回答已复制' : '复制回答').onClick(() => this.copyAnswer())
     }
   }

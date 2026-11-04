@@ -82,6 +82,7 @@ export struct MarkdownContent {
               Text(block.text || ' ').fontSize(13 * this.fontScale).fontFamily('monospace').fontColor('#404040')
                 .lineHeight(21 * this.fontScale).copyOption(CopyOptions.InApp).constraintSize({ minWidth: '100%' })
             }.scrollable(ScrollDirection.Horizontal).width('100%').scrollBar(BarState.Auto)
+              .scrollBarWidth(3).scrollBarColor('#777777').padding({ bottom: 4 * this.fontScale })
           }.alignItems(HorizontalAlign.Start).width('100%').padding(12 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8 * this.fontScale)
         } else if (block.kind === 'quote') {
           Row({ space: 10 * this.fontScale }) {
@@ -122,6 +123,7 @@ export struct MarkdownContent {
               }, (row: MarkdownRow, index: number) => `${index}-${JSON.stringify(row)}`)
             }.border({ width: 1, color: UiTheme.border }).borderRadius(6 * this.fontScale).clip(true)
           }.scrollable(ScrollDirection.Horizontal).width('100%').scrollBar(BarState.Auto)
+            .scrollBarWidth(3).scrollBarColor('#777777').padding({ bottom: 4 * this.fontScale })
         } else if (this.interactive && InteractionService.inlineTokens(this.layout, `${blockIndex}`).length > 0) {
           InlineFormContent({ tokens: InteractionService.inlineTokens(this.layout, `${blockIndex}`), documentId: this.documentId, textSize: this.textSize,
             editable: this.editable, feedback: this.feedback, onInteraction: this.onInteraction })

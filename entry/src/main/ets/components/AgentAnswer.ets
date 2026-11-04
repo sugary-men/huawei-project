@@ -1,4 +1,5 @@
 import { UiTheme } from '../config/UiTheme'
+import { UiMotion } from '../config/UiMotion'
 import { AgentMessage } from '../models/AppModels'
 import { MarkdownParser } from '../services/MarkdownParser'
 import { MarkdownContent } from './MarkdownContent'
@@ -65,8 +66,11 @@ export struct AgentAnswer {
             .id(`thought-toggle-${this.documentId}`)
             .hoverEffect(HoverEffect.Highlight)
             .stateStyles({ normal: { .opacity(1) }, pressed: { .opacity(0.65) } })
-            .animation({ duration: 140, curve: Curve.EaseOut })
-            .onClick(() => this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseInOut }, () => this.onToggle()))
+            .animation({ duration: UiMotion.fast, curve: UiMotion.enterCurve })
+            .onClick(() => this.getUIContext().animateTo({
+              duration: UiMotion.section,
+              curve: UiMotion.moveCurve
+            }, () => this.onToggle()))
           if (this.expanded) {
             if (MarkdownParser.answer(this.message.content).summary.length > 0) {
               MarkdownContent({ content: MarkdownParser.answer(this.message.content).summary })

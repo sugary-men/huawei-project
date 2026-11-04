@@ -1,4 +1,5 @@
 import { UiTheme } from '../config/UiTheme'
+import { UiMotion } from '../config/UiMotion'
 import { InteractionChange, InteractionRecord, InteractionToken } from '../models/InteractionModels'
 import { InteractionService } from '../services/InteractionService'
 import { MarkdownParser, MarkdownRun } from '../services/MarkdownParser'
@@ -24,7 +25,7 @@ export struct InlineFormContent {
             .padding({ left: 7 * this.fontScale, right: 7 * this.fontScale, top: 0, bottom: 0 })
             .caretColor(UiTheme.primary).selectedBackgroundColor('#DDDDDD').maxLength(1000).enabled(this.editable)
             .stateStyles({ normal: { .opacity(1) }, focused: { .backgroundColor('#F0F0F0').border({ width: { bottom: 1 }, color: '#555555' }) } })
-            .animation({ duration: 140, curve: Curve.EaseOut })
+            .animation({ duration: UiMotion.fast, curve: UiMotion.enterCurve })
             .margin({ left: 3 * this.fontScale, right: 3 * this.fontScale, bottom: 3 * this.fontScale })
             .id(InteractionService.elementId(this.documentId, token.control.id)).accessibilityText(token.control.label)
             .onChange((value: string) => this.onInteraction({ controlId: token.control!.id, value: value }))

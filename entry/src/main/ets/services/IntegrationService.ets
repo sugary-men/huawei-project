@@ -1,6 +1,6 @@
 import { AgentGateway, AgentRequest, ModuleAdapter, ModuleResult, StreamSink, VoiceAdapter } from '../models/IntegrationModels'
 import { SourceCitation, KnowledgeRepository, QueryEmbedder } from '../models/RagModels'
-import { MemoryKnowledgeRepository } from './KnowledgeService'
+import { MemoryKnowledgeRepository, xuanShenKnowledgeIndex } from './KnowledgeService'
 import { RagService } from './RagService'
 import { AgentApiSettings } from '../config/ApiConfig'
 import { LlmCandidate } from '../models/ProviderModels'
@@ -8,11 +8,15 @@ import { LlmClient } from './LlmClient'
 import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
 import { common } from '@kit.AbilityKit'
 import { HarmonyVoiceAdapter } from './HarmonyVoiceAdapter'
+import { PrivacyModuleAdapter } from './PrivacyModuleAdapter'
 import { HarmonyScheduleAdapter } from './HarmonyScheduleAdapter'
 import { SchedulePlatform } from '../models/ScheduleModels'
 import { LibraryService } from './LibraryService'
 import { StudyStore } from './StudyStore'
 import { StudyModuleAdapter } from './StudyModuleAdapter'
+import { StudentQueryEmbedder } from './StudentQueryEmbedder'
+import { FocusIntegrationAdapter } from './FocusIntegrationAdapter'
+import { RagWorkspaceService } from './RagWorkspaceService'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
@@ -50,12 +54,17 @@ export class UnavailableVoice implements VoiceAdapter {
 // 对话网关可在聊天页配置；其他能力由各模块负责人接入。
 export class IntegrationService {
   static knowledge: KnowledgeRepository = new MemoryKnowledgeRepository()
-  static embedder: QueryEmbedder | undefined = undefined
+  static embedder: QueryEmbedder = new StudentQueryEmbedder()
   static library: LibraryService | undefined = undefined
+  static ragWorkspace: RagWorkspaceService | undefined = undefined
   static initializeLibrary(context: common.Context): void {
     if (IntegrationService.library !== undefined) return
-    const library = new LibraryService(context.filesDir, IntegrationService.knowledge)
-    IntegrationService.library = library; IntegrationService.knowledge = library
+    const base = new MemoryKnowledgeRepository()
+    base.replace(xuanShenKnowledgeIndex())
+    const library = new LibraryService(context.filesDir, base)
+    IntegrationService.library = library
+    IntegrationService.knowledge = library
+    IntegrationService.ragWorkspace = new RagWorkspaceService(context.filesDir)
   }
   static agent: AgentGateway = new OpenAiCompatibleGateway({ baseUrl: '', model: '', apiKey: '' })
   static agentSettings: AgentApiSettings = { baseUrl: '', model: '', apiKey: '' }
@@ -78,6 +87,7 @@ export class IntegrationService {
     IntegrationService.study = new StudyModuleAdapter(store)
   }
   static hardware: ModuleAdapter = new UnavailableModule('自律魔方')
+  static privacy: ModuleAdapter = new UnavailableModule('隐私与档案')
   static voice: VoiceAdapter = new UnavailableVoice()
   static schedule: SchedulePlatform | undefined = undefined
   static initializeSchedule(context: common.UIAbilityContext): void {
@@ -86,7 +96,26 @@ export class IntegrationService {
   static initializeVoice(context: common.UIAbilityContext): void {
     if (IntegrationService.voice instanceof UnavailableVoice) IntegrationService.voice = new HarmonyVoiceAdapter(context)
   }
-  static rag(): RagService { return new RagService(IntegrationService.knowledge, IntegrationService.embedder) }
+  static initializeFocus(context: common.UIAbilityContext): void {
+    if (IntegrationService.hardware instanceof UnavailableModule) {
+      IntegrationService.hardware = new FocusIntegrationAdapter(context)
+    }
+  }
+  static disposeFocus(): void {
+    if (IntegrationService.hardware instanceof FocusIntegrationAdapter) IntegrationService.hardware.dispose()
+    IntegrationService.hardware = new UnavailableModule('自律魔方')
+  }
+  // 隐私档案独立于专注适配器，保留 main 的能力。
+  static initializePrivacy(context: common.UIAbilityContext): void {
+    if (IntegrationService.privacy instanceof UnavailableModule) IntegrationService.privacy = new PrivacyModuleAdapter(context)
+  }
+  static rag(): RagService {
+    if (IntegrationService.library !== undefined && IntegrationService.ragWorkspace !== undefined) {
+      return IntegrationService.ragWorkspace.createRag(IntegrationService.library,
+        IntegrationService.ragWorkspace.activeBase().id)
+    }
+    return new RagService(IntegrationService.knowledge, IntegrationService.embedder)
+  }
   static configureAgent(settings: AgentApiSettings): void {
     IntegrationService.configureAgentChain(LlmClient.candidatesOf(settings))
   }
