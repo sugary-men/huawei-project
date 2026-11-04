@@ -11,6 +11,7 @@ export interface SidebarPreferences {
   taskPanelVisible?: boolean
   leftWidth?: number
   fontScale?: number
+  themeId?: string
   rightWidth?: number
 }
 

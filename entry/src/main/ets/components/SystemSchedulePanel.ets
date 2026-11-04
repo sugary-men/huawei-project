@@ -267,7 +267,9 @@ export struct SystemSchedulePanel {
               .fontSize(12 * this.fontScale).fontColor(UiTheme.muted).padding(16 * this.fontScale).width('100%').id('system-schedule-empty').transition(UiMotion.fade())
           }
         }.width('100%').alignItems(HorizontalAlign.Start)
+          .padding({ right: 14 * this.fontScale, bottom: 8 * this.fontScale })
       }.layoutWeight(1).width('100%').align(Alignment.TopStart).scrollBar(BarState.Auto)
+        .scrollBarWidth(4).scrollBarColor('#777777')
     }.padding(22 * this.fontScale).width('100%').height('100%').backgroundColor(UiTheme.surface)
   }
 }

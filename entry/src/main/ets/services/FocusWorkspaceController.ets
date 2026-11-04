@@ -19,6 +19,7 @@ export class FocusWorkspaceController {
   static readonly guardActiveKey: string = 'focusGuardActive'
   static readonly guardEnabledKey: string = 'focusGuardEnabled'
   static readonly guardBusyKey: string = 'focusGuardBusy'
+  static readonly sessionBusyKey: string = 'focusSessionBusy'
   static readonly hardwareBusyKey: string = 'focusHardwareBusy'
   static readonly moduleNoticeKey: string = 'focusModuleNotice'
   static readonly moduleItemsKey: string = 'focusModuleItems'
@@ -61,6 +62,9 @@ export class FocusWorkspaceController {
     }
     if (AppStorage.get<boolean>(FocusWorkspaceController.guardBusyKey) === undefined) {
       AppStorage.setOrCreate(FocusWorkspaceController.guardBusyKey, false)
+    }
+    if (AppStorage.get<boolean>(FocusWorkspaceController.sessionBusyKey) === undefined) {
+      AppStorage.setOrCreate(FocusWorkspaceController.sessionBusyKey, false)
     }
     if (AppStorage.get<boolean>(FocusWorkspaceController.hardwareBusyKey) === undefined) {
       AppStorage.setOrCreate(FocusWorkspaceController.hardwareBusyKey, false)
@@ -193,19 +197,21 @@ export class FocusWorkspaceController {
   }
 
   static async toggleSession(context: common.UIAbilityContext): Promise<void> {
-    if (FocusWorkspaceController.running()) {
-      await FocusWorkspaceController.pauseSession()
-      return
-    }
-    if (FocusWorkspaceController.phase() !== 'focus') {
-      FocusWorkspaceController.set(FocusWorkspaceController.phaseKey, 'focus')
-      FocusWorkspaceController.set(FocusWorkspaceController.remainingSecondsKey,
-        FocusWorkspaceController.workMinutes() * 60)
-    }
-    FocusWorkspaceController.startTimer()
-    if (!FocusWorkspaceController.guardEnabled() || FocusWorkspaceController.guardActive()) return
-    FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
+    if (AppStorage.get<boolean>(FocusWorkspaceController.sessionBusyKey) === true) return
+    FocusWorkspaceController.set(FocusWorkspaceController.sessionBusyKey, true)
     try {
+      if (FocusWorkspaceController.running()) {
+        await FocusWorkspaceController.pauseSession()
+        return
+      }
+      if (FocusWorkspaceController.phase() !== 'focus') {
+        FocusWorkspaceController.set(FocusWorkspaceController.phaseKey, 'focus')
+        FocusWorkspaceController.set(FocusWorkspaceController.remainingSecondsKey,
+          FocusWorkspaceController.workMinutes() * 60)
+      }
+      FocusWorkspaceController.startTimer()
+      if (!FocusWorkspaceController.guardEnabled() || FocusWorkspaceController.guardActive()) return
+      FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
       const remainingMinutes = Math.max(1,
         Math.ceil(FocusWorkspaceController.remainingSeconds() / 60))
       const message = await FocusGuardService.startLock(context, remainingMinutes, true)
@@ -218,6 +224,7 @@ export class FocusWorkspaceController {
         `番茄钟已开始，设备锁未开启：${FocusGuardService.friendlyError(error as Error)}`)
     } finally {
       FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, false)
+      FocusWorkspaceController.set(FocusWorkspaceController.sessionBusyKey, false)
     }
   }
 
@@ -231,6 +238,7 @@ export class FocusWorkspaceController {
   }
 
   static async enableGuard(context: common.UIAbilityContext): Promise<void> {
+    if (AppStorage.get<boolean>(FocusWorkspaceController.guardBusyKey) === true) return
     FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
     try {
       const remainingMinutes = Math.max(1,
@@ -249,6 +257,7 @@ export class FocusWorkspaceController {
   }
 
   static async disableGuard(): Promise<void> {
+    if (AppStorage.get<boolean>(FocusWorkspaceController.guardBusyKey) === true) return
     FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
     try {
       FocusWorkspaceController.set(FocusWorkspaceController.guardNoticeKey,
@@ -263,6 +272,7 @@ export class FocusWorkspaceController {
   }
 
   static async pickWhitelist(context: common.UIAbilityContext): Promise<void> {
+    if (AppStorage.get<boolean>(FocusWorkspaceController.guardBusyKey) === true) return
     FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
     try {
       const tokens = await FocusGuardService.pickWhitelist(context)
@@ -278,6 +288,7 @@ export class FocusWorkspaceController {
   }
 
   static async queryGuard(): Promise<void> {
+    if (AppStorage.get<boolean>(FocusWorkspaceController.guardBusyKey) === true) return
     FocusWorkspaceController.set(FocusWorkspaceController.guardBusyKey, true)
     try {
       const state = await FocusGuardService.snapshot()

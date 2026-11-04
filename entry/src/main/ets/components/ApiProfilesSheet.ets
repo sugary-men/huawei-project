@@ -136,8 +136,9 @@ export struct ApiProfilesSheet {
             Text('配置只保存在本机；对话、已选资料和附件将发送到当前选中的服务。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted).lineHeight(17 * this.fontScale)
           }
           if (this.notice) { Text(this.notice).id('api-profile-notice').fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).width('100%').padding(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8 * this.fontScale) }
-        }.width('100%').alignItems(HorizontalAlign.Start).padding({ right: 5 * this.fontScale, bottom: 8 * this.fontScale })
+        }.width('100%').alignItems(HorizontalAlign.Start).padding({ right: 12 * this.fontScale, bottom: 8 * this.fontScale })
       }.width('100%').layoutWeight(1).align(Alignment.TopStart).scrollBar(BarState.Auto)
+        .scrollBarWidth(4).scrollBarColor('#777777')
       if (!this.readFailed) {
         Row({ space: 8 * this.fontScale }) {
           Button('保存并使用').action().layoutWeight(1).height(40 * this.fontScale).fontSize(13 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary)

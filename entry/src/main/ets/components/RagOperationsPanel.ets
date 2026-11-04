@@ -92,42 +92,51 @@ export struct RagOperationsPanel {
   }
 
   @Builder
-  StatusTile(label: string, value: string, detail: string) {
-    Column({ space: 5 * this.fontScale }) {
-      Text(label).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-      Text(value).fontSize(19 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1)
+  MetricItem(label: string, value: string, detail: string) {
+    Column({ space: 4 * this.fontScale }) {
+      Text(label).fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted)
+      Text(value).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+        .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted).maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.layoutWeight(1).constraintSize({ minWidth: 112 }).padding(13 * this.fontScale)
-      .alignItems(HorizontalAlign.Start).backgroundColor(UiTheme.surface)
-      .border({ width: 1, color: UiTheme.border }).borderRadius(8)
+    }.layoutWeight(1).constraintSize({ minHeight: 68 * this.fontScale })
+      .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  ActionButton(label: string, detail: string, action: () => void, disabled: boolean = false) {
+  SectionCard(title: string) {
+    Text(title).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+      .fontColor(UiTheme.softText).width('100%')
+  }
+
+  @Builder
+  ActionRow(label: string, detail: string, action: () => void, disabled: boolean = false) {
     Button({ type: ButtonType.Normal }) {
       Row({ space: 10 * this.fontScale }) {
         Column({ space: 3 * this.fontScale }) {
-          Text(label).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+          Text(label).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+          Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
             .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text('›').fontSize(18 * this.fontScale).fontColor(UiTheme.secondary)
+        Stack() {
+          Image($r('app.media.ic_chevron_right'))
+            .width(12 * this.fontScale).height(12 * this.fontScale)
+            .colorFilter(UiTheme.iconIvory)
+        }.width(22 * this.fontScale).height(22 * this.fontScale)
+          .backgroundColor(UiTheme.accentStrong).borderRadius(5)
       }.width('100%')
-    }.width('100%').height(56 * this.fontScale).padding({ left: 12, right: 12 })
-      .backgroundColor(UiTheme.raised).borderRadius(8).enabled(!disabled)
-      .hoverEffect(HoverEffect.Highlight).onClick(action)
+    }.width('100%').height(48 * this.fontScale).padding({ left: 2, right: 4 })
+      .backgroundColor(Color.Transparent).borderRadius(6).enabled(!disabled)
+      .opacity(disabled ? 0.48 : 1).hoverEffect(HoverEffect.Highlight).onClick(action)
   }
 
   build() {
-    Scroll() {
-      Column({ space: 14 * this.fontScale }) {
+    Column({ space: 12 * this.fontScale }) {
         Row() {
           Column({ space: 3 * this.fontScale }) {
-            Text('运行与数据管理').fontSize(20 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+            Text('资料与索引').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
             Text('索引、导入导出、存储与最近任务状态。')
-              .fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+              .fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted)
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           if (this.busy) {
             Row({ space: 6 * this.fontScale }) {
@@ -138,66 +147,75 @@ export struct RagOperationsPanel {
         }.width('100%')
         if (this.base() === undefined) {
           Column({ space: 6 * this.fontScale }) {
-            Text('暂无可用知识库').fontSize(13 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text('先在顶部新建知识库，再导入资料并构建索引。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
-          }.width('100%').padding(18 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+            Text('暂无可用知识库').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+              .fontColor(UiTheme.softText)
+            Text('先在顶部新建知识库，再导入资料并构建索引。').fontSize(10 * this.fontScale)
+              .fontColor(UiTheme.softMuted)
+          }.width('100%').padding(16 * this.fontScale).backgroundColor(UiTheme.softSurface)
+            .borderRadius(8)
         } else {
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-            this.StatusTile('文档', `${this.includedDocuments().length}`, '当前知识库资料范围')
-            this.StatusTile('知识节点', `${this.base()?.chunkCount || 0}`, '已存储索引片段')
-            this.StatusTile('索引状态', this.statusLabel(),
-              this.base()?.lastIndexedAt ? ScheduleService.localLabel(this.base()?.lastIndexedAt || 0) : '尚未构建')
-          }.width('100%')
+          if (this.viewportWidth < 620) {
+            Column({ space: 10 * this.fontScale }) {
+              this.MetricItem('文档', `${this.includedDocuments().length}`, '当前知识库资料范围')
+              Divider().color(UiTheme.softBorder)
+              this.MetricItem('知识节点', `${this.base()?.chunkCount || 0}`, '已存储索引片段')
+              Divider().color(UiTheme.softBorder)
+              this.MetricItem('索引状态', this.statusLabel(),
+                this.base()?.lastIndexedAt ? ScheduleService.localLabel(this.base()?.lastIndexedAt || 0) : '尚未构建')
+            }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.softSurface).borderRadius(8)
+          } else {
+            Row({ space: 14 * this.fontScale }) {
+              this.MetricItem('文档', `${this.includedDocuments().length}`, '当前知识库资料范围')
+              Divider().vertical(true).height(44 * this.fontScale).color(UiTheme.softBorder)
+              this.MetricItem('知识节点', `${this.base()?.chunkCount || 0}`, '已存储索引片段')
+              Divider().vertical(true).height(44 * this.fontScale).color(UiTheme.softBorder)
+              this.MetricItem('索引状态', this.statusLabel(),
+                this.base()?.lastIndexedAt ? ScheduleService.localLabel(this.base()?.lastIndexedAt || 0) : '尚未构建')
+            }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.softSurface).borderRadius(8)
+          }
         }
         if (this.notice) {
-          Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
-            .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+          Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.softText).width('100%')
+            .padding(10 * this.fontScale).backgroundColor(UiTheme.accentPale)
+            .border({ width: 1, color: UiTheme.accentBorder }).borderRadius(8)
             .transition(UiMotion.reveal())
         }
-        Row({ space: 10 * this.fontScale }) {
-          Column({ space: 7 * this.fontScale }) {
-            Text('数据操作').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            this.ActionButton('导入文件', 'TXT、Markdown、PDF、DOCX 等', () => this.onImportFiles())
-            this.ActionButton('导入图片', '添加图片描述后参与多模态检索', () => this.onImportImages())
-            this.ActionButton('重建索引', '使用当前在线 Embedding 重新分块向量化',
-              () => this.rebuild(), this.busy.length > 0 || this.base()?.embeddingMode !== 'online')
-            this.ActionButton('导出知识库', '导出配置与索引 JSON，不包含 API Key',
-              () => this.exportBase(), this.busy.length > 0)
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Column({ space: 7 * this.fontScale }) {
-            Text('本地存储').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Column({ space: 5 * this.fontScale }) {
-              Text('JSON 本地数据库').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-              Text('知识库配置、资料索引与算法参数保存在应用沙箱；原文只在本机处理。')
-                .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).lineHeight(15 * this.fontScale)
-            }.width('100%').padding(12 * this.fontScale).backgroundColor(UiTheme.surface)
-              .border({ width: 1, color: UiTheme.border }).borderRadius(8)
-            this.ActionButton('知识库管理', '资料范围、索引与知识库设置', () => this.onOpenKnowledge())
-            Column({ space: 4 * this.fontScale }) {
-              Text('运行提示').fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-              Text('在线 Embedding 会发送待索引文本；本地算法、原文存储和图谱计算仍在设备内完成。')
-                .fontSize(9 * this.fontScale).fontColor(UiTheme.secondary).lineHeight(15 * this.fontScale)
-            }.width('100%').padding(11 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        }.width('100%').alignItems(VerticalAlign.Top)
-        Column({ space: 7 * this.fontScale }) {
-          Text('最近任务').fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        Column({ space: 2 * this.fontScale }) {
+          this.SectionCard('数据操作')
+          Divider().color(UiTheme.softBorder)
+          this.ActionRow('导入文件', 'TXT、Markdown、PDF、DOCX 等', () => this.onImportFiles())
+          this.ActionRow('导入图片', '添加图片描述后参与多模态检索', () => this.onImportImages())
+          this.ActionRow('重建索引', '使用当前在线 Embedding 重新分块向量化',
+            () => this.rebuild(), this.busy.length > 0 || this.base()?.embeddingMode !== 'online')
+          this.ActionRow('导出知识库', '导出配置与索引 JSON，不包含 API Key',
+            () => this.exportBase(), this.busy.length > 0)
+          Divider().color(UiTheme.softBorder).margin({ top: 10 * this.fontScale, bottom: 10 * this.fontScale })
+          this.SectionCard('本地存储')
+          Column({ space: 5 * this.fontScale }) {
+            Text('JSON 本地数据库').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+              .fontColor(UiTheme.softText)
+            Text('知识库配置、资料索引与算法参数保存在应用沙箱；原文只在本机处理。')
+              .fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted).lineHeight(15 * this.fontScale)
+          }.width('100%').padding({ top: 8 * this.fontScale, bottom: 8 * this.fontScale })
+          this.ActionRow('知识库管理', '资料范围、索引与知识库设置', () => this.onOpenKnowledge())
+          Column({ space: 4 * this.fontScale }) {
+            Text('运行提示').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+            Text('在线 Embedding 会发送待索引文本；本地算法、原文存储和图谱计算仍在设备内完成。')
+              .fontSize(9 * this.fontScale).fontColor(UiTheme.softText).lineHeight(15 * this.fontScale)
+          }.width('100%').padding({ left: 10 * this.fontScale, top: 8 * this.fontScale, bottom: 8 * this.fontScale })
+            .border({ width: { left: 2 }, color: UiTheme.accentBorder })
+          Divider().color(UiTheme.softBorder).margin({ top: 10 * this.fontScale, bottom: 10 * this.fontScale })
+          this.SectionCard('最近任务')
           if (this.logs.length === 0) {
             Text('本次会话暂无运行记录。导入、构建或导出后会显示在这里。')
-              .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+              .fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
           } else {
             ForEach(this.logs, (item: string) => {
-              Text(item).fontSize(9 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+              Text(item).fontSize(9 * this.fontScale).fontColor(UiTheme.softText).width('100%')
                 .padding({ top: 4, bottom: 4 })
             }, (item: string, index: number) => `${index}-${item}`)
           }
-        }.width('100%').padding(13 * this.fontScale).alignItems(HorizontalAlign.Start)
-          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(8)
-      }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
-    }.width('100%').height('100%').scrollBar(this.embedded ? BarState.Off : BarState.Auto)
-      .nestedScroll({
-        scrollForward: NestedScrollMode.PARENT_FIRST,
-        scrollBackward: NestedScrollMode.PARENT_FIRST
-      }).align(Alignment.TopStart)
+        }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(HorizontalAlign.Start)
   }
 }

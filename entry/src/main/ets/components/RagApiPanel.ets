@@ -135,7 +135,7 @@ export struct RagApiPanel {
     try {
       const result = await this.getUIContext().getPromptAction().showDialog({ title: '删除RAG API',
         message: `删除“${this.name || this.model}”？引用该配置的知识库会切换为本地方法。`,
-        buttons: [{ text: '取消', color: '#666666' }, { text: '删除', color: '#666666' }] })
+        buttons: [{ text: '取消', color: UiTheme.secondary }, { text: '删除', color: UiTheme.secondary }] })
       if (result.index !== 1) return
       workspace.removeProfile(this.selectedId)
       this.selectedId = ''
@@ -157,115 +157,171 @@ export struct RagApiPanel {
   }
   @Builder
   ProfileList() {
-    Column({ space: 9 * this.fontScale }) {
+    Column({ space: 10 * this.fontScale }) {
       Row({ space: 6 * this.fontScale }) {
         this.FilterButton('全部', 'all'); this.FilterButton('Embedding', 'embedding'); this.FilterButton('Rerank', 'rerank')
       }.width('100%')
       Row({ space: 6 * this.fontScale }) {
-        Button('＋ Embedding').height(30 * this.fontScale).fontSize(9 * this.fontScale).layoutWeight(1)
-          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.add('embedding'))
-        Button('＋ Rerank').height(30 * this.fontScale).fontSize(9 * this.fontScale).layoutWeight(1)
-          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.add('rerank'))
+        Button('＋ Embedding').height(30 * this.fontScale).fontSize(10 * this.fontScale).layoutWeight(1)
+          .backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
+          .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8).onClick(() => this.add('embedding'))
+        Button('＋ Rerank').height(30 * this.fontScale).fontSize(10 * this.fontScale).layoutWeight(1)
+          .backgroundColor(UiTheme.surface).fontColor(UiTheme.text)
+          .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8).onClick(() => this.add('rerank'))
       }.width('100%')
-      Scroll() {
-        Column({ space: 6 * this.fontScale }) {
-          ForEach(this.visibleProfiles(), (profile: RagApiProfile) => {
-            Column({ space: 3 * this.fontScale }) {
-              Row() {
-                Text(profile.name || profile.model).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
-                  .fontColor(this.selectedId === profile.id ?
-                    UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
-                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-                Text(profile.kind === 'embedding' ? 'Embedding' : 'Rerank').fontSize(8 * this.fontScale).fontColor(UiTheme.muted)
-              }.width('100%')
-              Text(`${profile.model}${profile.dimensions > 0 ? ` · ${profile.dimensions}维` : ''}`)
-                .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(profile.enabled === false ? '已停用' : profile.lastTestStatus || '未测试')
-                .fontSize(8 * this.fontScale).fontColor(profile.enabled === false ? UiTheme.muted : UiTheme.secondary)
-                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-            }.width('100%').padding(9 * this.fontScale).alignItems(HorizontalAlign.Start)
-              .backgroundColor(this.selectedId === profile.id ?
-                UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
-              .border({ width: 1, color: this.selectedId === profile.id ?
-                UiTheme.choiceSelectedBorder : UiTheme.border }).borderRadius(7)
-              .interactive().onClick(() => this.edit(profile))
-          }, (profile: RagApiProfile) => profile.id)
-          if (this.visibleProfiles().length === 0) {
-            Text('暂无此类API，使用上方按钮添加。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
-              .width('100%').padding(15 * this.fontScale)
-          }
-        }.width('100%')
-      }.layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
-        .nestedScroll({
-          scrollForward: NestedScrollMode.PARENT_FIRST,
-          scrollBackward: NestedScrollMode.PARENT_FIRST
-        }).align(Alignment.TopStart)
-    }.width(this.wide() ? 270 : '100%').height(this.wide() ? '100%' : 210).padding(12 * this.fontScale).backgroundColor('#F7F7F7')
-      .border({ width: { right: 1 }, color: UiTheme.border })
+      ForEach(this.visibleProfiles(), (profile: RagApiProfile) => {
+        Column({ space: 3 * this.fontScale }) {
+          Row({ space: 6 * this.fontScale }) {
+            Text(profile.name || profile.model).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium)
+              .fontColor(this.selectedId === profile.id ?
+                UiTheme.choiceSelectedText : UiTheme.text)
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
+            Text(profile.kind === 'embedding' ? 'Embedding' : 'Rerank')
+              .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+          }.width('100%')
+          Text(`${profile.model}${profile.dimensions > 0 ? ` · ${profile.dimensions}维` : ''}`)
+            .fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(profile.enabled === false ? '已停用' : profile.lastTestStatus || '未测试')
+            .fontSize(9 * this.fontScale).fontColor(profile.enabled === false ? UiTheme.muted : UiTheme.secondary)
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        }.width('100%').padding(10 * this.fontScale).alignItems(HorizontalAlign.Start)
+          .backgroundColor(this.selectedId === profile.id ?
+            UiTheme.choiceSelectedBackground : UiTheme.surface)
+          .border({ width: 1, color: this.selectedId === profile.id ?
+            UiTheme.choiceSelectedBorder : UiTheme.softBorder }).borderRadius(8)
+          .interactive().onClick(() => this.edit(profile))
+      }, (profile: RagApiProfile) => profile.id)
+      if (this.visibleProfiles().length === 0) {
+        Text('暂无此类API，使用上方按钮添加。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+          .width('100%').padding(10 * this.fontScale)
+      }
+    }.width(this.wide() ? 270 * this.fontScale : '100%').padding(12 * this.fontScale)
+      .backgroundColor(UiTheme.softSurface).borderRadius(12).alignItems(HorizontalAlign.Start)
   }
   @Builder
   ProfileForm() {
-    Scroll() {
-      Column({ space: 9 * this.fontScale }) {
-        Text(this.selectedId ? '编辑RAG API' : '新建RAG API').fontSize(17 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-        Text(this.kind === 'embedding' ? '兼容 OpenAI /embeddings，支持自定义维度。' : '兼容 /rerank，接收 query、documents 和 top_n。')
-          .fontSize(10 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-        TextInput({ text: this.name, placeholder: '配置名称（可选）' }).height(37 * this.fontScale).fontSize(11 * this.fontScale)
-          .backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.name = value)
-        TextInput({ text: this.baseUrl, placeholder: '服务根地址，例如 https://api.example.com/v1' }).height(37 * this.fontScale)
-          .fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.baseUrl = value)
-        TextInput({ text: this.model, placeholder: '模型名称' }).height(37 * this.fontScale).fontSize(11 * this.fontScale)
-          .backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.model = value)
-        TextInput({ text: this.apiKey, placeholder: 'API Key，仅保存在本机' }).type(InputType.Password)
-          .height(37 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8)
-          .onChange((value: string) => this.apiKey = value)
-        if (this.kind === 'embedding') {
-          TextInput({ text: this.dimensions, placeholder: '向量维度，例如 512' }).type(InputType.Number)
-            .height(37 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface).borderRadius(8)
-            .onChange((value: string) => this.dimensions = value)
+    Column({ space: 12 * this.fontScale }) {
+      Row({ space: 8 * this.fontScale }) {
+        Text(this.selectedId ? '编辑配置' : '新建配置').fontSize(11 * this.fontScale)
+          .fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        Text(this.kind === 'embedding' ? 'Embedding' : 'Rerank').fontSize(9 * this.fontScale)
+          .fontColor(UiTheme.secondary).padding({ left: 6, right: 6, top: 2, bottom: 2 })
+          .backgroundColor(UiTheme.raised).borderRadius(4)
+      }.width('100%')
+      Text(this.kind === 'embedding' ? '兼容 OpenAI /embeddings 接口，支持自定义向量维度。' :
+        '兼容 /rerank 接口，接收 query、documents 与 top_n。')
+        .fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+      GridRow({ columns: 12, gutter: 10 * this.fontScale }) {
+        GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+          Column({ space: 5 * this.fontScale }) {
+            Text('配置名称').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+            TextInput({ text: this.name, placeholder: '例如 智谱 Embedding' }).height(36 * this.fontScale)
+              .fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+              .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+              .onChange((value: string) => this.name = value)
+          }.width('100%').alignItems(HorizontalAlign.Start)
         }
-        Row({ space: 9 * this.fontScale }) {
-          Text('启用此配置').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).layoutWeight(1)
-          Toggle({ type: ToggleType.Switch, isOn: this.profileEnabled })
-            .enabled(!this.selectedId).onChange((value: boolean) => this.profileEnabled = value)
-          if (this.selectedId) {
-            Button('切换状态').height(30 * this.fontScale).fontSize(9 * this.fontScale)
-              .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.toggleEnabled())
+        GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+          Column({ space: 5 * this.fontScale }) {
+            Text('模型名称').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+            TextInput({ text: this.model, placeholder: '例如 embedding-3' }).height(36 * this.fontScale)
+              .fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+              .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+              .onChange((value: string) => this.model = value)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }
+        GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+          Column({ space: 5 * this.fontScale }) {
+            Text('服务根地址').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+            TextInput({ text: this.baseUrl, placeholder: 'https://api.example.com/v1' }).height(36 * this.fontScale)
+              .fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+              .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+              .onChange((value: string) => this.baseUrl = value)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }
+        GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+          Column({ space: 5 * this.fontScale }) {
+            Text('API Key（仅保存在本机）').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+            TextInput({ text: this.apiKey, placeholder: 'sk-…' }).type(InputType.Password)
+              .height(36 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+              .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+              .onChange((value: string) => this.apiKey = value)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }
+        if (this.kind === 'embedding') {
+          GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+            Column({ space: 5 * this.fontScale }) {
+              Text('向量维度').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+              TextInput({ text: this.dimensions, placeholder: '例如 512' }).type(InputType.Number)
+                .height(36 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+                .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+                .onChange((value: string) => this.dimensions = value)
+            }.width('100%').alignItems(HorizontalAlign.Start)
           }
-        }.width('100%')
-        Text('密钥不会显示在日志中。公开部署建议通过自有后端代理，不把长期密钥写入HAP。')
-          .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).lineHeight(15 * this.fontScale).width('100%')
-          .padding(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(7)
-        if (this.notice) Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
-          .width('100%').padding(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(7)
-        Row({ space: 8 * this.fontScale }) {
-          Button('保存API').layoutWeight(1).height(38 * this.fontScale).fontSize(11 * this.fontScale)
-            .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => this.save())
-          Button(this.testing ? '测试中' : '测试连接').height(38 * this.fontScale).fontSize(11 * this.fontScale)
-            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).enabled(!this.testing)
-            .onClick(() => this.testConnection())
-          if (this.selectedId) {
-            Button('删除').height(38 * this.fontScale).fontSize(11 * this.fontScale)
-              .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary).onClick(() => this.remove())
-          }
-        }.width('100%')
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
-    }.height('100%').layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
-      .nestedScroll({
-        scrollForward: NestedScrollMode.PARENT_FIRST,
-        scrollBackward: NestedScrollMode.PARENT_FIRST
-      }).align(Alignment.TopStart)
+        }
+      }.width('100%')
+      Row({ space: 9 * this.fontScale }) {
+        Column({ space: 2 * this.fontScale }) {
+          Text('启用此配置').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text('停用后引用该配置的知识库会回退本地方法。').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Toggle({ type: ToggleType.Switch, isOn: this.profileEnabled })
+          .enabled(!this.selectedId).onChange((value: boolean) => this.profileEnabled = value)
+        if (this.selectedId) {
+          Button('切换状态').height(30 * this.fontScale).fontSize(10 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.toggleEnabled())
+        }
+      }.width('100%')
+      Text('密钥不会显示在日志中。公开部署建议通过自有后端代理，不把长期密钥写入HAP。')
+        .fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted).lineHeight(15 * this.fontScale).width('100%')
+        .padding(10 * this.fontScale).backgroundColor(UiTheme.softSurface).borderRadius(8)
+      if (this.notice) Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+        .width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+      Row({ space: 8 * this.fontScale }) {
+        Button('保存API').layoutWeight(1).height(38 * this.fontScale).fontSize(11 * this.fontScale)
+          .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => this.save())
+        Button(this.testing ? '测试中' : '测试连接').height(38 * this.fontScale).fontSize(11 * this.fontScale)
+          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).enabled(!this.testing)
+          .onClick(() => this.testConnection())
+        if (this.selectedId) {
+          Button('删除').height(38 * this.fontScale).fontSize(11 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary).onClick(() => this.remove())
+        }
+      }.width('100%')
+    }.width('100%').layoutWeight(this.wide() ? 1 : 0).alignItems(HorizontalAlign.Start)
+  }
+  @Builder
+  Content() {
+    Column({ space: 12 * this.fontScale }) {
+      Row() {
+        Column({ space: 3 * this.fontScale }) {
+          Text('RAG API 管理').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+          Text('管理 Embedding 与 Rerank 服务地址、模型与密钥，配置仅保存在本机。')
+            .fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted).maxLines(2)
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      }.width('100%')
+      if (this.wide()) {
+        Row({ space: 12 * this.fontScale }) { this.ProfileList(); this.ProfileForm() }
+          .width('100%').alignItems(VerticalAlign.Top)
+      } else {
+        Column({ space: 12 * this.fontScale }) { this.ProfileList(); this.ProfileForm() }.width('100%')
+      }
+    }.width('100%').alignItems(HorizontalAlign.Start)
   }
   build() {
-    if (this.wide()) {
-      Row() { this.ProfileList(); this.ProfileForm() }
-        .width('100%').height('100%').alignItems(VerticalAlign.Top).backgroundColor(UiTheme.surface)
-        .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
+    if (this.embedded) {
+      Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+        .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+        .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
         .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
     } else {
-      Column() { this.ProfileList(); this.ProfileForm() }
-        .width('100%').height('100%').backgroundColor(UiTheme.surface)
-        .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
+      Scroll() {
+        Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+          .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+      }.width('100%').height('100%').scrollBar(BarState.On).scrollBarWidth(6)
+        .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
         .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
     }
   }

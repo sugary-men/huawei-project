@@ -4,9 +4,16 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require(process.argv[2] || 'typescript');
 const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/SidebarService.ets'), 'utf8');
+const themeSource = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/config/UiTheme.ets'), 'utf8');
+const themeExports = {};
+vm.runInNewContext(ts.transpileModule(themeSource, { compilerOptions: { module: ts.ModuleKind.CommonJS,
+  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: themeExports });
 const exported = {};
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
-  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: exported });
+  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: exported, require: id => {
+    if (id === '../config/UiTheme') return themeExports;
+    throw new Error('unexpected require: ' + id);
+  } });
 const sidebar = exported.SidebarService;
 const features = [{ id: 'home', name: '智能助理' }, { id: 'study', name: '学习助手' }, { id: 'career', name: '求职实验室' }];
 const sessions = Array.from({ length: 12 }, (_, index) => ({ id: `chat-${index}`, title: index === 1 ? '数据结构复习' : `会话${index}`,

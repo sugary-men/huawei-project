@@ -73,73 +73,89 @@ export struct RagRerankPanel {
     Row({ space: 11 * this.fontScale }) {
       Column({ space: 4 * this.fontScale }) {
         Row({ space: 7 * this.fontScale }) {
-          Text(title).fontSize(13 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text(title).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
           if (selected) {
-            Text('当前生效').fontSize(8 * this.fontScale).fontColor(UiTheme.choiceSelectedText)
+            Text('当前生效').fontSize(9 * this.fontScale).fontColor(UiTheme.accentStrong)
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .backgroundColor(UiTheme.choiceSelectedBackground).borderRadius(4)
+              .backgroundColor(UiTheme.accentPale)
+              .border({ width: 1, color: UiTheme.accentBorder }).borderRadius(4)
           }
         }
-        Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+        Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
           .lineHeight(16 * this.fontScale).width('100%')
       }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      Button(selected ? '已选择' : '启用').height(32 * this.fontScale).fontSize(10 * this.fontScale)
+      Button(selected ? '已选择' : '启用').height(30 * this.fontScale).fontSize(10 * this.fontScale)
         .backgroundColor(selected ? UiTheme.raised : UiTheme.primary)
         .fontColor(selected ? UiTheme.secondary : UiTheme.onPrimary)
         .enabled(!selected).onClick(action)
-    }.width('100%').padding(14 * this.fontScale)
-      .backgroundColor(selected ? UiTheme.choiceSelectedBackground : UiTheme.surface)
-      .border({ width: 1, color: selected ? UiTheme.choiceSelectedBorder : UiTheme.border }).borderRadius(9)
+    }.width('100%')
+      .padding({ left: 14 * this.fontScale, right: 14 * this.fontScale, top: 13 * this.fontScale, bottom: 13 * this.fontScale })
+      .backgroundColor(selected ? UiTheme.accentPale : UiTheme.softSurface)
+      .border({ width: 1, color: selected ? UiTheme.accentBorder : UiTheme.softBorder }).borderRadius(12)
       .hoverEffect(HoverEffect.Highlight)
       .animation({ duration: UiMotion.section, curve: UiMotion.enterCurve })
   }
 
+  @Builder
+  Content() {
+    Column({ space: 12 * this.fontScale }) {
+      Row() {
+        Column({ space: 3 * this.fontScale }) {
+          Text('重排序模型管理').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+          Text('统一管理在线与本地重排序方法，切换后立即参与当前知识库检索。')
+            .fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted).maxLines(2)
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Column({ space: 2 * this.fontScale }) {
+          Text('当前生效').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+          Text(this.currentLabel()).fontSize(10 * this.fontScale).fontWeight(FontWeight.Medium)
+            .fontColor(UiTheme.softText).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        }.alignItems(HorizontalAlign.End).constraintSize({ maxWidth: 200 * this.fontScale })
+      }.width('100%')
+      if (this.notice) {
+        Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+          .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+      }
+      this.MethodCard('不重排序', '保留关键词、向量与 BM25 的混合检索结果，响应最快。',
+        this.base()?.rerankMode === 'none', () => this.select('none'))
+      this.MethodCard('本地重排序', '基于查询词覆盖与短语精确度在本机重排，不发送资料内容。',
+        this.base()?.rerankMode === 'local', () => this.select('local'))
+      this.MethodCard('在线重排序', this.profiles().length === 0 ? '暂无已启用的 Rerank API，可在下方 API 管理中添加。' :
+        `可用模型 ${this.profiles().length} 个，按需发送候选片段完成服务端重排。`,
+        this.base()?.rerankMode === 'online', () => {
+          if (this.profiles().length > 0) this.select('online', this.profiles()[0].id)
+        })
+      if (this.profiles().length > 0) {
+        Button(`${this.profileName(this.base()?.rerankProfileId || '')} ▾`).height(34 * this.fontScale)
+          .fontSize(10 * this.fontScale).width('100%').backgroundColor(UiTheme.softSurface).fontColor(UiTheme.text)
+          .border({ width: 1, color: UiTheme.softBorder })
+          .bindMenu(this.onlineMenu())
+      }
+      Column({ space: 5 * this.fontScale }) {
+        Text('模型切换会影响检索排序，不会删除已有索引或资料。').fontSize(9 * this.fontScale)
+          .fontColor(UiTheme.softMuted)
+        Text('在线模型密钥由 API 管理统一保存，本面板只展示配置名称与状态。')
+          .fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+      }.width('100%').padding(12 * this.fontScale).backgroundColor(UiTheme.softSurface)
+        .border({ width: 1, color: UiTheme.softBorder }).borderRadius(12)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
   build() {
-    Scroll() {
-      Column({ space: 14 * this.fontScale }) {
-        Row() {
-          Column({ space: 3 * this.fontScale }) {
-            Text('重排序模型管理').fontSize(20 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text('统一管理在线与本地重排序方法，切换后立即参与当前知识库检索。')
-              .fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Column({ space: 2 * this.fontScale }) {
-            Text('当前生效').fontSize(8 * this.fontScale).fontColor(UiTheme.muted)
-            Text(this.currentLabel()).fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }.alignItems(HorizontalAlign.End).constraintSize({ maxWidth: 220 * this.fontScale })
-        }.width('100%')
-        if (this.notice) {
-          Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
-            .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
-        }
-        this.MethodCard('不重排序', '保留关键词、向量与 BM25 的混合检索结果，响应最快。',
-          this.base()?.rerankMode === 'none', () => this.select('none'))
-        Column({ space: 9 * this.fontScale }) {
-          this.MethodCard('本地重排序', '基于查询词覆盖与短语精确度在本机重排，不发送资料内容。',
-            this.base()?.rerankMode === 'local', () => this.select('local'))
-        }.width('100%')
-        this.MethodCard('在线重排序', this.profiles().length === 0 ? '暂无已启用的 Rerank API，可前往 API 管理添加。' :
-          `可用模型 ${this.profiles().length} 个，按需发送候选片段完成服务端重排。`,
-          this.base()?.rerankMode === 'online', () => {
-            if (this.profiles().length > 0) this.select('online', this.profiles()[0].id)
-          })
-        if (this.profiles().length > 0) {
-          Button(`${this.profileName(this.base()?.rerankProfileId || '')} ▾`).height(38 * this.fontScale)
-            .fontSize(11 * this.fontScale).width('100%').backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
-            .bindMenu(this.onlineMenu())
-        }
-        Column({ space: 7 * this.fontScale }) {
-          Text('模型切换会影响检索排序，不会删除已有索引或资料。').fontSize(10 * this.fontScale)
-            .fontColor(UiTheme.muted)
-          Text('在线模型密钥由 API 管理统一保存，本面板只展示配置名称与状态。')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-        }.width('100%').padding(12 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
-      }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
-    }.width('100%').height('100%').scrollBar(this.embedded ? BarState.Off : BarState.Auto)
-      .nestedScroll({
-        scrollForward: NestedScrollMode.PARENT_FIRST,
-        scrollBackward: NestedScrollMode.PARENT_FIRST
-      }).align(Alignment.TopStart)
+    if (this.embedded) {
+      Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+        .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+        .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+    } else {
+      Scroll() {
+        Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+          .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+      }.width('100%').height('100%').scrollBar(BarState.On).scrollBarWidth(6)
+        .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
+        .nestedScroll({
+          scrollForward: NestedScrollMode.PARENT_FIRST,
+          scrollBackward: NestedScrollMode.PARENT_FIRST
+        })
+    }
   }
 }

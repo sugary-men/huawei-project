@@ -1,4 +1,5 @@
 import { FeatureDefinition } from '../models/AppModels'
+import { UiTheme } from '../config/UiTheme'
 import { PanelResizeResult, SidebarPreferences, SidebarView, SidebarWorkspaceGroup } from '../models/SidebarModels'
 import { SessionSummary } from './SessionService'
 
@@ -21,7 +22,8 @@ export class SidebarService {
 
   static defaults(): SidebarPreferences {
     return { workspaceSectionExpanded: true, recentSectionExpanded: true, expandedWorkspaceIds: [],
-      expandedHistoryIds: [], showAllRecent: false, panelVisible: true, taskPanelVisible: true, leftWidth: 256, rightWidth: 274, fontScale: 0.9 }
+      expandedHistoryIds: [], showAllRecent: false, panelVisible: true, taskPanelVisible: true,
+      leftWidth: 256, rightWidth: 274, fontScale: 0.9, themeId: UiTheme.defaultThemeId }
   }
 
   static normalize(value?: SidebarPreferences): SidebarPreferences {
@@ -36,6 +38,7 @@ export class SidebarService {
         .filter((id: string) => typeof id === 'string').slice(0, 30) : [],
       showAllRecent: typeof value.showAllRecent === 'boolean' ? value.showAllRecent : false,
       fontScale: scale,
+      themeId: UiTheme.normalizeTheme(value.themeId),
       taskPanelVisible: typeof value.taskPanelVisible === 'boolean' ? value.taskPanelVisible : true,
       panelVisible: typeof value.panelVisible === 'boolean' ? value.panelVisible : true,
       leftWidth: Math.max(SidebarService.panelMinimum('left', scale), typeof value.leftWidth === 'number' && Number.isFinite(value.leftWidth) ? Math.min(400, value.leftWidth) : 256),

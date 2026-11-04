@@ -139,7 +139,11 @@ export struct AgentTaskPage {
           }
           if (!this.tasks.length && !this.editing) {
             Column({ space: 9 }) {
-              Image($r('app.media.ic_clock')).width(34 * this.fontScale).height(34 * this.fontScale).opacity(0.6)
+              Stack() {
+                Image($r('app.media.ic_clock')).width(28 * this.fontScale).height(28 * this.fontScale)
+                  .colorFilter(UiTheme.iconIvory)
+              }.width(52 * this.fontScale).height(52 * this.fontScale)
+                .backgroundColor(UiTheme.accentStrong).borderRadius(14)
               Text('把重复的整理交给 Agent').fontSize(19 * this.fontScale).fontColor(UiTheme.text)
               Text('例如每天早晨整理日程，或每周汇总资料中的复习重点。').fontSize(13 * this.fontScale).fontColor(UiTheme.secondary)
             }.width('100%').padding(45 * this.fontScale).transition(UiMotion.fade())
@@ -188,7 +192,9 @@ export struct AgentTaskPage {
               .transition(UiMotion.reveal())
           }, (task: AgentTask) => `${task.id}-${task.updatedAt}-${task.runId}`)
         }.width('100%').alignItems(HorizontalAlign.Start)
+          .padding({ right: 12 * this.fontScale, bottom: 8 * this.fontScale })
       }.layoutWeight(1).width('100%').align(Alignment.TopStart).scrollBar(BarState.Auto)
+        .scrollBarWidth(4).scrollBarColor('#777777')
     }.padding(20 * this.fontScale).width('100%').height('100%').backgroundColor(UiTheme.background)
   }
 }

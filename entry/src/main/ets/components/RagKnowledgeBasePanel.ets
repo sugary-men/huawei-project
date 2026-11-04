@@ -32,12 +32,10 @@ export struct RagKnowledgeBasePanel {
   @State documentIds: string[] = []
   @State busy: boolean = false
   @State notice: string = ''
-  @State panelWidth: number = 900
 
   aboutToAppear(): void { this.refresh() }
 
   private workspace(): RagWorkspaceService | undefined { return IntegrationService.ragWorkspace }
-  private wide(): boolean { return (this.viewportWidth || this.panelWidth) >= 700 }
 
   private refresh(preferred: string = ''): void {
     const workspace = this.workspace()
@@ -109,7 +107,7 @@ export struct RagKnowledgeBasePanel {
     try {
       const result = await this.getUIContext().getPromptAction().showDialog({ title: '删除知识库',
         message: `删除“${this.name}”？资料文件不会删除，只移除知识库配置和索引。`,
-        buttons: [{ text: '取消', color: '#666666' }, { text: '删除', color: '#666666' }] })
+        buttons: [{ text: '取消', color: UiTheme.secondary }, { text: '删除', color: UiTheme.secondary }] })
       if (result.index !== 1) return
       workspace.removeBase(this.selectedId)
       this.selectedId = ''
@@ -160,111 +158,115 @@ export struct RagKnowledgeBasePanel {
       onSelect: () => apply(value) })
   }
 
-
   @Builder
-  BaseForm() {
-    Scroll() {
-      Column({ space: 10 * this.fontScale }) {
-        Row() {
-          Column({ space: 3 * this.fontScale }) {
-            Text('知识库设置').fontSize(17 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text(this.selectedId ? `ID ${this.selectedId}` : '使用顶部入口选择或新建知识库')
-              .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+  Content() {
+    Column({ space: 12 * this.fontScale }) {
+      Row() {
+        Column({ space: 3 * this.fontScale }) {
+          Text('知识库设置').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+          Text('配置当前知识库的向量化、重排序与资料范围。')
+            .fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted).maxLines(2)
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Column({ space: 2 * this.fontScale }) {
+          Text('当前库').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+          Text(this.name || this.selectedId || '未选择').fontSize(10 * this.fontScale).fontWeight(FontWeight.Medium)
+            .fontColor(UiTheme.softText).maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }.alignItems(HorizontalAlign.End).constraintSize({ maxWidth: 200 * this.fontScale })
+      }.width('100%')
+      TextInput({ text: this.name, placeholder: '知识库名称' }).height(36 * this.fontScale).fontSize(11 * this.fontScale)
+        .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+        .onChange((value: string) => this.name = value)
+      TextArea({ text: this.description, placeholder: '用途、范围或数据说明' }).height(64 * this.fontScale)
+        .fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
+        .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+        .onChange((value: string) => this.description = value)
+      Column({ space: 7 * this.fontScale }) {
+        Text('向量化方式').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        Row({ space: 7 * this.fontScale }) {
+          this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => this.embeddingMode = value)
+          this.ModeButton('在线 Embedding', this.embeddingMode, 'online', (value: string) => this.embeddingMode = value)
+          Button(this.profileName(this.embeddingProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
+            .fontColor(UiTheme.text).backgroundColor(UiTheme.softSurface)
+            .border({ width: 1, color: UiTheme.softBorder }).layoutWeight(1)
+            .bindMenu(this.embeddingMenu())
         }.width('100%')
-        TextInput({ text: this.name, placeholder: '知识库名称' }).height(38 * this.fontScale).fontSize(12 * this.fontScale)
-          .backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.name = value)
-        TextArea({ text: this.description, placeholder: '用途、范围或数据说明' }).height(72 * this.fontScale).fontSize(12 * this.fontScale)
-          .backgroundColor(UiTheme.surface).borderRadius(8).onChange((value: string) => this.description = value)
-        Column({ space: 7 * this.fontScale }) {
-          Text('向量化方式').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
-          Row({ space: 7 * this.fontScale }) {
-            this.ModeButton('本地算法', this.embeddingMode, 'local', (value: string) => this.embeddingMode = value)
-            this.ModeButton('在线 Embedding', this.embeddingMode, 'online', (value: string) => this.embeddingMode = value)
-            Button(this.profileName(this.embeddingProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
-              .fontColor(UiTheme.text).backgroundColor(UiTheme.raised).layoutWeight(1)
-              .bindMenu(this.embeddingMenu())
-          }.width('100%')
-        }.width('100%').alignItems(HorizontalAlign.Start)
-        Column({ space: 7 * this.fontScale }) {
-          Text('重排序方式').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
-          Row({ space: 7 * this.fontScale }) {
-            this.ModeButton('不重排', this.rerankMode, 'none', (value: string) => this.rerankMode = value)
-            this.ModeButton('本地', this.rerankMode, 'local', (value: string) => this.rerankMode = value)
-            this.ModeButton('在线', this.rerankMode, 'online', (value: string) => this.rerankMode = value)
-            if (this.rerankMode === 'online') {
-              Button(this.profileName(this.rerankProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
-                .fontColor(UiTheme.text).backgroundColor(UiTheme.raised).layoutWeight(1)
-                .bindMenu(this.rerankMenu())
-            }
-          }.width('100%')
-        }.width('100%').alignItems(HorizontalAlign.Start)
-        Row({ space: 12 * this.fontScale }) {
-          Row({ space: 6 * this.fontScale }) {
-            Toggle({ type: ToggleType.Switch, isOn: this.includeBuiltIn })
-              .onChange((value: boolean) => this.includeBuiltIn = value)
-            Text('包含内置资料').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
-          }
-          Row({ space: 6 * this.fontScale }) {
-            Toggle({ type: ToggleType.Switch, isOn: this.includeAllLocal })
-              .onChange((value: boolean) => this.includeAllLocal = value)
-            Text('包含全部本地资料').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+      }.width('100%').alignItems(HorizontalAlign.Start)
+      Column({ space: 7 * this.fontScale }) {
+        Text('重排序方式').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        Row({ space: 7 * this.fontScale }) {
+          this.ModeButton('不重排', this.rerankMode, 'none', (value: string) => this.rerankMode = value)
+          this.ModeButton('本地', this.rerankMode, 'local', (value: string) => this.rerankMode = value)
+          this.ModeButton('在线', this.rerankMode, 'online', (value: string) => this.rerankMode = value)
+          if (this.rerankMode === 'online') {
+            Button(this.profileName(this.rerankProfileId)).height(30 * this.fontScale).fontSize(10 * this.fontScale)
+              .fontColor(UiTheme.text).backgroundColor(UiTheme.softSurface)
+              .border({ width: 1, color: UiTheme.softBorder }).layoutWeight(1)
+              .bindMenu(this.rerankMenu())
           }
         }.width('100%')
-        Text('资料范围').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
-        Column({ space: 4 * this.fontScale }) {
-          ForEach(this.documents, (document: LibraryDocument) => {
-            Row({ space: 8 * this.fontScale }) {
-              Text(document.id.startsWith('rag:') ? '内置' : '本地').fontSize(8 * this.fontScale)
-                .fontColor(UiTheme.muted).width(28)
-              Text(document.title).fontSize(10 * this.fontScale).fontColor(UiTheme.text).layoutWeight(1)
-                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(this.documentIds.includes(document.id) || (document.id.startsWith('rag:') && this.includeBuiltIn) ||
-                (!document.id.startsWith('rag:') && this.includeAllLocal) ? '已纳入' : '未纳入')
-                .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-            }.width('100%').height(30 * this.fontScale).padding({ left: 7, right: 7 })
-              .backgroundColor(this.documentIds.includes(document.id) ? '#EEEEEE' : Color.Transparent)
-              .borderRadius(6).interactive().onClick(() => this.toggleDocument(document.id))
-          }, (document: LibraryDocument) => document.id)
-        }.width('100%').padding(5 * this.fontScale).backgroundColor('#F8F8F8').border({ width: 1, color: UiTheme.border }).borderRadius(8)
-        if (this.notice) {
-          Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
-            .padding(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+      }.width('100%').alignItems(HorizontalAlign.Start)
+      Row({ space: 14 * this.fontScale }) {
+        Row({ space: 6 * this.fontScale }) {
+          Toggle({ type: ToggleType.Switch, isOn: this.includeBuiltIn })
+            .onChange((value: boolean) => this.includeBuiltIn = value)
+          Text('包含内置资料').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
         }
-        Row({ space: 8 * this.fontScale }) {
-          Button(this.busy ? '正在构建' : '构建在线索引').layoutWeight(1).height(38 * this.fontScale)
-            .fontSize(11 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary)
-            .enabled(!this.busy && this.selectedId.length > 0 && this.embeddingMode === 'online')
-            .onClick(() => this.buildIndex())
-          Button('保存知识库').height(38 * this.fontScale).fontSize(11 * this.fontScale)
-            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.save())
-          if (this.selectedId && this.selectedId !== 'kb-local') {
-            Button('删除').height(38 * this.fontScale).fontSize(11 * this.fontScale)
-              .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary).onClick(() => this.remove())
-          }
-        }.width('100%')
-      }.width('100%').alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
-    }.height('100%').layoutWeight(1).scrollBar(this.embedded ? BarState.Off : BarState.Auto)
-      .nestedScroll({
-        scrollForward: NestedScrollMode.PARENT_FIRST,
-        scrollBackward: NestedScrollMode.PARENT_FIRST
-      })
-      .align(Alignment.TopStart)
+        Row({ space: 6 * this.fontScale }) {
+          Toggle({ type: ToggleType.Switch, isOn: this.includeAllLocal })
+            .onChange((value: boolean) => this.includeAllLocal = value)
+          Text('包含全部本地资料').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
+        }
+      }.width('100%')
+      Text('资料范围').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+        .width('100%')
+      Column({ space: 4 * this.fontScale }) {
+        ForEach(this.documents, (document: LibraryDocument) => {
+          Row({ space: 8 * this.fontScale }) {
+            Text(document.id.startsWith('rag:') ? '内置' : '本地').fontSize(9 * this.fontScale)
+              .fontColor(UiTheme.muted).width(28)
+            Text(document.title).fontSize(11 * this.fontScale).fontColor(UiTheme.text).layoutWeight(1)
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.documentIds.includes(document.id) || (document.id.startsWith('rag:') && this.includeBuiltIn) ||
+              (!document.id.startsWith('rag:') && this.includeAllLocal) ? '已纳入' : '未纳入')
+              .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+          }.width('100%').height(30 * this.fontScale).padding({ left: 8, right: 8 })
+            .backgroundColor(this.documentIds.includes(document.id) ? UiTheme.raised : Color.Transparent)
+            .borderRadius(6).interactive().onClick(() => this.toggleDocument(document.id))
+        }, (document: LibraryDocument) => document.id)
+      }.width('100%').padding(5 * this.fontScale).backgroundColor(UiTheme.softSurface)
+        .border({ width: 1, color: UiTheme.softBorder }).borderRadius(8)
+      if (this.notice) {
+        Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+          .padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+      }
+      Row({ space: 8 * this.fontScale }) {
+        Button(this.busy ? '正在构建' : '构建在线索引').layoutWeight(1).height(38 * this.fontScale)
+          .fontSize(11 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary)
+          .enabled(!this.busy && this.selectedId.length > 0 && this.embeddingMode === 'online')
+          .onClick(() => this.buildIndex())
+        Button('保存知识库').height(38 * this.fontScale).fontSize(11 * this.fontScale)
+          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text).onClick(() => this.save())
+        if (this.selectedId && this.selectedId !== 'kb-local') {
+          Button('删除').height(38 * this.fontScale).fontSize(11 * this.fontScale)
+            .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary).onClick(() => this.remove())
+        }
+      }.width('100%')
+    }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
   build() {
-    if (this.wide()) {
-      Row() {
-        this.BaseForm()
-      }.width('100%').height('100%').alignItems(VerticalAlign.Top).backgroundColor(UiTheme.surface)
-        .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
-        .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
+    if (this.embedded) {
+      Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+        .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+        .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
     } else {
-      Column() {
-        this.BaseForm()
-      }.width('100%').height('100%').backgroundColor(UiTheme.surface)
-        .border({ width: 1, color: UiTheme.border }).borderRadius(10).clip(true)
-        .onAreaChange((_oldValue: Area, newValue: Area) => this.panelWidth = parseFloat(String(newValue.width)))
+      Scroll() {
+        Column() { this.Content() }.width('100%').padding(16 * this.fontScale)
+          .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+          .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+      }.width('100%').height('100%').scrollBar(BarState.On).scrollBarWidth(6)
+        .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
     }
   }
 }

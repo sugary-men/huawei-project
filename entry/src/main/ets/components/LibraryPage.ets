@@ -3,11 +3,12 @@ import { UiMotion } from '../config/UiMotion'
 import { UiTheme } from '../config/UiTheme'
 import { LibraryDocument } from '../models/LibraryModels'
 import { SourceCitation } from '../models/RagModels'
-import { RagApiProfile, RagKnowledgeBase, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
+import { RagApiProfile, RagKnowledgeBase, RagStoredIndex, RagWorkspaceArchive } from '../models/RagWorkspaceModels'
 import { AttachmentService } from '../services/AttachmentService'
 import { IntegrationService } from '../services/IntegrationService'
 import { ScheduleService } from '../services/ScheduleService'
 import { KnowledgeFeatureRail } from './KnowledgeFeatureRail'
+import { KnowledgeDocumentCard } from './KnowledgeDocumentCard'
 import { MarkdownContent } from './MarkdownContent'
 import { RagAlgorithmPanel } from './RagAlgorithmPanel'
 import { RagApiPanel } from './RagApiPanel'
@@ -49,7 +50,10 @@ export struct LibraryPage {
   @State createEmbeddingId: string = ''
   @State createNotice: string = ''
   @State creating: boolean = false
+  @State settingsLeftColumnHeight: number = 0
+  @State settingsRightColumnHeight: number = 0
   private alive: boolean = true
+  private readonly pageScroller: Scroller = new Scroller()
   onUse: (id: string, attachment: boolean) => void = () => {}
   onUseSource: (source: SourceCitation) => void = () => {}
   onChanged: () => void = () => {}
@@ -57,7 +61,7 @@ export struct LibraryPage {
   aboutToAppear(): void {
     UiMotion.initialize()
     this.alive = true
-    if (this.viewportWidth < 760) this.railCollapsed = true
+    if (this.viewportWidth < 900) this.railCollapsed = true
     this.syncWorkspace()
     this.refresh()
   }
@@ -79,10 +83,14 @@ export struct LibraryPage {
   private selectedDocument(): LibraryDocument | undefined {
     return this.documents.find((document: LibraryDocument) => document.id === this.selected)
   }
-  private railWidth(): number { return this.railCollapsed ? 46 : (this.viewportWidth >= 900 ? 92 : 58) }
-  private contentWidth(): number { return Math.max(220, (this.viewportWidth || this.pageWidth) - this.railWidth() - 48) }
-  private wide(): boolean { return this.contentWidth() >= 760 }
-  private contextWidth(): number { return Math.max(210, Math.min(320, this.contentWidth() * 0.28)) }
+  private railWidth(): number { return this.railCollapsed ? 50 : (this.viewportWidth >= 900 ? 96 : 58) }
+  private measuredWidth(): number { return this.pageWidth > 0 ? this.pageWidth : this.viewportWidth }
+  private compactPage(): boolean { return this.measuredWidth() < 900 }
+  private pagePadding(): number { return this.compactPage() ? 14 : 22 }
+  private contentWidth(): number {
+    const rail = this.compactPage() ? 0 : this.railWidth()
+    return Math.max(220, this.measuredWidth() - rail - this.pagePadding() * 2)
+  }
   private syncWorkspace(): void {
     const workspace = IntegrationService.ragWorkspace
     if (workspace === undefined) return
@@ -116,7 +124,6 @@ export struct LibraryPage {
     return [
       { value: '导入文件到资料库', action: () => this.pick(false) },
       { value: '导入图片到资料库', action: () => this.pick(true) },
-      { value: '资料与运行管理', action: () => this.setSection('dataManagement') },
       { value: '本地存储：应用沙箱 JSON', action: () => {
         this.getUIContext().getPromptAction().showToast({ message: '知识库与资料索引保存在应用沙箱，本地 RAG 直接读取该存储。' })
       } }
@@ -206,7 +213,7 @@ export struct LibraryPage {
     try {
       const result = await this.getUIContext().getPromptAction().showDialog({ title: '删除资料',
         message: `从资料库删除「${document.title}」？已加入对话的附件和引用副本会保留。`,
-        buttons: [{ text: '取消', color: '#777777' }, { text: '删除', color: '#202020' }] })
+        buttons: [{ text: '取消', color: UiTheme.secondary }, { text: '删除', color: UiTheme.danger }] })
       if (!this.alive || result.index !== 1) return
       IntegrationService.library?.remove(document.id)
       this.selected = ''
@@ -262,12 +269,22 @@ export struct LibraryPage {
     this.selected = id
     this.editing = false
   }
+  private searchDocuments(value: string): void {
+    this.query = value
+    this.refresh()
+  }
   private setSection(value: string): void {
     this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve }, () => {
       this.section = value
       this.syncWorkspace()
+      if (value === 'library') {
+        try {
+          this.pageScroller.scrollTo({ xOffset: 0, yOffset: 0,
+            animation: { duration: 0, curve: Curve.EaseOut } })
+        } catch (_error) {}
+      }
     })
-    if (value === 'dataManagement') {
+    if (value === 'library') {
       this.syncWorkspace()
       this.refresh()
     }
@@ -280,14 +297,15 @@ export struct LibraryPage {
     this.onChanged()
   }
   private sectionTitle(): string {
+    if (this.section === 'library') return '资料库'
     if (this.section === 'settings') return '算法与设置'
-    if (this.section === 'dataManagement') return '数据管理'
     return '数据可视化'
   }
   private sectionDetail(): string {
+    if (this.section === 'library') return '导入资料、管理索引与本地存储，并查看正文。'
     if (this.section === 'visualization') return '当前知识库的关系图与数据分析卡片。'
     if (this.section === 'settings') return '模型、API、知识库配置与本地算法。'
-    return '资料、索引、导入导出和运行状态。'
+    return '数据操作、本地存储与资料管理。'
   }
   private workspaceKey(): string {
     return `${this.section}:${this.activeBaseId}:${this.ragRevision}`
@@ -318,21 +336,30 @@ export struct LibraryPage {
   KnowledgeSelector() {
     Button({ type: ButtonType.Normal }) {
       Row({ space: 7 * this.fontScale }) {
-        Text('◇').fontSize(13 * this.fontScale).fontColor(UiTheme.onPrimary)
+        Image($r('app.media.ic_library'))
+          .width(14 * this.fontScale).height(14 * this.fontScale)
+          .colorFilter(UiTheme.iconOnAccent)
         Text(this.currentBase()?.name || '选择知识库').fontSize(10 * this.fontScale)
-          .fontColor(UiTheme.onPrimary).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fontColor(UiTheme.onAccent).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
-        Text('▾').fontSize(9 * this.fontScale).fontColor('#D8D8D8')
+        Image($r('app.media.ic_chevron_right'))
+          .width(12 * this.fontScale).height(12 * this.fontScale)
+          .rotate({ angle: 90 }).colorFilter(UiTheme.iconOnAccent)
       }.width('100%')
-    }.width(180 * this.fontScale).height(36 * this.fontScale).padding({ left: 12, right: 10 })
-      .backgroundColor(UiTheme.primary).borderRadius(8)
+    }.width(this.contentWidth() >= 700 ? 180 * this.fontScale : '100%')
+      .height(36 * this.fontScale).padding({ left: 12, right: 10 })
+      .backgroundColor(UiTheme.accent).borderRadius(8)
       .clip(true)
       .id('knowledge-base-switcher').bindMenu(this.knowledgeMenu())
   }
   @Builder
   DocumentQuickMenu() {
-    Button('＋').width(36 * this.fontScale).height(36 * this.fontScale).fontSize(18 * this.fontScale)
-      .padding(0).backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+    Button({ type: ButtonType.Normal }) {
+      SymbolGlyph($r('sys.symbol.plus'))
+        .width(17 * this.fontScale).height(17 * this.fontScale).fontSize(17 * this.fontScale)
+        .fontColor([UiTheme.iconIvory]).renderingStrategy(SymbolRenderingStrategy.SINGLE)
+    }.width(36 * this.fontScale).height(36 * this.fontScale).padding(0)
+      .backgroundColor(UiTheme.accentStrong).borderRadius(8)
       .id('library-menu').bindMenu([
         { value: '新建文本资料', action: () => this.edit() },
         { value: '导入文件', action: () => this.pick(false) },
@@ -349,10 +376,11 @@ export struct LibraryPage {
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.layoutWeight(1).alignItems(HorizontalAlign.Start)
         this.KnowledgeSelector()
-        Button('＋ 新建知识库').height(36 * this.fontScale).fontSize(10 * this.fontScale)
-          .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+        Button('新建知识库').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+          .backgroundColor(UiTheme.accentPale).fontColor(UiTheme.accentStrong)
+          .border({ width: 1, color: UiTheme.accentBorder }).borderRadius(8)
           .id('knowledge-base-create-wide').onClick(() => this.openCreate())
-        Button('数据库').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+        Button('本地存储').height(36 * this.fontScale).fontSize(10 * this.fontScale)
           .backgroundColor(UiTheme.surface).fontColor(UiTheme.secondary)
           .border({ width: 1, color: UiTheme.border }).borderRadius(8)
           .bindMenu(this.databaseMenu())
@@ -366,14 +394,15 @@ export struct LibraryPage {
             Text(this.sectionDetail()).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
               .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Button('数据库').height(32 * this.fontScale).fontSize(9 * this.fontScale)
+          Button('本地存储').height(32 * this.fontScale).fontSize(9 * this.fontScale)
             .backgroundColor(UiTheme.raised).fontColor(UiTheme.secondary)
             .bindMenu(this.databaseMenu())
         }.width('100%')
         Row({ space: 7 * this.fontScale }) {
           Column() { this.KnowledgeSelector() }.layoutWeight(1)
-          Button('＋ 新建').height(36 * this.fontScale).fontSize(10 * this.fontScale)
-            .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
+          Button('新建').height(36 * this.fontScale).fontSize(10 * this.fontScale)
+            .backgroundColor(UiTheme.accentPale).fontColor(UiTheme.accentStrong)
+            .border({ width: 1, color: UiTheme.accentBorder }).borderRadius(8)
             .id('knowledge-base-create-compact').onClick(() => this.openCreate())
           if (this.section === 'settings') this.DocumentQuickMenu()
         }.width('100%')
@@ -381,38 +410,31 @@ export struct LibraryPage {
     }
   }
   @Builder
-  DocumentListRow(document: LibraryDocument) {
-    Column({ space: 5 * this.fontScale }) {
-      Row({ space: 8 * this.fontScale }) {
-        Text(this.documentIcon(document)).fontSize(16 * this.fontScale).fontColor(UiTheme.secondary).width(20 * this.fontScale)
-        Text(document.title).fontSize(12 * this.fontScale).fontWeight(FontWeight.Medium)
-          .fontColor(this.selected === document.id ? UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-        Text(this.documentStatus(document)).fontSize(8 * this.fontScale)
-          .fontColor(document.indexed ? UiTheme.secondary : UiTheme.muted)
-          .padding({ left: 5, right: 5, top: 2, bottom: 2 })
-          .backgroundColor(document.indexed ? '#ECECEC' : Color.Transparent).borderRadius(4)
-      }.width('100%')
-      Text(`${this.modalityLabel(document)} · ${document.course || '未分类'} · ${document.origin}`)
-        .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-      if (document.text) {
-        Text(document.text).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
-          .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis }).lineHeight(16 * this.fontScale).width('100%')
-      }
-    }.width('100%').padding(10 * this.fontScale).alignItems(HorizontalAlign.Start)
-      .backgroundColor(this.selected === document.id ? UiTheme.surface : '#F8F8F8')
-      .border({ width: 1, color: this.selected === document.id ? '#BDBDBD' : UiTheme.border })
-      .borderRadius(8).interactive().onClick(() => this.selectDocument(document.id))
-  }
-  @Builder
   DocumentListContent() {
-    Column({ space: 7 * this.fontScale }) {
+    GridRow({ columns: 12, gutter: {
+      x: 8 * this.fontScale,
+      y: 12 * this.fontScale
+    } }) {
       ForEach(this.visible(), (document: LibraryDocument) => {
-        this.DocumentListRow(document)
-      }, (document: LibraryDocument) => `${document.id}-${document.indexed}`)
+        GridCol({ span: 12 }) {
+          KnowledgeDocumentCard({
+            document: document,
+            selected: this.selected === document.id,
+            onSelect: (id: string) => this.selectDocument(id),
+            onUse: (id: string, attachment: boolean) => this.onUse(id, attachment),
+            onToggle: (id: string) => this.toggle(id),
+            onEdit: (item: LibraryDocument) => this.edit(item),
+            onRemove: (item: LibraryDocument) => this.remove(item)
+          })
+        }
+      }, (document: LibraryDocument) => `${document.id}-${document.indexed}-${document.text.length}`)
       if (this.visible().length === 0) {
-        Text(this.query ? '没有匹配的资料' : '暂无资料').fontSize(12 * this.fontScale).fontColor(UiTheme.muted)
-          .width('100%').padding(28 * this.fontScale).textAlign(TextAlign.Center)
+        GridCol({ span: 12 }) {
+          Text(this.query ? '没有匹配的资料' : '暂无资料').fontSize(11 * this.fontScale)
+            .fontColor(UiTheme.softMuted)
+            .width('100%').padding(28 * this.fontScale).textAlign(TextAlign.Center)
+            .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+        }
       }
     }.width('100%')
   }
@@ -468,7 +490,7 @@ export struct LibraryPage {
         Button(this.editingImage ? '保存图片描述' : '保存资料').height(32 * this.fontScale).fontSize(10 * this.fontScale)
           .backgroundColor(UiTheme.primary).fontColor(UiTheme.onPrimary).onClick(() => this.saveText())
       }
-    }.width('100%').padding(13 * this.fontScale).backgroundColor('#F7F7F7')
+    }.width('100%').padding(13 * this.fontScale).backgroundColor(UiTheme.softSurface)
       .border({ width: 1, color: UiTheme.border }).borderRadius(9).transition(UiMotion.reveal())
   }
   @Builder
@@ -478,9 +500,15 @@ export struct LibraryPage {
         this.Editor()
       } else if (this.selectedDocument() !== undefined) {
         Row({ space: 9 * this.fontScale }) {
-          Text(this.documentIcon(this.selectedDocument() as LibraryDocument)).fontSize(22 * this.fontScale).fontColor(UiTheme.secondary)
+          Stack() {
+            Image((this.selectedDocument() as LibraryDocument).kind === 'image' ? $r('app.media.ic_image') :
+              (this.selectedDocument() as LibraryDocument).kind === 'index' ? $r('app.media.ic_library') : $r('app.media.ic_folder'))
+              .width(17 * this.fontScale).height(17 * this.fontScale)
+              .objectFit(ImageFit.Contain).colorFilter(UiTheme.iconIvory)
+          }.width(30 * this.fontScale).height(30 * this.fontScale)
+            .backgroundColor(UiTheme.accentStrong).borderRadius(7)
           Column({ space: 3 * this.fontScale }) {
-            Text(this.selectedDocument()?.title || '').fontSize(17 * this.fontScale)
+            Text(this.selectedDocument()?.title || '').fontSize(14 * this.fontScale)
               .fontWeight(FontWeight.Medium).fontColor(UiTheme.text).maxLines(2)
             Text(`${this.modalityLabel(this.selectedDocument() as LibraryDocument)} · ${this.selectedDocument()?.course || '未分类'} · ${this.documentStatus(this.selectedDocument() as LibraryDocument)}`)
               .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
@@ -493,15 +521,15 @@ export struct LibraryPage {
         this.DocumentActions(this.selectedDocument() as LibraryDocument)
         if ((this.selectedDocument() as LibraryDocument).kind === 'image') {
           Image(`file://${(this.selectedDocument() as LibraryDocument).path}`)
-            .width('100%').height(300 * this.fontScale).objectFit(ImageFit.Contain)
-            .backgroundColor('#F5F5F5').borderRadius(9)
+            .width(320 * this.fontScale).height(300 * this.fontScale).objectFit(ImageFit.Contain)
+            .backgroundColor(UiTheme.softSurface).borderRadius(9)
           if ((this.selectedDocument() as LibraryDocument).text) {
             Text((this.selectedDocument() as LibraryDocument).text).fontSize(11 * this.fontScale)
               .fontColor(UiTheme.secondary).lineHeight(18 * this.fontScale).width('100%')
           }
         } else {
           Column() {
-            MarkdownContent({ content: (this.selectedDocument() as LibraryDocument).text || '暂无可读取正文', textSize: 12 })
+            MarkdownContent({ content: (this.selectedDocument() as LibraryDocument).text || '暂无可读取正文', textSize: 11 })
           }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
             .border({ width: 1, color: UiTheme.border }).borderRadius(9)
         }
@@ -510,63 +538,37 @@ export struct LibraryPage {
         }
       } else {
         Column({ space: 5 * this.fontScale }) {
-          Text('选择一份资料').fontSize(15 * this.fontScale).fontColor(UiTheme.text)
-          Text('在左侧列表查看正文、图片描述和检索状态。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
-        }.width('100%').padding(32 * this.fontScale).backgroundColor('#F8F8F8').borderRadius(9)
+          Text('选择一份资料').fontSize(11 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+          Text('在资料列表中选择一项，查看正文、图片描述和检索状态。').fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
+        }.width('100%').padding(32 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(10)
       }
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
   @Builder
   DocumentsView() {
     Column({ space: 10 * this.fontScale }) {
-      Row({ space: 7 * this.fontScale }) {
+      Column({ space: 9 * this.fontScale }) {
         TextInput({ text: this.query, placeholder: '搜索资料名称、课程或正文' }).fontSize(11 * this.fontScale)
-          .placeholderFont({ size: 11 * this.fontScale }).layoutWeight(1).height(35 * this.fontScale)
-          .backgroundColor(UiTheme.raised).id('library-search').focusFeedback()
-          .onChange((value: string) => { this.query = value; this.refresh() })
-        this.Filter('全部', 'all')
-        this.Filter('检索', 'indexed')
-        this.Filter('图片', 'images')
+          .placeholderFont({ size: 11 * this.fontScale }).width('100%').height(40 * this.fontScale)
+          .backgroundColor(UiTheme.surface).id('library-search').focusFeedback()
+          .onChange((value: string) => this.searchDocuments(value))
+        Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+          this.Filter('全部', 'all')
+          this.Filter('可检索', 'indexed')
+          this.Filter('图片', 'images')
+        }.width('100%')
       }.width('100%')
       if (this.notice) {
         Text(this.notice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
           .padding(8 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(7)
       }
-      if (this.wide()) {
-        Row() {
-          Scroll() {
-            Column({ space: 8 * this.fontScale }) {
-              Text(`${this.visible().length} 份资料`).fontSize(10 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-              this.DocumentListContent()
-            }.width('100%')
-          }.width(this.contextWidth()).height('100%').scrollBar(BarState.Off)
-            .nestedScroll({
-              scrollForward: NestedScrollMode.PARENT_FIRST,
-              scrollBackward: NestedScrollMode.PARENT_FIRST
-            }).align(Alignment.TopStart)
-          Column().width(1).height('100%').backgroundColor(UiTheme.border).margin({ left: 13 * this.fontScale, right: 16 * this.fontScale })
-          Scroll() {
-            this.DocumentDetailContent()
-          }.layoutWeight(1).height('100%').scrollBar(BarState.Off)
-            .nestedScroll({
-              scrollForward: NestedScrollMode.PARENT_FIRST,
-              scrollBackward: NestedScrollMode.PARENT_FIRST
-            }).align(Alignment.TopStart)
-        }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)
-      } else {
-        Scroll() {
-          Column({ space: 14 * this.fontScale }) {
-            Text(`${this.visible().length} 份资料`).fontSize(10 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-            this.DocumentListContent()
-            if (this.selected.length > 0 || this.editing) this.DocumentDetailContent()
-          }.width('100%')
-        }.width('100%').layoutWeight(1).scrollBar(BarState.Off)
-          .nestedScroll({
-            scrollForward: NestedScrollMode.PARENT_FIRST,
-            scrollBackward: NestedScrollMode.PARENT_FIRST
-          }).align(Alignment.TopStart)
-      }
-    }.width('100%').layoutWeight(1)
+      Column({ space: 14 * this.fontScale }) {
+        Text(`${this.visible().length} 份资料`).fontSize(10 * this.fontScale)
+          .fontColor(UiTheme.softMuted).width('100%')
+        this.DocumentListContent()
+        if (this.selected.length > 0 || this.editing) this.DocumentDetailContent()
+      }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%')
   }
   @Builder
   CreateKnowledgeSheet() {
@@ -574,7 +576,7 @@ export struct LibraryPage {
       Column({ space: 13 * this.fontScale }) {
         Row() {
           Column({ space: 4 * this.fontScale }) {
-            Text('新建知识库').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
+            Text('新建知识库').fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
             Text('在线 Embedding 可后置配置；未配置时直接使用本地检索。')
               .fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
@@ -585,7 +587,7 @@ export struct LibraryPage {
         Column({ space: 7 * this.fontScale }) {
           Text('知识库名称').fontSize(10 * this.fontScale).fontColor(UiTheme.secondary)
           TextInput({ text: this.createName, placeholder: '例如：操作系统课程知识库' })
-            .height(40 * this.fontScale).fontSize(12 * this.fontScale).backgroundColor(UiTheme.surface)
+            .height(40 * this.fontScale).fontSize(11 * this.fontScale).backgroundColor(UiTheme.surface)
             .border({ width: 1, color: UiTheme.border }).borderRadius(8)
             .onChange((value: string) => this.createName = value)
         }.width('100%').alignItems(HorizontalAlign.Start)
@@ -629,7 +631,7 @@ export struct LibraryPage {
                 })
             }.width('100%').padding(10 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
           }
-        }.width('100%').padding(13 * this.fontScale).backgroundColor('#F7F7F7')
+        }.width('100%').padding(13 * this.fontScale).backgroundColor(UiTheme.softSurface)
           .border({ width: 1, color: UiTheme.border }).borderRadius(9)
         if (this.createNotice) {
           Text(this.createNotice).fontSize(10 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
@@ -644,18 +646,93 @@ export struct LibraryPage {
             .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
             .onClick(() => this.createVisible = false)
         }.width('100%')
-        Text('创建只会保存知识库配置；在线索引可在知识库设置或运行管理中构建。')
+        Text('创建只会保存知识库配置；在线索引可在知识库设置或资料库中构建。')
           .fontSize(9 * this.fontScale).fontColor(UiTheme.muted).width('100%')
-      }.width('100%').padding(18 * this.fontScale).alignItems(HorizontalAlign.Start)
+      }.width('100%').alignItems(HorizontalAlign.Start)
+        .padding({ left: 18 * this.fontScale, right: 28 * this.fontScale,
+          top: 18 * this.fontScale, bottom: 18 * this.fontScale })
     }.width('100%').height('100%').scrollBar(BarState.Auto).align(Alignment.TopStart)
+      .scrollBarWidth(4).scrollBarColor(UiTheme.softMuted)
       .backgroundColor(UiTheme.background)
   }
   @Builder
   SettingsSectionTitle(title: string, detail: string) {
     Column({ space: 3 * this.fontScale }) {
       Text(title).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-      Text(detail).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+      Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.muted)
     }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 2, top: 2 })
+  }
+  private settingsFillerGap(): number { return 12 * this.fontScale }
+  private settingsSideBySide(): boolean { return this.contentWidth() >= 600 }
+  private settingsLeftFillerHeight(): number {
+    if (!this.settingsSideBySide()) return 0
+    return Math.max(0, Math.round(this.settingsRightColumnHeight -
+      this.settingsLeftColumnHeight - this.settingsFillerGap()))
+  }
+  private settingsRightFillerHeight(): number {
+    if (!this.settingsSideBySide()) return 0
+    return Math.max(0, Math.round(this.settingsLeftColumnHeight -
+      this.settingsRightColumnHeight - this.settingsFillerGap()))
+  }
+  private indexedChunkCount(): number {
+    let total = 0
+    const indexes = this.archive?.indexes || []
+    indexes.forEach((item: RagStoredIndex) => { total += item.index.chunks.length })
+    return total
+  }
+
+  @Builder
+  SettingsStatBlock(value: string, label: string) {
+    Column({ space: 3 * this.fontScale }) {
+      Text(value).fontSize(15 * this.fontScale).fontWeight(FontWeight.Medium)
+        .fontColor(UiTheme.accentStrong)
+      Text(label).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+    }.layoutWeight(1).width('100%')
+  }
+
+  @Builder
+  SettingsStatsFiller(height: number) {
+    Column({ space: 8 * this.fontScale }) {
+      Row({ space: 8 * this.fontScale }) {
+        this.SettingsStatBlock(`${this.archive?.apiProfiles.length || 0}`, 'API 配置')
+        this.SettingsStatBlock(`${this.archive?.knowledgeBases.length || 0}`, '知识库')
+        this.SettingsStatBlock(`${this.documents.length}`, '资料文档')
+        this.SettingsStatBlock(`${this.indexedChunkCount()}`, '索引片段')
+      }.width('100%')
+      Stack({ alignContent: Alignment.BottomStart }) {
+        Column().width('100%').height('100%')
+          .linearGradient({ angle: 160,
+            colors: [[UiTheme.accentPale, 0], [UiTheme.chartPale, 0.62], [UiTheme.chartLight, 1]] })
+        Text('一次配置 · 本地检索全程可用')
+          .fontSize(10 * this.fontScale).fontColor(UiTheme.accentStrong)
+          .padding({ left: 12 * this.fontScale, right: 12 * this.fontScale,
+            bottom: 10 * this.fontScale, top: 10 * this.fontScale })
+          .width('100%')
+      }.layoutWeight(1).width('100%').borderRadius(10)
+        .constraintSize({ minHeight: 34 * this.fontScale })
+        .clip(true)
+    }.width('100%').constraintSize({ minHeight: Math.max(height, 132 * this.fontScale) })
+      .padding(12 * this.fontScale)
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+  }
+
+  @Builder
+  LibraryManagementContent() {
+    Scroll(this.pageScroller) {
+      Column({ space: 16 * this.fontScale }) {
+        this.SettingsSectionTitle('资料与运行', '导入、索引、本地存储和最近任务。')
+        RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+          embedded: true, onImportFiles: () => this.pick(false),
+          onImportImages: () => this.pick(true),
+          onOpenKnowledge: () => this.setSection('settings'),
+          onChanged: () => this.ragChanged() }).width('100%')
+        Divider().color(UiTheme.softBorder)
+        this.SettingsSectionTitle('资料内容', '搜索、查看正文与调整检索范围。')
+        this.DocumentsView()
+      }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
+    }.width('100%').layoutWeight(1).scrollBar(BarState.On).scrollBarWidth(6)
+      .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
   }
   @Builder
   WorkspaceContent() {
@@ -670,70 +747,97 @@ export struct LibraryPage {
         Column() {
           ForEach([this.workspaceKey()], (key: string) => {
             Column({ space: 14 * this.fontScale }) {
-              this.SettingsSectionTitle('模型与 API', '重排序模型、Embedding 与 Rerank 服务。')
-              Column() {
-                RagRerankPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-                  embedded: true, onChanged: () => this.ragChanged() })
-              }.width('100%').height(620 * this.fontScale)
-              Column() {
-                RagApiPanel({ viewportWidth: this.contentWidth(), embedded: true,
-                  onChanged: () => this.ragChanged() })
-              }.width('100%').height(760 * this.fontScale)
-              this.SettingsSectionTitle('知识库设置', '当前库范围、向量化与索引状态。')
-              Column() {
-                RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), embedded: true,
-                  onChanged: () => this.ragChanged() })
-              }.width('100%').height(620 * this.fontScale)
-              this.SettingsSectionTitle('本地算法', '检索权重、召回、阈值和切块参数。')
+              GridRow({ columns: 12, gutter: 12 }) {
+                GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+                  Column({ space: 12 * this.fontScale }) {
+                    RagRerankPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
+                      embedded: true, onChanged: () => this.ragChanged() }).width('100%')
+                      .onAreaChange((_oldValue: Area, newValue: Area) => {
+                        const height = parseFloat(String(newValue.height))
+                        if (Number.isFinite(height) && height > 0) this.settingsLeftColumnHeight = height
+                      })
+                    if (this.settingsLeftFillerHeight() >= 140) {
+                      this.SettingsStatsFiller(this.settingsLeftFillerHeight())
+                    }
+                  }.width('100%')
+                }
+                GridCol({ span: { xs: 12, sm: 12, md: 6, lg: 6 } }) {
+                  Column({ space: 12 * this.fontScale }) {
+                    RagKnowledgeBasePanel({ viewportWidth: this.contentWidth(), embedded: true,
+                      onChanged: () => this.ragChanged() }).width('100%')
+                      .onAreaChange((_oldValue: Area, newValue: Area) => {
+                        const height = parseFloat(String(newValue.height))
+                        if (Number.isFinite(height) && height > 0) this.settingsRightColumnHeight = height
+                      })
+                    if (this.settingsRightFillerHeight() >= 140) {
+                      this.SettingsStatsFiller(this.settingsRightFillerHeight())
+                    }
+                  }.width('100%')
+                }
+              }.width('100%')
+              RagApiPanel({ viewportWidth: this.contentWidth(), embedded: true,
+                onChanged: () => this.ragChanged() }).width('100%')
               RagAlgorithmPanel({ viewportWidth: this.contentWidth(), embedded: true,
                 onChanged: () => this.ragChanged() }).width('100%')
-            }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale })
+            }.width('100%').alignItems(HorizontalAlign.Start)
+              .padding({ right: 16 * this.fontScale, bottom: 14 * this.fontScale })
           }, (key: string) => key)
         }.width('100%')
-      }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).scrollBarWidth(4)
-        .scrollBarColor('#777777').align(Alignment.TopStart)
+      }.width('100%').layoutWeight(1).scrollBar(BarState.On).scrollBarWidth(6)
+        .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
+    } else if (this.section === 'library') {
+      this.LibraryManagementContent()
     } else {
-      Scroll() {
-        Column() {
-          ForEach([this.workspaceKey()], (key: string) => {
-            Column({ space: 14 * this.fontScale }) {
-              this.SettingsSectionTitle('索引与运行', '导入导出、索引任务、存储状态与操作记录。')
-              Column() {
-                RagOperationsPanel({ baseId: this.activeBaseId, viewportWidth: this.contentWidth(),
-                  embedded: true, onImportFiles: () => this.pick(false),
-                  onImportImages: () => this.pick(true),
-                  onOpenKnowledge: () => this.setSection('settings'),
-                  onChanged: () => this.ragChanged() })
-              }.width('100%').height(900 * this.fontScale)
-              this.SettingsSectionTitle('资料管理', '导入、编辑和检索范围。')
-              Column() { this.DocumentsView() }.width('100%').height(700 * this.fontScale)
-            }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale })
-          }, (key: string) => key)
-        }.width('100%')
-      }.width('100%').layoutWeight(1).scrollBar(BarState.Auto).scrollBarWidth(4)
-        .scrollBarColor('#777777').align(Alignment.TopStart)
+      Scroll(this.pageScroller) {
+        Column({ space: 14 * this.fontScale }) {
+          Text('知识库概览').fontSize(15 * this.fontScale)
+            .fontWeight(FontWeight.Medium).fontColor(UiTheme.text).width('100%')
+          Text('选择左侧栏目查看知识图谱或知识库设置。').fontSize(10 * this.fontScale)
+            .fontColor(UiTheme.muted).width('100%')
+        }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 18 * this.fontScale })
+      }.width('100%').layoutWeight(1).scrollBar(BarState.On).scrollBarWidth(4)
+        .scrollBarColor(UiTheme.softMuted).align(Alignment.TopStart)
     }
   }
   build() {
     Column({ space: 12 * this.fontScale }) {
       this.Header()
-      Row({ space: 8 * this.fontScale }) {
-        Column() { this.WorkspaceContent() }.layoutWeight(1).height('100%').clip(true)
-        KnowledgeFeatureRail({ selected: this.section, collapsed: this.railCollapsed,
-          onSelect: (value: string) => this.setSection(value),
-          onToggle: () => {
-            this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
-              () => this.railCollapsed = !this.railCollapsed)
-          } }).height('100%')
-      }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)
-    }.padding({ left: 22 * this.fontScale, right: 22 * this.fontScale, top: 20 * this.fontScale, bottom: 14 * this.fontScale })
+      if (this.compactPage()) {
+        KnowledgeFeatureRail({ selected: this.section, horizontal: true,
+          onSelect: (value: string) => this.setSection(value) }).width('100%')
+        Column() { this.WorkspaceContent() }.width('100%').layoutWeight(1).clip(true)
+      } else {
+        Row({ space: 8 * this.fontScale }) {
+          Column() { this.WorkspaceContent() }.layoutWeight(1).height('100%').clip(true)
+          KnowledgeFeatureRail({ selected: this.section, collapsed: this.railCollapsed,
+            onSelect: (value: string) => this.setSection(value),
+            onToggle: () => {
+              this.getUIContext().animateTo({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.moveCurve },
+                () => this.railCollapsed = !this.railCollapsed)
+            } }).height('100%')
+        }.width('100%').layoutWeight(1).alignItems(VerticalAlign.Top)
+      }
+    }.padding({
+      left: this.pagePadding() * this.fontScale, right: this.pagePadding() * this.fontScale,
+      top: (this.compactPage() ? 14 : 20) * this.fontScale, bottom: 14 * this.fontScale })
       .width('100%').height('100%').backgroundColor(UiTheme.background).id('library-page')
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         const width = parseFloat(String(newValue.width))
         if (Number.isFinite(width) && width > 0) this.pageWidth = width
       })
-      .bindSheet($$this.createVisible, this.CreateKnowledgeSheet(), { height: '76%', width: 620,
+      .bindSheet($$this.createVisible, this.CreateKnowledgeSheet(), {
+        height: this.compactPage() ? '82%' : '76%', width: this.compactPage() ? '94%' : 620,
         preferType: SheetType.CENTER, showClose: false, dragBar: false,
         onDisappear: () => { this.createVisible = false } })
+      .bindContextMenu(this.LibraryNavigationMenu, ResponseType.LongPress)
+  }
+
+  @Builder
+  LibraryNavigationMenu() {
+    Menu() {
+      MenuItem({ content: '资料库' }).onClick(() => this.setSection('library'))
+      MenuItem({ content: '数据可视化' }).onClick(() => this.setSection('visualization'))
+      MenuItem({ content: '算法与设置' }).onClick(() => this.setSection('settings'))
+    }
   }
 }

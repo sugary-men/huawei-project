@@ -35,6 +35,19 @@ interface WordCloudItem {
   color: string
 }
 
+interface RagChartTone {
+  line: string
+  fill: string
+  soft: string
+}
+
+interface ChartCardMeta {
+  eyebrow: string
+  title: string
+  detail: string
+  accent: string
+}
+
 @Component
 export struct RagDataVisualization {
   @StorageLink('campusFontScale') fontScale: number = 0.9
@@ -61,6 +74,8 @@ export struct RagDataVisualization {
   @State pieHeight: number = 236
   @State loadError: string = ''
   @State notice: string = ''
+  @State leftColumnContentHeight: number = 0
+  @State rightColumnContentHeight: number = 0
   private edges: KnowledgeGraphEdge[] = []
   private pieRender: RenderingContextSettings = new RenderingContextSettings(true)
   private pieCanvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.pieRender)
@@ -84,7 +99,111 @@ export struct RagDataVisualization {
     this.timers.push(timer)
   }
 
-  private wide(): boolean { return this.viewportWidth >= 900 }
+  private wide(): boolean { return this.viewportWidth >= 760 }
+  private dashboardColumns(): number { return this.viewportWidth >= 1060 ? 2 : 1 }
+  private chartCardHeight(): number {
+    return Math.ceil((this.dashboardColumns() === 2 ? 318 : 326) * Math.max(1, this.fontScale))
+  }
+
+  @Builder
+  StatBlock(value: string, label: string) {
+    Column({ space: 5 * this.fontScale }) {
+      Text(value).fontSize(24 * this.fontScale).fontWeight(FontWeight.Medium)
+        .fontColor(UiTheme.accentStrong)
+      Text(label).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+    }.layoutWeight(1).width('100%')
+  }
+
+  @Builder
+  StatsFiller(height: number) {
+    Column({ space: 10 * this.fontScale }) {
+      Row({ space: 8 * this.fontScale }) {
+        this.StatBlock(`${this.activeChunks().length}`, '知识片段')
+        this.StatBlock(`${this.activeNetwork()?.sources.length || 0}`, '来源文档')
+      }.width('100%')
+      Row({ space: 8 * this.fontScale }) {
+        this.StatBlock(`${this.courseCount()}`, '覆盖课程')
+        this.StatBlock(`${this.wordCloudItems().length}`, '高频词语')
+      }.width('100%')
+      Stack({ alignContent: Alignment.BottomStart }) {
+        Column().width('100%').height('100%')
+          .linearGradient({ angle: 160,
+            colors: [[UiTheme.accentPale, 0], [UiTheme.chartPale, 0.62], [UiTheme.chartLight, 1]] })
+        Text('知识在于积累 · 检索、关联、沉淀')
+          .fontSize(10 * this.fontScale).fontColor(UiTheme.accentStrong)
+          .padding({ left: 12 * this.fontScale, right: 12 * this.fontScale,
+            bottom: 10 * this.fontScale, top: 10 * this.fontScale })
+          .width('100%')
+      }.layoutWeight(1).width('100%').borderRadius(10)
+        .clip(true)
+    }.width('100%').height(height).constraintSize({ minHeight: 150 * this.fontScale })
+      .padding(16 * this.fontScale)
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+  }
+
+  @Builder
+  StatsStrip() {
+    Row({ space: 10 * this.fontScale }) {
+      this.StatBlock(`${this.activeChunks().length}`, '知识片段')
+      Stack() {
+        Row().width(1).height(34 * this.fontScale).backgroundColor(UiTheme.softBorder)
+      }.alignContent(Alignment.Center)
+      this.StatBlock(`${this.activeNetwork()?.sources.length || 0}`, '来源文档')
+      Stack() {
+        Row().width(1).height(34 * this.fontScale).backgroundColor(UiTheme.softBorder)
+      }.alignContent(Alignment.Center)
+      this.StatBlock(`${this.courseCount()}`, '覆盖课程')
+      Stack() {
+        Row().width(1).height(34 * this.fontScale).backgroundColor(UiTheme.softBorder)
+      }.alignContent(Alignment.Center)
+      this.StatBlock(`${this.wordCloudItems().length}`, '高频词语')
+    }.width('100%').constraintSize({ minHeight: this.chartCardHeight() })
+      .justifyContent(FlexAlign.SpaceBetween).alignItems(VerticalAlign.Center)
+      .padding({ left: 18 * this.fontScale, right: 18 * this.fontScale,
+        top: 16 * this.fontScale, bottom: 16 * this.fontScale })
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+  }
+
+  @Builder
+  DashboardHeader() {
+    Row({ space: 12 * this.fontScale }) {
+      Column({ space: 4 * this.fontScale }) {
+        Text('知识概览').fontSize(20 * this.fontScale).fontWeight(FontWeight.Medium)
+          .fontColor(UiTheme.softText)
+        Text('知识网络、来源分布与检索状态一屏掌握').fontSize(10 * this.fontScale)
+          .fontColor(UiTheme.softMuted).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      Text(`${this.activeChunks().length} 片段`).fontSize(9 * this.fontScale)
+        .fontColor(UiTheme.accentStrong).padding({ left: 10, right: 10, top: 6, bottom: 6 })
+        .backgroundColor(UiTheme.accentPale).border({ width: 1, color: UiTheme.accentBorder }).borderRadius(8)
+    }.width('100%').padding({ left: 16 * this.fontScale, right: 16 * this.fontScale,
+      top: 14 * this.fontScale, bottom: 14 * this.fontScale })
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
+  }
+
+  @Builder
+  CardHeader(meta: ChartCardMeta, value: string = '') {
+    Row({ space: 10 * this.fontScale }) {
+      Row().width(4 * this.fontScale).height(36 * this.fontScale)
+        .backgroundColor(this.tone(meta.accent).line).borderRadius(2)
+      Column({ space: 3 * this.fontScale }) {
+        Text(meta.eyebrow).fontSize(8 * this.fontScale).fontColor(UiTheme.softMuted)
+          .fontWeight(FontWeight.Medium)
+        Text(meta.title).fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium)
+          .fontColor(UiTheme.softText)
+        Text(meta.detail).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      if (value.length > 0) {
+        Text(value).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+          .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+          .backgroundColor(UiTheme.softSurface).borderRadius(7)
+      }
+    }.width('100%').alignItems(VerticalAlign.Center)
+  }
 
   private refresh(): void {
     try {
@@ -126,6 +245,27 @@ export struct RagDataVisualization {
     this.activeNetwork()?.sources.forEach((source: SourceGroup) =>
       source.chunks.forEach((chunk: KnowledgeChunk) => chunks.push(chunk)))
     return chunks
+  }
+
+  private courseCount(): number {
+    const courses = new Set<string>()
+    this.activeChunks().forEach((chunk: KnowledgeChunk) => {
+      const course = chunk.course.trim()
+      if (course.length > 0) courses.add(course)
+    })
+    return courses.size
+  }
+
+  private columnGap(): number { return 14 * this.fontScale }
+
+  private leftFillerHeight(): number {
+    return Math.max(0, Math.round(this.rightColumnContentHeight -
+      this.leftColumnContentHeight - this.columnGap()))
+  }
+
+  private rightFillerHeight(): number {
+    return Math.max(0, Math.round(this.leftColumnContentHeight -
+      this.rightColumnContentHeight - this.columnGap()))
   }
 
   private groupSources(chunks: KnowledgeChunk[]): SourceGroup[] {
@@ -271,7 +411,13 @@ export struct RagDataVisualization {
       mediaMimeType: chunk.mediaMimeType || '' })
   }
   private palette(): string[] {
-    return ['#202020', '#5B645C', '#7B7164', '#566575', '#7D5D5D', '#64646C', '#687C74', '#7B6D56']
+    return [UiTheme.accent, UiTheme.chartMid, UiTheme.chartLight,
+      '#819FA9', '#94AFB8', '#B3C8CF', '#C7D8DE', UiTheme.accentPale]
+  }
+  private tone(accent: string): RagChartTone {
+    if (accent === 'dark') return { line: UiTheme.accentStrong, fill: UiTheme.accent, soft: UiTheme.accentPale }
+    if (accent === 'medium') return { line: UiTheme.accent, fill: UiTheme.chartMid, soft: UiTheme.accentPale }
+    return { line: UiTheme.chartMid, fill: UiTheme.chartLight, soft: UiTheme.softSurface }
   }
   private distribution(): DistributionItem[] {
     const counts = new Map<string, number>()
@@ -361,7 +507,7 @@ export struct RagDataVisualization {
     const width = Math.max(260, this.pieWidth)
     const height = Math.max(190, this.pieHeight)
     this.pieCanvas.clearRect(0, 0, width, height)
-    this.pieCanvas.fillStyle = '#FAFAFA'
+    this.pieCanvas.fillStyle = UiTheme.surface
     this.pieCanvas.fillRect(0, 0, width, height)
     if (items.length === 0) return
     const total = items.reduce((sum: number, item: DistributionItem): number => sum + item.value, 0)
@@ -382,7 +528,7 @@ export struct RagDataVisualization {
       this.pieCanvas.globalAlpha = this.selectedPie >= 0 && this.selectedPie !== index ? 0.42 : 1
       this.pieCanvas.fill()
       if (this.selectedPie === index) {
-        this.pieCanvas.strokeStyle = '#FFFFFF'
+        this.pieCanvas.strokeStyle = UiTheme.surface
         this.pieCanvas.lineWidth = 2
         this.pieCanvas.stroke()
       }
@@ -451,14 +597,9 @@ export struct RagDataVisualization {
   @Builder
   WordCloudView() {
     Column({ space: 12 * this.fontScale }) {
-      Row() {
-        Column({ space: 3 * this.fontScale }) {
-          Text('知识词云').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('点击词语重新检索并在图谱中高亮相关片段。')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text(`${this.wordCloudItems().length} 个词`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-      }.width('100%')
+      this.CardHeader({ eyebrow: '知识概览', title: '知识词云',
+        detail: '点击词语重新检索并在图谱中高亮相关片段', accent: 'medium' },
+        `${this.wordCloudItems().length} 个词`)
       if (this.wordCloudItems().length === 0) {
         this.EmptyState('暂无可提取词语', '导入资料或添加图片描述后再查看词云。')
       } else {
@@ -467,8 +608,8 @@ export struct RagDataVisualization {
             Text(item.term).fontSize(item.size * this.fontScale)
               .fontColor(item.color).fontWeight(index < 6 ? FontWeight.Medium : FontWeight.Regular)
               .padding({ left: 8, right: 8, top: 5, bottom: 5 })
-              .margin(3).backgroundColor(index % 3 === 0 ? '#F0F0F0' : Color.Transparent)
-              .borderRadius(14).accessibilityText(`关键词 ${item.term}，出现 ${item.count} 次`)
+              .margin(3).backgroundColor(index % 3 === 0 ? UiTheme.accentPale : Color.Transparent)
+              .borderRadius(12).accessibilityText(`关键词 ${item.term}，出现 ${item.count} 次`)
               .hoverEffect(HoverEffect.Highlight)
               .onClick(() => {
                 this.query = item.term
@@ -478,24 +619,21 @@ export struct RagDataVisualization {
           }, (item: WordCloudItem) => item.term)
         }.width('100%').padding(14 * this.fontScale)
       }
-    }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
-      .border({ width: 1, color: UiTheme.border }).borderRadius(9)
+    }.width('100%').constraintSize({ minHeight: this.chartCardHeight() }).padding(16 * this.fontScale)
+      .backgroundColor(UiTheme.surface)
+      .border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
   }
   @Builder
   BarChartView() {
-    Column({ space: 13 * this.fontScale }) {
-        Row() {
-          Column({ space: 3 * this.fontScale }) {
-            Text('知识分布').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-            Text('按课程或标签统计节点数量，点击柱条联动筛选。')
-              .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          if (this.chartFilter) {
-            Button('清除筛选').height(27 * this.fontScale).fontSize(9 * this.fontScale)
-              .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
-              .onClick(() => this.applyChartFilter(this.chartFilter))
-          }
-        }.width('100%')
+    Column({ space: 12 * this.fontScale }) {
+        this.CardHeader({ eyebrow: '来源分析', title: '知识分布',
+          detail: '按课程或标签统计节点数量，点击柱条联动筛选', accent: 'medium' }, `${this.distribution().length} 组`)
+        if (this.chartFilter) {
+          Button('清除当前筛选 ×').height(28 * this.fontScale).fontSize(9 * this.fontScale)
+            .backgroundColor(UiTheme.accentPale).fontColor(UiTheme.accentStrong).borderRadius(7)
+            .onClick(() => this.applyChartFilter(this.chartFilter))
+        }
         Flex({ wrap: FlexWrap.Wrap }) {
           this.DimensionButton('课程', 'course')
           this.DimensionButton('模态', 'modality')
@@ -510,36 +648,36 @@ export struct RagDataVisualization {
               Row() {
                 Text(item.label).fontSize(10 * this.fontScale)
                   .fontColor(this.chartFilter === item.label ?
-                    UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+                    UiTheme.softText : UiTheme.softMuted)
                   .layoutWeight(1)
                   .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(`${item.value} 节点`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
+                Text(`${item.value} 节点`).fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
               }.width('100%')
               Stack({ alignContent: Alignment.Start }) {
-                Row().width('100%').height(9 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(5)
+                Row().width('100%').height(8 * this.fontScale).backgroundColor(UiTheme.accentPale).borderRadius(4)
                 Row().width(`${Math.max(5, item.value / this.maxDistribution() * 100)}%`)
-                  .height(9 * this.fontScale).backgroundColor(item.color).borderRadius(5)
+                  .height(8 * this.fontScale).backgroundColor(item.color).borderRadius(4)
                   .opacity(this.chartFilter.length === 0 || this.chartFilter === item.label ? 1 : 0.28)
                   .animation({ duration: UiMotion.duration(UiMotion.section), curve: UiMotion.enterCurve })
               }.width('100%')
-            }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
+            }.width('100%').padding({ left: 11, right: 11, top: 9, bottom: 9 })
               .backgroundColor(this.chartFilter === item.label ?
-                UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground)
-              .borderRadius(7).hoverEffect(HoverEffect.Highlight)
+                UiTheme.accentPale : UiTheme.surface)
+              .border({ width: 1, color: this.chartFilter === item.label ? UiTheme.accentBorder : UiTheme.softBorder })
+              .borderRadius(9).hoverEffect(HoverEffect.Highlight)
               .onClick(() => this.applyChartFilter(item.label))
           }, (item: DistributionItem) => item.label)
         }
-    }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
-      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(9)
+    }.width('100%').constraintSize({ minHeight: this.chartCardHeight() }).alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
   }
   @Builder
   PieChartView() {
     Column({ space: 12 * this.fontScale }) {
-        Column({ space: 3 * this.fontScale }) {
-          Text('知识维度占比').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('点击扇区或图例查看占比，并联动知识图谱筛选。')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-        }.width('100%').alignItems(HorizontalAlign.Start)
+        this.CardHeader({ eyebrow: '结构分析', title: '知识维度占比',
+          detail: '点击扇区或图例查看占比，并联动知识图谱筛选', accent: 'dark' },
+          `${this.distribution().length} 项`)
         Flex({ wrap: FlexWrap.Wrap }) {
           this.DimensionButton('课程', 'course')
           this.DimensionButton('模态', 'modality')
@@ -567,13 +705,13 @@ export struct RagDataVisualization {
                     .backgroundColor(item.color).borderRadius(4)
                   Text(`${item.label} ${item.value}`).fontSize(9 * this.fontScale)
                     .fontColor(this.selectedPie === index ?
-                      UiTheme.choiceSelectedText : UiTheme.choiceUnselectedText)
+                      UiTheme.softText : UiTheme.softMuted)
                     .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
               }.height(29 * this.fontScale).padding({ left: 8, right: 8 })
                 .margin({ right: 5, bottom: 5 })
                 .backgroundColor(this.selectedPie === index ?
-                  UiTheme.choiceSelectedBackground : UiTheme.choiceUnselectedBackground).borderRadius(6)
+                  UiTheme.accentPale : Color.Transparent).borderRadius(6)
                 .onClick(() => {
                   this.selectedPie = index
                   this.chartFilter = item.label
@@ -584,31 +722,32 @@ export struct RagDataVisualization {
             }, (item: DistributionItem) => item.label)
           }.width('100%')
         }
-    }.width('100%').alignItems(HorizontalAlign.Start).padding(14 * this.fontScale)
-      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.border }).borderRadius(9)
+    }.width('100%').constraintSize({ minHeight: this.chartCardHeight() }).alignItems(HorizontalAlign.Start).padding(16 * this.fontScale)
+      .backgroundColor(UiTheme.surface).border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
   }
   @Builder
   EmptyState(title: string, detail: string) {
     Column({ space: 5 * this.fontScale }) {
-      Text(title).fontSize(13 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-      Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.muted).textAlign(TextAlign.Center)
-    }.width('100%').padding(28 * this.fontScale).backgroundColor(UiTheme.raised).borderRadius(8)
+      Text(title).fontSize(13 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.softText)
+      Text(detail).fontSize(10 * this.fontScale).fontColor(UiTheme.softMuted).textAlign(TextAlign.Center)
+    }.width('100%').padding(28 * this.fontScale).backgroundColor(UiTheme.softSurface).borderRadius(12)
   }
   @Builder
   TableView() {
     Column({ space: 0 }) {
+      Column() {
+        this.CardHeader({ eyebrow: '明细', title: '知识片段表格',
+          detail: '点击行查看节点详情，命中结果会同步高亮', accent: 'medium' },
+          `${this.activeChunks().length} 条`)
+      }.width('100%').padding(16 * this.fontScale)
       Row() {
-        Column({ space: 3 * this.fontScale }) {
-          Text('知识片段表格').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('点击行查看节点详情，命中结果会同步高亮。')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text(`${this.activeChunks().length} 条`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-      }.width('100%').padding({ left: 12, right: 12, top: 12, bottom: 10 })
-      Row() {
-        Text('知识节点').width('38%'); Text('来源').width('28%'); Text('课程').width('22%'); Text('检索').width('12%')
+        Text('知识节点').width('38%').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+        Text('来源').width('28%').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+        Text('课程').width('22%').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
+        Text('检索').width('12%').fontSize(9 * this.fontScale).fontColor(UiTheme.softMuted)
       }.width('100%').height(32 * this.fontScale).padding({ left: 9, right: 9 })
-        .backgroundColor(UiTheme.raised).border({ width: { bottom: 1 }, color: UiTheme.border })
+        .backgroundColor(UiTheme.softSurface).border({ width: { bottom: 1 }, color: UiTheme.softBorder })
       Column() {
           ForEach(this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk'),
             (node: KnowledgeGraphNode, index: number) => {
@@ -622,9 +761,9 @@ export struct RagDataVisualization {
               Text(this.nodeHit(node) ? '命中' : '—').width('12%').fontSize(9 * this.fontScale)
                 .fontColor(this.nodeHit(node) ? UiTheme.text : UiTheme.muted)
             }.width('100%').height(36 * this.fontScale).padding({ left: 9, right: 9 })
-              .backgroundColor(this.nodeSelected(node) || this.nodeHit(node) ? '#EAEAEA' :
-                index % 2 === 0 ? UiTheme.surface : '#FBFBFB')
-              .border({ width: { bottom: 1 }, color: UiTheme.border }).hoverEffect(HoverEffect.Highlight)
+              .backgroundColor(this.nodeSelected(node) || this.nodeHit(node) ? UiTheme.accentPale :
+                index % 2 === 0 ? UiTheme.surface : '#F8FBFC')
+              .border({ width: { bottom: 1 }, color: UiTheme.softBorder }).hoverEffect(HoverEffect.Highlight)
               .onClick(() => this.selectNode(node))
           }, (node: KnowledgeGraphNode) => node.id)
           if (this.nodes.filter((node: KnowledgeGraphNode) => node.kind === 'chunk').length === 0) {
@@ -632,7 +771,9 @@ export struct RagDataVisualization {
               .width('100%').padding(12 * this.fontScale)
           }
       }.width('100%')
-    }.width('100%').border({ width: 1, color: UiTheme.border }).borderRadius(8).clip(true)
+    }.width('100%').constraintSize({ minHeight: this.chartCardHeight() })
+      .border({ width: 1, color: UiTheme.softBorder }).borderRadius(16).clip(true)
+      .backgroundColor(UiTheme.surface)
   }
   @Builder
   Inspector() {
@@ -725,14 +866,9 @@ export struct RagDataVisualization {
   @Builder
   RelationshipCard() {
     Column({ space: 10 * this.fontScale }) {
-      Row({ space: 8 * this.fontScale }) {
-        Column({ space: 3 * this.fontScale }) {
-          Text('知识关系图').fontSize(14 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('每条分割知识是一个节点，单击查看详情并高亮相邻关系。')
-            .fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text(`${this.activeChunks().length} 节点`).fontSize(9 * this.fontScale).fontColor(UiTheme.muted)
-      }.width('100%')
+      this.CardHeader({ eyebrow: '知识网络', title: '知识关系图',
+        detail: '每条知识片段是一个节点，单击查看详情并高亮相邻关系', accent: 'medium' },
+        `${this.activeChunks().length} 节点`)
       Row({ space: 5 * this.fontScale }) {
         this.GraphFilterButton('全部', 'all')
         this.GraphFilterButton('检索命中', 'hit')
@@ -755,8 +891,9 @@ export struct RagDataVisualization {
           Column() { this.Inspector() }.width('100%')
         }.width('100%')
       }
-    }.width('100%').padding(14 * this.fontScale).backgroundColor(UiTheme.surface)
-      .border({ width: 1, color: UiTheme.border }).borderRadius(10)
+    }.width('100%').padding(16 * this.fontScale).backgroundColor(UiTheme.surface)
+      .border({ width: 1, color: UiTheme.softBorder }).borderRadius(16)
+      .shadow({ radius: 10, color: UiTheme.cardShadow, offsetY: 3 })
   }
   build() {
     Column({ space: 10 * this.fontScale }) {
@@ -788,20 +925,56 @@ export struct RagDataVisualization {
           Button('重新加载').height(30 * this.fontScale).fontSize(9 * this.fontScale)
             .backgroundColor(UiTheme.raised).fontColor(UiTheme.text)
             .onClick(() => this.refresh())
-        }.width('100%').padding(16 * this.fontScale).backgroundColor('#F5F5F5').borderRadius(8)
+        }.width('100%').padding(16 * this.fontScale).backgroundColor(UiTheme.softSurface).borderRadius(8)
       } else if (this.networks.length === 0) {
         this.EmptyState('知识网络为空', '导入资料并选择当前知识库后，片段会自动形成关系节点。')
       } else {
+        this.DashboardHeader()
         Scroll() {
-          Column({ space: 10 * this.fontScale }) {
+          Column({ space: 14 * this.fontScale }) {
             this.RelationshipCard()
-            this.WordCloudView()
-            this.BarChartView()
-            this.PieChartView()
-            this.TableView()
-          }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 12 * this.fontScale })
-        }.layoutWeight(1).width('100%').scrollBar(BarState.Auto).scrollBarWidth(4)
-          .scrollBarColor('#777777').align(Alignment.TopStart)
+            if (this.dashboardColumns() === 2) {
+              Row({ space: this.columnGap() }) {
+                Column({ space: this.columnGap() }) {
+                  Column({ space: this.columnGap() }) {
+                    this.BarChartView()
+                    this.WordCloudView()
+                  }.width('100%')
+                    .onAreaChange((_oldValue: Area, newValue: Area) => {
+                      const height = parseFloat(String(newValue.height))
+                      if (Number.isFinite(height) && height > 0) this.leftColumnContentHeight = height
+                    })
+                  if (this.leftFillerHeight() > 0) {
+                    this.StatsFiller(this.leftFillerHeight())
+                  }
+                }.layoutWeight(1)
+                Column({ space: this.columnGap() }) {
+                  Column({ space: this.columnGap() }) {
+                    this.PieChartView()
+                    this.TableView()
+                  }.width('100%')
+                    .onAreaChange((_oldValue: Area, newValue: Area) => {
+                      const height = parseFloat(String(newValue.height))
+                      if (Number.isFinite(height) && height > 0) this.rightColumnContentHeight = height
+                    })
+                  if (this.rightFillerHeight() > 0) {
+                    this.StatsFiller(this.rightFillerHeight())
+                  }
+                }.layoutWeight(1)
+              }.width('100%').alignItems(VerticalAlign.Top)
+            } else {
+              Column({ space: 14 * this.fontScale }) {
+                this.BarChartView()
+                this.PieChartView()
+                this.WordCloudView()
+                this.TableView()
+                this.StatsStrip()
+              }.width('100%')
+            }
+          }.width('100%').alignItems(HorizontalAlign.Start)
+            .padding({ right: 16 * this.fontScale, bottom: 12 * this.fontScale })
+        }.layoutWeight(1).width('100%').scrollBar(BarState.On).scrollBarWidth(6)
+          .scrollBarColor(UiTheme.secondary).align(Alignment.TopStart)
           .nestedScroll({
             scrollForward: NestedScrollMode.SELF_FIRST,
             scrollBackward: NestedScrollMode.SELF_FIRST
