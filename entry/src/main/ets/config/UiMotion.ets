@@ -1,4 +1,4 @@
-import { accessibility } from '@kit.AccessibilityKit'
+import { observeReducedMotion } from './ReducedMotionCompat'
 
 // Shared motion tokens. Data operations never wait for an animation.
 export class UiMotion {
@@ -11,8 +11,7 @@ export class UiMotion {
   static readonly enterCurve: Curve = Curve.EaseOut
   static readonly moveCurve: Curve = Curve.EaseInOut
   private static reduceMotion: boolean = false
-  private static initialized: boolean = false
-  private static callback: (enabled: boolean) => void = () => {}
+  private static stopObserving: (() => void) | undefined = undefined
 
   static get exit(): number { return UiMotion.duration(UiMotion.exitDuration) }
   static get press(): number { return UiMotion.duration(UiMotion.pressDuration) }
@@ -22,26 +21,17 @@ export class UiMotion {
   static get panel(): number { return UiMotion.duration(UiMotion.panelDuration) }
 
   static initialize(): void {
-    if (UiMotion.initialized) return
-    UiMotion.initialized = true
-    try {
-      UiMotion.reduceMotion = accessibility.isAnimationReduceEnabledSync()
-      UiMotion.callback = (enabled: boolean): void => {
-        UiMotion.reduceMotion = enabled
-      }
-      accessibility.onAnimationReduceStateChange(UiMotion.callback)
-    } catch (_error) {
-      UiMotion.reduceMotion = false
-    }
+    if (UiMotion.stopObserving !== undefined) return
+    UiMotion.stopObserving = observeReducedMotion((enabled: boolean): void => {
+      UiMotion.reduceMotion = enabled
+    })
   }
 
   static dispose(): void {
-    if (!UiMotion.initialized) return
-    try { accessibility.offAnimationReduceStateChange(UiMotion.callback) } catch (_error) {}
-    UiMotion.callback = () => {}
-    UiMotion.initialized = false
+    UiMotion.stopObserving?.()
+    UiMotion.stopObserving = undefined
+    UiMotion.reduceMotion = false
   }
-
   static reduced(): boolean {
     return UiMotion.reduceMotion
   }
