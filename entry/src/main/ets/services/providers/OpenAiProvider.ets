@@ -1,0 +1,238 @@
+import { http } from '@kit.NetworkKit'
+import { util } from '@kit.ArkTS'
+import { hilog } from '@kit.PerformanceAnalysisKit'
+import { AgentApiSettings, ApiConfig } from '../../config/ApiConfig'
+import { ProviderAdapter, ProviderDeltaSink, ProviderMessage, ProviderTurn } from '../../models/ProviderModels'
+import { AgentToolCall, AgentToolDefinition } from '../../models/WorkspaceModels'
+import { ModelContentPart } from '../../models/AttachmentModels'
+
+interface WireToolFunction {
+  name?: string
+  arguments?: string
+}
+
+interface WireToolCall {
+  index?: number
+  id?: string
+  type?: string
+  function?: WireToolFunction
+}
+
+interface OutgoingMessage {
+  role: string
+  content: string | ModelContentPart[]
+  tool_calls?: WireToolCall[]
+  tool_call_id?: string
+}
+
+interface ChatMessagePayload {
+  role: string
+  content: string
+  reasoning_content?: string
+  tool_calls?: WireToolCall[]
+}
+
+interface ChatCompletionChoice {
+  message?: ChatMessagePayload
+  delta?: ChatMessagePayload
+}
+
+interface ChatCompletionError {
+  message?: string
+  type?: string
+}
+
+interface ChatCompletionResponse {
+  choices?: ChatCompletionChoice[]
+  error?: ChatCompletionError
+}
+
+interface CompletionBody {
+  model: string
+  messages: OutgoingMessage[]
+  stream: boolean
+  tools?: AgentToolDefinition[]
+}
+
+// OpenAI Chat Completions 线格式：DeepSeek、通义、智谱、Kimi 等兼容服务共用这一套。
+export class OpenAiProvider implements ProviderAdapter {
+  private static readonly LOG_DOMAIN: number = 0xD001
+  private static readonly LOG_TAG: string = 'AgentAPI'
+
+  readonly kind: string = 'openai'
+  label: string = ''
+  private settings: AgentApiSettings
+  private activeRequests: http.HttpRequest[] = []
+
+  constructor(settings: AgentApiSettings) {
+    this.settings = { baseUrl: settings.baseUrl.trim(), model: settings.model.trim(), apiKey: settings.apiKey.trim() }
+    this.label = this.settings.model
+  }
+
+  cancel(): void {
+    this.activeRequests.forEach((request: http.HttpRequest) => request.destroy())
+    this.activeRequests = []
+  }
+
+  async complete(system: string, messages: ProviderMessage[], tools: AgentToolDefinition[],
+    sink: ProviderDeltaSink): Promise<ProviderTurn> {
+    const wire: OutgoingMessage[] = [{ role: 'system', content: system }]
+    messages.forEach((message: ProviderMessage) => wire.push(OpenAiProvider.wire(message)))
+    return await this.round(wire, tools, sink)
+  }
+
+  private static wire(message: ProviderMessage): OutgoingMessage {
+    if (message.role === 'tool') {
+      return { role: 'tool', content: typeof message.content === 'string' ? message.content : '',
+        tool_call_id: message.toolCallId === undefined ? '' : message.toolCallId }
+    }
+    if (message.role === 'assistant' && message.toolCalls !== undefined && message.toolCalls.length > 0) {
+      return { role: 'assistant', content: typeof message.content === 'string' ? message.content : '',
+        tool_calls: message.toolCalls.map((call: AgentToolCall, index: number): WireToolCall =>
+          ({ index: index, id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments } })) }
+    }
+    return { role: message.role, content: message.content }
+  }
+
+  private async round(messages: OutgoingMessage[], tools: AgentToolDefinition[], sink: ProviderDeltaSink): Promise<ProviderTurn> {
+    let assistantText = ''
+    let streamError = ''
+    const calls = new Map<number, WireToolCall>()
+    const collectCalls = (deltas: WireToolCall[]): void => {
+      if (streamError.length > 0) return
+      deltas.forEach((delta: WireToolCall, position: number) => {
+        const index = delta.index === undefined ? position : delta.index
+        if (!Number.isInteger(index) || index < 0 || index >= 8) { streamError = '模型工具调用数量或索引不正确。'; return }
+        const call: WireToolCall = calls.get(index) || { id: '', type: 'function', function: { name: '', arguments: '' } }
+        call.id = `${call.id || ''}${delta.id || ''}`
+        const fn = call.function as WireToolFunction
+        fn.name = `${fn.name || ''}${delta.function?.name || ''}`
+        fn.arguments = `${fn.arguments || ''}${delta.function?.arguments || ''}`
+        if (fn.arguments.length > 40000 || fn.name.length > 100 || (call.id || '').length > 160) {
+          streamError = '模型工具参数过长。'
+          return
+        }
+        calls.set(index, call)
+      })
+    }
+
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'accept': 'text/event-stream, application/json'
+    }
+    if (this.settings.apiKey.length > 0) headers['authorization'] = `Bearer ${this.settings.apiKey}`
+
+    const client = http.createHttp()
+    this.activeRequests.push(client)
+    let pendingLine = ''
+    let responseText = ''
+    let streamedContent = false
+    let analysisAnnounced = false
+    const decoder = util.TextDecoder.create('utf-8')
+    hilog.info(OpenAiProvider.LOG_DOMAIN, OpenAiProvider.LOG_TAG, 'SSE request started')
+    const consumeLine = (line: string): void => {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) return
+      const data = trimmed.slice(5).trim()
+      if (data.length === 0 || data === '[DONE]') return
+      try {
+        const parsed = JSON.parse(data) as ChatCompletionResponse
+        if (parsed.error?.message) {
+          streamError = parsed.error.message
+          return
+        }
+        const payload = parsed.choices?.[0]?.delta
+        if (payload?.tool_calls) collectCalls(payload.tool_calls)
+        if (payload?.reasoning_content && !analysisAnnounced && !streamedContent && !sink.isCancelled()) {
+          analysisAnnounced = true
+          // Only report that inference is in progress; do not expose or retain private reasoning.
+          sink.onAnalyzing()
+        }
+        const delta = payload?.content
+        if (delta && delta.length > 0 && !sink.isCancelled()) {
+          streamedContent = true
+          assistantText = (assistantText + delta).slice(0, 32000)
+          sink.onDelta(delta)
+        }
+      } catch (_error) {
+        // Ignore incomplete or non-JSON SSE lines; the final response is validated below.
+      }
+    }
+    try {
+      const body: CompletionBody = { model: this.settings.model, messages: messages, stream: true,
+        tools: tools.length > 0 ? tools : undefined }
+      const options: http.HttpRequestOptions = {
+        method: http.RequestMethod.POST,
+        extraData: JSON.stringify(body),
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: ApiConfig.requestTimeoutMs,
+        readTimeout: ApiConfig.requestTimeoutMs,
+        header: headers
+      }
+      client.on('dataReceive', (data: ArrayBuffer): void => {
+        if (sink.isCancelled()) return
+        const chunk = decoder.decodeToString(new Uint8Array(data), { stream: true })
+        responseText = (responseText + chunk).slice(-200000)
+        pendingLine += chunk
+        if (pendingLine.length > 400000) { streamError = '模型返回的单个数据片段过大。'; pendingLine = ''; return }
+        let newline = pendingLine.indexOf('\n')
+        while (newline >= 0) {
+          consumeLine(pendingLine.slice(0, newline))
+          pendingLine = pendingLine.slice(newline + 1)
+          newline = pendingLine.indexOf('\n')
+        }
+      })
+      const responseCode = await client.requestInStream(this.completionsUrl(), options)
+      hilog.info(OpenAiProvider.LOG_DOMAIN, OpenAiProvider.LOG_TAG, 'SSE request completed with HTTP %{public}d', responseCode)
+      if (sink.isCancelled()) return { content: '', calls: [] }
+      const trailingText = decoder.decodeToString(new Uint8Array(0), { stream: false })
+      pendingLine += trailingText
+      if (pendingLine.trim().length > 0) consumeLine(pendingLine)
+      if (responseCode < 200 || responseCode >= 300) {
+        let detail = ''
+        try { detail = (JSON.parse(responseText) as ChatCompletionResponse).error?.message || '' } catch (_error) {}
+        throw new Error(detail || `模型服务请求失败（HTTP ${responseCode}）。`)
+      }
+      if (streamError.length > 0) throw new Error(streamError)
+      if (!streamedContent && responseText.trim().startsWith('{')) {
+        // Some compatible gateways ignore stream=true and return one regular JSON response.
+        try {
+          const parsed = JSON.parse(responseText) as ChatCompletionResponse
+          const content = parsed.choices?.[0]?.message?.content
+          const toolCalls = parsed.choices?.[0]?.message?.tool_calls
+          if (toolCalls) collectCalls(toolCalls)
+          if (content && content.trim().length > 0 && !sink.isCancelled()) {
+            streamedContent = true
+            assistantText = content
+            sink.onDelta(content)
+          }
+        } catch (_error) {
+          throw new Error('模型服务返回格式无法识别，请确认接口支持 OpenAI Chat Completions。')
+        }
+      }
+      if (streamError.length > 0) throw new Error(streamError)
+      if (!streamedContent && calls.size === 0) throw new Error('模型服务已响应，但没有返回回答内容。')
+      const completed: AgentToolCall[] = Array.from(calls.keys()).sort((a: number, b: number) => a - b)
+        .map((index: number): WireToolCall => calls.get(index) as WireToolCall)
+        .map((call: WireToolCall): AgentToolCall => ({ id: call.id && call.id.length > 0 ? call.id : `call-${call.index}`,
+          name: call.function?.name || '', arguments: call.function?.arguments || '{}' }))
+      return { content: assistantText, calls: completed }
+    } catch (error) {
+      if (sink.isCancelled()) return { content: '', calls: [] }
+      hilog.error(OpenAiProvider.LOG_DOMAIN, OpenAiProvider.LOG_TAG, 'SSE request failed')
+      const message = (error as Error).message
+      if (message && message.length > 0) throw new Error(message)
+      throw new Error('连接模型服务失败，请检查网络、服务地址和 API Key。')
+    } finally {
+      this.activeRequests = this.activeRequests.filter((request: http.HttpRequest) => request !== client)
+      client.destroy()
+    }
+  }
+
+  private completionsUrl(): string {
+    let base = this.settings.baseUrl.trim()
+    while (base.endsWith('/')) base = base.slice(0, base.length - 1)
+    if (base.endsWith('/chat/completions')) return base
+    return `${base}/chat/completions`
+  }
+}

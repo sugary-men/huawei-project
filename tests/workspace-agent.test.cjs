@@ -13,6 +13,8 @@ function load(file) {
   const compiled = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(compiled, { exports: result, require: name => {
+    if (name === '@kit.ArkTS') return { util: { generateRandomUUID: () => 'uuid-test' } };
+    if (name === '@kit.CoreFileKit') return { fileIo: {} };
     if (!name.startsWith('.')) throw Error('Unexpected runtime dependency: ' + name);
     return load(path.relative(root, path.resolve(path.dirname(absolute), name)));
   } });
@@ -65,7 +67,7 @@ assert.ok(request.systemInstruction.includes('课程资料与学习计划助手'
 assert.ok(request.systemInstruction.includes('准备期中考试'));
 assert.ok(request.systemInstruction.includes('周三前完成'));
 assert.ok(request.systemInstruction.includes('人工修改'));
-assert.equal(request.tools.length, 14);
+assert.equal(request.tools.length, 15);
 assert.ok(request.tools.some(tool => tool.function.name === 'manage_agent_task'));
 assert.ok(request.tools.some(tool => tool.function.name === 'create_calendar_event'));
 assert.ok(request.tools.some(tool => tool.function.name === 'create_system_reminder'));

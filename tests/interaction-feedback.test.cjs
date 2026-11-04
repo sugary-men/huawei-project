@@ -13,7 +13,9 @@ function load(file) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, {
     exports: result, require: name => {
-      if (!name.startsWith('.')) throw Error('Unexpected runtime dependency: ' + name);
+      if (name === '@kit.ArkTS') return { util: { generateRandomUUID: () => 'uuid-test' } };
+    if (name === '@kit.CoreFileKit') return { fileIo: {} };
+    if (!name.startsWith('.')) throw Error('Unexpected runtime dependency: ' + name);
       return load(path.relative(root, path.resolve(path.dirname(absolute), name)));
     }
   });

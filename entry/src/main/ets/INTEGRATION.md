@@ -53,9 +53,19 @@
 
 rawfile 会被打入 HAP，因此 Git 忽略只保护密钥不进入仓库，不能保护已构建或分发的安装包。公开部署应由自有后端保管密钥并代理模型调用。
 
-外部模型适配器为 `OpenAiCompatibleGateway`，实现 `AgentGateway.generate(request, sink)`。适配器对 `request.retrieval.context` 必须按**不可信资料**处理；只给有资料支持的句子加 `[编号]`，缺少证据时明确说明。默认配置为空，未填写服务地址和模型前不会假装生成成功。
+外部模型适配器实现 `AgentGateway.generate(request, sink)`。适配器对 `request.retrieval.context` 必须按**不可信资料**处理；只给有资料支持的句子加 `[编号]`，缺少证据时明确说明。默认配置为空，未填写服务地址和模型前不会假装生成成功。
 
-当前兼容适配器通过 `requestInStream` 接收 OpenAI SSE 流，并在每个 `dataReceive` 事件中解析 `choices[0].delta.content`，通过 `sink.onDelta` 立即更新聊天气泡；部分不支持流式的兼容服务会自动回退读取完整 JSON 回答。用户取消、切换页面或等待模型超过 93 秒时，UI 会调用 `AgentGateway.cancel()` 销毁进行中的 HTTP 请求。等待系统工具、授权或核对窗口期间暂停模型超时计时，系统操作返回后重新计时。复杂问题会被提示以简短的“思路摘要”说明任务拆解和关键依据，不展示逐字内部推演。
+### 服务商适配与降级
+
+`LlmClient` 负责一次对话的模型侧编排（消息组装、工具回合、重试、降级），`ProviderAdapter` 只负责一家服务的线格式：
+
+- `OpenAiProvider`：Chat Completions 线格式，覆盖 DeepSeek、通义、智谱、Kimi 等兼容服务；工具为 `tools[].function`，结果以 `role: tool` + `tool_call_id` 回传。
+- `AnthropicProvider`：Messages API 线格式；工具为 `tools[].input_schema`，调用以 `tool_use` 内容块返回，结果以 `tool_result` 块放回**同一条 user 消息**（连续结果会合并）。`x-api-key` 与 `anthropic-version: 2023-06-01` 由适配器补。
+- `ProviderFactory`：配置里 `provider` 显式指定优先；未指定时按服务地址判断（含 `anthropic` 或以 `/messages` 结尾走 Anthropic），默认按 OpenAI 兼容处理。
+- 降级链：`AgentCandidates` 把当前选中的配置排第一，其余可用配置按保存顺序跟随。每个回合从主配置开始，非超时错误重试一次后再切换，切换时通过 `sink.onNotice` 提示用户；已经流出正文后失败不再重试或切换，避免同一段话被写两遍；超时不重试（一次要等满 90 秒）。
+- 部分兼容网关会忽略 `stream: true` 直接返回完整 JSON，两家适配器都保留该回退路径。
+
+当前适配器通过 `requestInStream` 接收 SSE 流，并逐行解析增量内容，通过 `sink.onDelta` 立即更新聊天气泡。用户取消、切换页面或等待模型超过 93 秒时，UI 会调用 `AgentGateway.cancel()` 销毁进行中的 HTTP 请求。等待系统工具、授权或核对窗口期间暂停模型超时计时，系统操作返回后重新计时。复杂问题会被提示以简短的“思路摘要”说明任务拆解和关键依据，不展示逐字内部推演。
 
 ## 回答排版与思路摘要
 
@@ -73,14 +83,86 @@ Agent 气泡使用 `MarkdownContent` 原生渲染标题、粗体/斜体、列表
 
 `AgentRequest` 可选提供 `tools` 和 `executeTool`。外部网关接收增量 `tool_calls`，按调用 ID 与索引组装参数，执行后把 `role: tool` 的实际结果回传模型，继续流式生成回答；兼容非流式 JSON 工具结果。单轮最多四轮工具请求、十二次工具操作，随后要求输出最终回答。停止生成或切换会话会令旧调用失效，不更新新会话。
 
+### Agent 回合状态机
+
+`AgentOrchestrator` 负责一个回合的生命周期，状态按 `retrieving → connecting → analyzing/answering → tool → 终态` 迁移，页面只订阅阶段变化：
+
+- `onPhase` 只上报**进行中**阶段（检索、连接、分析、工具、流式生成），终态由 `run()` 返回的 `AgentTurnResult` 给出，页面据此渲染一次。例外是超时和主动停止：它们可能在页面等待期间先行发生，因此会同步经 `onPhase` 上报，并在结果里标记 `notified`，页面不再重复渲染。
+- 取消以回合令牌实现：`stop()` 先让令牌失效、再销毁 HTTP 请求、最后释放等待，`run()` 立即返回 `cancelled`；停止后到达的工具调用返回取消回执且不执行。
+- 超时按截止时刻判定（默认 `ApiConfig.requestTimeoutMs` 加 3 秒宽限）。工具名命中 `ToolRegistry.blocksTimeout` 时暂停计时——等待系统授权、用户核对并不是模型网络延迟；其余工具（如读取面板、业务适配器）仍受截止时刻约束。
+- 结果区分 `complete`、`failed`、`cancelled` 与 `empty`（模型正常返回但无正文）。模型报错只通过结果返回，不额外触发终态阶段，避免同一气泡被写两次。
+- 工具调用经注入的 `executeTool` 进入 `ToolRouter`，回合内计数供界面与日志核对；业务能力仍由页面注入，编排器不直接依赖 UI 或原生能力，可脱离设备单测（`tests/agent-orchestrator.test.cjs`）。
+
 - `read_workspace`：读取当前会话的工作区与面板。
 - `update_task_panel`：更新目标、摘要、任务、Markdown 产物，校验字段类型、长度、唯一 ID 及任务状态。未提供的字段保留，提供的任务/产物数组为完整替换。
 - `switch_workspace`：在同一会话中切换角色，保留消息、目标、摘要和产物，更换任务模板；返回新角色要求供后续生成使用。
 - `run_workspace_action`：仅执行当前工作区允许的表单、学习或魔方业务操作，使用注册适配器的真实结果。服务未接入时返回失败，不假装成功。
+- 学习课程一项（`manage_study`），语义见下文“学习课程”一节。
+- 系统工具九项（`get_system_time`、`query_calendar_events`、`create_calendar_event`、`update_calendar_event`、`delete_calendar_event`、`create_system_reminder`、`list_system_reminders`、`cancel_system_reminder`、`manage_memo`）与 `manage_agent_task` 的语义见下文各节；当前共 15 个工具。
+
+### 统一工具注册与分发
+
+工具定义仍由所属服务维护（`WorkspaceService.tools`、`ScheduleService.tools`、`AgentTaskService.tools`、`StudyToolService.tools`），但登记、校验和分发只有一条路径：
+
+- `ToolRegistry`：按名称登记展示名、分类（`workspace`/`schedule`/`agentTask`/`study`）、写操作是否需要核对、是否暂停模型超时、是否允许后台定时任务，以及参数长度上限。`ChatService` 用 `ToolRegistry.definitions(features)` 取工具清单，执行记录的标题来自 `ToolRegistry.label`，后台任务只取得 `ToolRegistry.backgroundTools()` 的只读子集。定义存在但未登记会直接抛错，避免执行记录降级成“工具请求”，也避免后台任务多拿写工具。
+- `ToolValidator`：按工具声明的 JSON Schema 校验未知字段、类型、枚举、必填及嵌套数组。语义校验（时间范围、产物总量、任务周期、备忘录 action 组合）仍留在各自服务，避免两处规则漂移。
+- `ToolRouter`：结构校验 → 分类执行 → 回执归一化。系统日程、Agent 定时任务和业务适配器通过 `ToolContext` 回调注入，页面只负责把返回的面板状态落盘、显示系统回执并处理切换后的定位。路由不设墙钟超时：等待用户核对或系统授权不是网络延迟，模型超时仍由页面在工具执行期间暂停。
+- 回执统一为 `{ ok, status?, message, ... }`，保留 `entries`/`tasks`/`workspace` 等既有字段；超过 24000 字符时保留结论与截断说明，不把成功改写成失败。参数不合法、注入能力抛错、会话已切换都返回可核对的失败或取消回执。
+
+新增工具的固定步骤：在所属服务补充 JSON Schema 与执行逻辑 → 在 `ToolRegistry.META` 登记展示名、分类与限制 → 需要页面副作用时在 `Index` 的 `ToolContext` 注入回调 → 补 `tests/tool-registry.test.cjs` 断言。漏登记会让测试先行失败，而不是在真机上才发现工具不可用。
 
 工具没有读写 API 配置、任意文件或其他会话的能力。右侧支持手动完成/重开任务、将任务交给 Agent 继续处理、查看与复制产物；“推进下一步”发送真实对话请求，已移除定时增加进度的演示逻辑。业务页面中的任务统计与产物也读取同一会话状态。
 
 面板存入 `ChatSession.workspace`，包含 `goal/summary/tasks/artifacts/updatedAt`。旧会话缺少该字段时使用对应工作区的待处理模板，不把旧演示进度当作已完成。保存面板不会改变会话的最近消息时间；生成或发送消息仍按原规则更新。需要模型服务支持标准 Chat Completions `tools/tool_calls`。
+
+## 学习课程
+
+学习课程的数据与逻辑分三层，页面、对话工具和后台定时任务共用同一份存档：
+
+- `models/StudyModels.ets`：`StudyCourse`（课程）、`StudyTask`（作业/考试）、`StudyPlan`（计划）、`StudyCheckin`（打卡）与数量上限。
+- `services/StudyService.ets`：纯逻辑。课表解析支持 `数据结构 | 周一 | 08:00 | 09:40 | A101 | 王老师` 与 `周一 08:00-09:40 数据结构` 两种行，逐行报错并去重；`validDue` 同时校验格式与真实日期；`autoPlan` 为 7 天内到期的待办生成“截止前一天 45 分钟”的复习计划（当天到期排当天，逾期与超窗跳过）；`summary` 输出今日课程、待办与逾期数、今日计划、打卡分钟与连续天数。
+- `services/StudyStore.ets`：基于 `LocalJsonStore` 的原子写入（临时文件 + 备份 + 目录锁），读取失败保留原文件并回退到备份。
+
+入口有两个，写的是同一份 `filesDir/study_data.json`：
+
+- `StudyToolService`（对话工具 `manage_study`）：`summary/timetable/import/add_course/remove_course/list_tasks/save_task/finish_task/plan/checkin`。所有写入先通过 `confirm(title, detail)` 展示具体内容供核对，取消时不改动数据；回执包含 `entries`，执行记录据此显示 `study_data.json` 的读取/更新与条目。后台定时任务只拿到 `summary/timetable/list_tasks` 三个只读 action。
+- `StudyModuleAdapter`（学习助手页面按钮）：查看课程表、导入课表、查看提醒、生成学习计划、计划打卡。页面动作由用户显式点击，因此不再弹二次核对。
+
+课表解析、存档校验、计划生成、概览、工具核对/取消与页面适配器的行为由 `tests/study.test.cjs` 覆盖。
+
+## M2 表单工具接入契约
+
+表单（M2）由张耀之实现，本仓库提供接入点、动作约定与工具分发，双方不需要改对方的代码。
+
+**适配器形状**——实现 `ModuleAdapter` 即可，`IntegrationService.initializeForms(adapter)` 在启动时调用一次完成注入；传入未实现 `execute` 的对象会直接抛错，不会静默替换成占位实现。
+
+```ts
+async execute(action: string, input: string): Promise<ModuleResult>
+// ModuleResult = { ok: boolean, message: string, items: ModuleItem[] }
+// ModuleItem   = { id: string, title: string, detail: string }
+```
+
+**动作与入参**（`FormModuleContract.actions`，页面按钮与工具白名单共用同一份）：
+
+| action | 含义 | input |
+| --- | --- | --- |
+| `templates` | 模板清单 | 可为空 |
+| `draft` | 生成填报草稿 | 可为空 |
+| `fill` | 按字段回填 | 字段名与新值，无法识别的字段由适配器返回失败说明 |
+| `export` | 导出或复制草稿 | 可指定目标格式，为空时导出当前草稿 |
+
+**调用路径**：对话中模型调用 `run_workspace_action`，`action` 取自当前工作区（`featureId=forms` 时白名单为上述四个动作，未知动作在 `WorkspaceService.applyTool` 就被拒绝）；页面按钮则直接调用同一个适配器。两条路径都会把结果写成 `工具结果 · <action>` 产物。
+
+**结果语义**：
+
+- 适配器返回 `ok: false` → 工具回执同样为失败，原因原样透传，**不写入产物**，模型只能说没做成。
+- 适配器抛异常 → `ToolRouter` 收口成失败回执，不穿透到生成流程。
+- 回合已结束或会话已切换后返回的结果 → 只记取消，不改当前会话。
+- 未注入适配器时返回“表单服务尚未接入。接入后可在此查看结果。”，这是刻意保留的诚实失败路径。
+
+**自检**：`FormModuleContract.verify(adapter)` 依次执行四个动作并检查返回形状（`ok` 布尔、`message` 非空、`items` 数组且每项含三个字符串字段、异常逐条记录），返回问题列表；空数组表示形状合规。它只核对契约，不判断业务内容。
+
+`tests/form-contract.test.cjs` 覆盖：动作集合、注入点拒绝非法适配器、未接入时的失败与不落产物、注入后的分发与产物、未知动作、适配器失败透传、异常收口、迟到结果取消、自检返回的问题条目。
 
 ## 动态工作区与自动归类
 

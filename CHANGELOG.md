@@ -2,7 +2,61 @@
 
 按日期倒序记录已完成的工作，日期使用北京时间（UTC+8）。早期条目依据 Git 提交；后续条目依据当前开发会话、源码、测试脚本及模拟器验证记录整理。未记录的日期不补写推测内容，日志不等同于远端发布记录。
 
+## 2026-11-04
+
+### M2 表单工具接入契约
+
+- 新增 `FormModuleContract`：固定表单的四个动作（`templates/draft/fill/export`）、结果形状与 `verify(adapter)` 自检；`IntegrationService.initializeForms(adapter)` 成为唯一注入点，注入未实现 `execute` 的对象直接抛错，不会静默退化成占位实现。
+- 修正一处真实缺口：页面有“辅助填写（fill）”，但 `run_workspace_action` 的表单白名单只放了 `templates/draft/export`，工具路径会被拒绝。现已把 `fill` 补进白名单，并让工具描述列出表单与学习的动作，模型不必猜。
+- 新增 `tests/form-contract.test.cjs`：动作集合、注入点校验、未接入时的诚实失败且不写产物、注入后的分发与产物、未知动作、适配器失败透传、异常收口、迟到结果只记取消、自检问题条目。回归测试增至 18 组。
+- 模拟器实测两条路径：表单未接入时经工具调用得到“表单服务尚未接入。接入后可在此查看结果。”（执行记录 `error`，产物为空）；同一注入点的学习适配器经 `run_workspace_action` 返回“共 2 节课。”并写入“工具结果 · timetable”产物，说明接入后表单只需换成自己的适配器。
+
+### M5 模型适配层：两家服务商与自动降级
+
+- 抽出 `ProviderAdapter` 与 `ProviderFactory`：`OpenAiProvider` 沿用 Chat Completions 线格式，新增 `AnthropicProvider` 支持 Messages API（`tools[].input_schema`、`tool_use`、`tool_result` 内容块、连续工具结果合并为一条 user 消息、`x-api-key` 与 `anthropic-version` 头）。配置项新增 `provider`，未指定时按服务地址推断（含 `anthropic` 或以 `/messages` 结尾走 Anthropic），默认按 OpenAI 兼容处理。
+- `LlmClient` 接管回合内的模型侧编排：工具轮次上限、非超时错误重试一次、重试仍失败则切换到下一组可用配置，并通过 `sink.onNotice` 提示“已切换到备用配置…”，不把提示写进回答正文。已经流出正文后失败不重试也不切换，避免同一段话被写两遍；超时不重试（一次要等满 90 秒）；每个回合从主配置重新开始，主配置恢复后不必重启应用。
+- `AgentCandidates` 按“当前选中优先、其余按保存顺序”生成降级链，`IntegrationService.configureAgentChain` 注入；`OpenAiCompatibleGateway` 保留为单配置兼容壳。配置面板新增“服务商（自动判断 / OpenAI 兼容 / Anthropic）”，`LocalAgentConfigService` 持久化并校验该字段。
+- 新增 `tests/provider-adapters.test.cjs`（线格式、内容块、思考隔离、JSON 回退、错误透传、服务商识别）与 `tests/llm-client.test.cjs`（重试、降级与提示、超时策略、流后不重放、空配置、降级链顺序）；`tests/gateway-stream.test.cjs` 改为加载完整模块图，原有 SSE 分片、合并与轮数断言全部保留。十七组回归通过。
+- 模拟器实测：两张配置并存（OpenAI 兼容为主、Anthropic 为备用）。主配置正常时回答并显示 `mock-primary`；主配置返回 500 时日志可见“失败 → 重试 → 切到 `/messages`”，回答来自备用配置且气泡显示 `mock-backup`；下一回合重新回到主配置并完成一次工具调用往返。配置面板可切换三种服务商。
+
+### M3 学习课程：课表、作业考试、计划与打卡
+
+- 新增数据层：`StudyModels`、`StudyService`（课表解析、存档校验、计划生成、今日概览、连续打卡）、`StudyStore`（基于 `LocalJsonStore` 的原子写入与备份回退）。课表支持 `数据结构 | 周一 | 08:00 | 09:40 | A101 | 王老师` 与 `周一 08:00-09:40 数据结构` 两种行，逐行报错并去重；截止时间同时校验格式与真实日期。
+- 新增工具 `manage_study`（`summary/timetable/import/add_course/remove_course/list_tasks/save_task/finish_task/plan/checkin`），登记进 `ToolRegistry`（分类 `study`、写操作需核对、暂停超时、允许后台只读），所有写入先展示具体内容供核对；后台定时任务只取得三个只读 action。工具清单由 14 个增至 15 个。
+- 学习助手页面的“服务尚未接入”占位替换为 `StudyModuleAdapter`：查看课程表、导入课表、查看提醒、生成学习计划、计划打卡，与对话工具共用同一份 `study_data.json`；执行记录把 `manage_study` 记为对 `study_data.json` 的读取或更新。
+- 新增 `tests/study.test.cjs`（解析、校验、计划、概览、原子存档与损坏回退、工具核对与取消、页面适配器），并同步更新既有测试的工具数量断言。
+- 模拟器实测：对话发送触发 `manage_study` 导入课表，核对窗口显示“2 节课将覆盖当前课表：周一 08:00-09:40 数据结构 / 周三 10:00-11:40 高等数学”，确认后 `study_data.json` 落盘两门课；学习页“查看课程表”显示“共 2 节课”与两行课程，“计划打卡”写入 25 分钟并显示连续 1 天。
+
+## 2026-11-03
+
+### Agent 回合在模拟器上的真机验证
+
+- 在 MatePad Pro 11 模拟器（HarmonyOS 6.0.2）上安装并实测四个回合场景：流式回答逐段渲染并正常完成；工具调用往返（模型返回 `update_task_panel` → 应用执行 → 回填 → 继续生成）后面板目标与任务真实落盘，执行记录显示注册表中文名；流式中途停止保留已收到的 943 字部分内容并标记“已停止”；模型 90 秒无响应时给出超时提示。
+- 实测发现 HTTP 客户端会在 90 秒先抛出英文 `Operation timeout`，覆盖编排器 93 秒的中文说明，气泡显示“生成失败：Operation timeout”且没有操作指引。现将传输层超时归类为回合超时，统一显示“等待 X 返回超过 N 秒，请检查设备网络和模型服务后重试。”，标签为“响应超时”。
+- 补齐超时分类的单元断言（`Operation timeout` 不进入气泡、`timeout` 标记与 `notified` 语义），十四组回归继续通过；DevEco 构建通过。
+- 联调使用本地模拟 OpenAI 服务，经模拟器 `10.0.2.2` 访问宿主；验证脚本与截图保留在项目内 `verification/`，阶段成果材料在 `deliverables/`，两者均加入 `.gitignore`，不随源码提交。临时 `local_api.json` 已删除，避免随安装包分发。
+- 仓库目录迁至 `D:\learning\huawei`（纯英文路径），避免 hvigor 对含中文路径报 `Invalid project path`；迁移后干净构建与十四组回归全部通过。
+
 ## 2026-10-28
+
+### Agent 回合状态机
+
+- 新增 `AgentOrchestrator`：一个回合的检索、连接、分析、工具与生成阶段显式迁移，页面只订阅阶段并渲染，不再自行维护令牌、计时器和“等待系统”标记。
+- 取消改为回合令牌：停止时先失效令牌，再销毁请求，最后释放等待，`run()` 立即返回 `cancelled`；停止后到达的工具调用直接返回取消回执且不执行，不写入新会话。
+- 超时判定移入编排器：默认截止时刻附 3 秒宽限，工具名命中 `ToolRegistry.blocksTimeout` 时暂停计时，避免把用户核对或系统授权算作模型延迟；读取面板、业务适配器等其他工具仍受截止时刻约束。
+- 结果区分 `complete`、`failed`、`cancelled` 和 `empty`（模型正常返回但无正文）。超时与主动停止会提前经 `onPhase` 上报并在结果里标记 `notified`，页面只渲染一次终态；普通模型报错只经结果返回，不再重复写同一气泡。
+- `Index.sendMessage` 收敛为：组装消息 → 注入观察者与工具回调 → 等待回合结果 → 落盘。删除了原 `requestSerial`、`activeGateway`、`ChatStreamSink` 与 120 行散落状态代码。
+- 新增 `agent-orchestrator.test.cjs`，以假网关/假检索覆盖状态顺序、工具调度计数、停止、超时、授权暂停与迟到工具拒绝；十四组回归与 DevEco 构建通过。
+
+### 统一工具注册、校验与分发
+
+- 新增 `ToolRegistry`：14 个工具（工作区 4、系统日程 9、定时任务 1）的展示名、分类、核对要求、是否暂停模型超时、是否允许后台只读调用及参数上限集中登记；`ChatService`、执行记录标题和后台任务清单都从这里取值，不再各写一份。
+- 新增 `ToolValidator`：按工具自己声明的 JSON Schema 校验未知字段、类型、枚举、必填与嵌套数组；时间范围、产物总量、任务周期等语义校验仍留在原服务，避免两套规则漂移。
+- 新增 `ToolRouter`：结构校验 → 分类执行 → 回执归一化。页面只注入系统日程、定时任务和业务适配器能力并处理落盘与提示；原本分散在三处的分发分支合并为一条路径，`run_workspace_action` 的适配器结果与产物写入也可脱离设备单测。
+- 回执统一为 `{ ok, status?, message, ... }` 并保留 `entries`/`tasks`/`workspace` 字段；超过 24000 字符时保留结论与截断说明，注入能力抛错、参数不合法和会话切换都返回可核对的失败或取消回执。
+- 未登记的工具会在取清单时直接抛错，避免执行记录降级成“工具请求”或被后台任务越权调用；后台只读子集由登记表决定，运行时不再写死名单。
+- 新增 `tool-registry.test.cjs`，覆盖登记一致性、动态分区枚举、Schema 校验、分发、取消、业务产物落盘与超长回执；`execution-trace`、`session-persistence` 的加载器同步适配注册表依赖。
+- 十三组回归通过；DevEco 构建通过（增量与全量均验证）。
 
 ### 模型配置字号、列表与发送图标适配
 

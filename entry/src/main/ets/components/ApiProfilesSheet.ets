@@ -16,6 +16,7 @@ export struct ApiProfilesSheet {
   @State baseUrl: string = ''
   @State model: string = ''
   @State apiKey: string = ''
+  @State provider: string = ''
   @State notice: string = ''
   @State readFailed: boolean = false
 
@@ -39,12 +40,12 @@ export struct ApiProfilesSheet {
       const profile = LocalAgentConfigService.readProfiles(this.context())?.items.find((item) => item.id === id)
       if (!profile) { this.notice = '该配置已被删除，请重新打开后重试。'; return }
       this.selectedId = profile.id; this.name = profile.name; this.baseUrl = profile.baseUrl
-      this.model = profile.model; this.apiKey = profile.apiKey; this.notice = ''
+      this.model = profile.model; this.apiKey = profile.apiKey; this.provider = profile.provider || ''; this.notice = ''
     } catch (_error) { this.notice = '模型配置读取失败，原配置已保留。' }
   }
 
   private add(): void {
-    this.selectedId = ''; this.name = ''; this.baseUrl = ''; this.model = ''; this.apiKey = ''; this.notice = ''
+    this.selectedId = ''; this.name = ''; this.baseUrl = ''; this.model = ''; this.apiKey = ''; this.provider = ''; this.notice = ''
   }
 
   private duplicate(): void {
@@ -56,7 +57,7 @@ export struct ApiProfilesSheet {
   private save(activate: boolean): void {
     try {
       const archive = LocalAgentConfigService.save(this.context(), this.selectedId, this.name,
-        { baseUrl: this.baseUrl, model: this.model, apiKey: this.apiKey }, activate)
+        { baseUrl: this.baseUrl, model: this.model, apiKey: this.apiKey }, activate, this.provider)
       const id = this.selectedId || archive.items[archive.items.length - 1].id
       this.refresh(id)
       this.onChanged()
@@ -93,7 +94,7 @@ export struct ApiProfilesSheet {
       Row({ space: 8 * this.fontScale }) {
         Column({ space: 3 * this.fontScale }) {
           Text('模型 API').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text).id('api-settings-title')
-          Text('保存多组配置，兼容 OpenAI Chat Completions').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
+          Text('保存多组配置，兼容 OpenAI Chat Completions 与 Anthropic Messages').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
         }.layoutWeight(1).alignItems(HorizontalAlign.Start)
         Button('关闭').action().height(36 * this.fontScale).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised)
           .id('api-settings-close').onClick(() => this.onClose())
@@ -123,6 +124,19 @@ export struct ApiProfilesSheet {
             Text('配置名称（可选）').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
             TextInput({ text: this.name, placeholder: '例如日常对话、课程助手' }).id('api-profile-name').maxLength(60)
               .fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).height(40 * this.fontScale).width('100%').backgroundColor(UiTheme.surface).borderRadius(8 * this.fontScale).onChange((value: string) => this.name = value)
+            Text('服务商').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
+            Row({ space: 6 * this.fontScale }) {
+              ForEach(['', 'openai', 'anthropic'], (value: string) => {
+                Text(value === '' ? '自动判断' : value === 'openai' ? 'OpenAI 兼容' : 'Anthropic')
+                  .id(`api-provider-${value === '' ? 'auto' : value}`)
+                  .textAlign(TextAlign.Center).fontSize(11 * this.fontScale).height(32 * this.fontScale)
+                  .layoutWeight(1).borderRadius(8 * this.fontScale)
+                  .backgroundColor(this.provider === value ? UiTheme.primary : UiTheme.raised)
+                  .fontColor(this.provider === value ? UiTheme.onPrimary : UiTheme.secondary)
+                  .hoverEffect(HoverEffect.Highlight)
+                  .onClick(() => { this.provider = value })
+              }, (value: string) => value)
+            }.width('100%')
             Text('服务地址').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
             TextInput({ text: this.baseUrl, placeholder: '例如 https://api.example.com/v1' }).id('api-base-url').maxLength(2048)
               .fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).height(40 * this.fontScale).width('100%').backgroundColor(UiTheme.surface).borderRadius(8 * this.fontScale).onChange((value: string) => this.baseUrl = value)

@@ -3,9 +3,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require(process.argv[2] || 'typescript');
-const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/OpenAiCompatibleGateway.ets'), 'utf8');
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
-  target: ts.ScriptTarget.ES2020 } }).outputText;
+const root = path.join(__dirname, '../entry/src/main/ets');
 let wire = '';
 let status = 200;
 let destroyed = 0;
@@ -34,23 +32,36 @@ const http = {
     };
   }
 };
-const exported = {};
-vm.runInNewContext(compiled, { exports: exported, Uint8Array,
-  require: name => {
-    if (name === '@kit.NetworkKit') return { http };
-    if (name === '@kit.ArkTS') return { util: { TextDecoder: { create: () => {
-      const decoder = new TextDecoder();
-      return { decodeToString: (bytes, options) => decoder.decode(bytes, options) };
-    } } } };
-    if (name === '@kit.PerformanceAnalysisKit') return { hilog: { info: () => {}, error: () => {} } };
-    if (name === '../config/ApiConfig') return { ApiConfig: { maxHistoryMessages: 12, maxMessageChars: 4000, requestTimeoutMs: 90000 } };
-    if (name === './AttachmentService') return { AttachmentService: { content: (text, attachments) => attachments.length ?
-      [{ type: 'text', text: text + JSON.stringify(attachments.filter(a => a.kind === 'document')) },
-        ...attachments.filter(a => a.kind === 'image').map(a => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,test-' + a.id } }))] : text } };
-    throw Error(`Unexpected dependency ${name}`);
-  }
-});
-const gateway = new exported.OpenAiCompatibleGateway({ baseUrl: 'https://example.invalid/v1', model: 'test', apiKey: '' });
+const attachment = { AttachmentService: { content: (text, attachments) => attachments.length ?
+  [{ type: 'text', text: text + JSON.stringify(attachments.filter(a => a.kind === 'document')) },
+    ...attachments.filter(a => a.kind === 'image').map(a => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,test-' + a.id } }))] : text } };
+const stubs = name => {
+  if (name === '@kit.NetworkKit') return { http };
+  if (name === '@kit.ArkTS') return { util: { TextDecoder: { create: () => {
+    const decoder = new TextDecoder();
+    return { decodeToString: (bytes, options) => decoder.decode(bytes, options) };
+  } } } };
+  if (name === '@kit.PerformanceAnalysisKit') return { hilog: { info: () => {}, error: () => {} } };
+  throw Error(`Unexpected dependency ${name}`);
+};
+const cache = new Map();
+function load(file) {
+  const absolute = path.resolve(root, file + '.ets');
+  if (cache.has(absolute)) return cache.get(absolute);
+  const result = {};
+  cache.set(absolute, result);
+  const compiled = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  vm.runInNewContext(compiled, { exports: result, Uint8Array, setTimeout, clearTimeout,
+    require: name => {
+      if (!name.startsWith('.')) return stubs(name);
+      const id = path.relative(root, path.resolve(path.dirname(absolute), name)).split(path.sep).join('/');
+      if (id === 'services/AttachmentService') return attachment;
+      return load(id);
+    } });
+  return result;
+}
+const gateway = new (load('services/OpenAiCompatibleGateway').OpenAiCompatibleGateway)({ baseUrl: 'https://example.invalid/v1', model: 'test', apiKey: '' });
 const request = { systemInstruction: 'test', featureId: 'home', history: [], prompt: 'test', retrieval: { context: '' } };
 const event = delta => `data: ${JSON.stringify({ choices: [{ delta }] })}\r\n\r\n`;
 (async () => {

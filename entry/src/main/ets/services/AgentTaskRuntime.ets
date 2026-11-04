@@ -8,8 +8,12 @@ import { ChatService } from './ChatService'
 import { LibraryService } from './LibraryService'
 import { RagService } from './RagService'
 import { LocalAgentConfigService } from './LocalAgentConfigService'
-import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
+import { LlmClient } from './LlmClient'
+import { AgentCandidates } from './AgentCandidates'
 import { ScheduleService } from './ScheduleService'
+import { ToolRegistry } from './ToolRegistry'
+import { StudyToolService } from './StudyToolService'
+import { IntegrationService } from './IntegrationService'
 import { HarmonyScheduleAdapter } from './HarmonyScheduleAdapter'
 
 class TaskSink implements StreamSink {
@@ -82,18 +86,27 @@ export class AgentTaskRuntime {
       const native = new HarmonyScheduleAdapter(context, false)
       const request = ChatService.request(task.prompt, 'home', [], retrieval)
       request.systemInstruction += '\n这是用户创建的定时任务，只能读取已授权的日历、时间、提醒、备忘录和资料，生成结果。不能新增/修改/删除任何系统数据，不得声称已执行写操作。结果会保存在任务记录供用户查看。'
-      request.tools = ScheduleService.tools().filter((tool) => ['get_system_time', 'query_calendar_events', 'list_system_reminders', 'manage_memo'].includes(tool.function.name))
+      request.tools = ToolRegistry.backgroundTools()
       const memo = request.tools.find((tool) => tool.function.name === 'manage_memo')
       if (memo?.function.parameters.properties) memo.function.parameters.properties['action'].enum = ['list', 'read']
+      const study = request.tools.find((tool) => tool.function.name === 'manage_study')
+      if (study?.function.parameters.properties) study.function.parameters.properties['action'].enum = ['summary', 'timetable', 'list_tasks']
       request.executeTool = async (call: AgentToolCall): Promise<string> => {
         if (!request.tools!.some((tool) => tool.function.name === call.name)) return JSON.stringify({ ok: false, message: '定时任务只允许读取。' })
         if (call.name === 'manage_memo') {
           const args = ScheduleService.validate(call.name, call.arguments)
           if (!['list', 'read'].includes(args.action || '')) return JSON.stringify({ ok: false, message: '定时任务不能修改备忘录。' })
         }
+        if (call.name === 'manage_study') {
+          const args = JSON.parse(call.arguments) as Record<string, Object>
+          if (!['summary', 'timetable', 'list_tasks'].includes(String(args['action']))) {
+            return JSON.stringify({ ok: false, message: '定时任务只能查看学习数据。' })
+          }
+          return await StudyToolService.execute(call, IntegrationService.studyStore, active, async () => false)
+        }
         return JSON.stringify(await ScheduleService.execute(call, native, active, async () => false))
       }
-      const gateway = new OpenAiCompatibleGateway(settings)
+      const gateway = new LlmClient(AgentCandidates.build(await LocalAgentConfigService.loadProfiles(context)))
       AgentTaskRuntime.gateway = gateway
       await gateway.generate(request, new TaskSink(active, (delta: string) => { output = (output + delta).slice(0, 16000) }))
       if (!active()) { status = 'interrupted'; output = output ? `${output}\n\n执行已中断，以上为部分结果。` : '执行已停止或超时，没有完整结果。' }

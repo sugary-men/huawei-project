@@ -13,12 +13,15 @@ export interface AgentApiSettings {
 export interface AgentApiProfile extends AgentApiSettings {
   id: string
   name: string
+  // '' 表示按服务地址自动判断；'openai' / 'anthropic' 为显式指定。
+  provider?: string
 }
 
 export interface AgentProfileSummary {
   id: string
   name: string
   model: string
+  provider?: string
 }
 
 export interface AgentProfileArchive {

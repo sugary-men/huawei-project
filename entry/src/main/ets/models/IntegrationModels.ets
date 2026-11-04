@@ -18,6 +18,8 @@ export interface AgentRequest {
 export interface StreamSink {
   onDelta(delta: string): void
   onProgress?(phase: string): void
+  // 与回答无关但需要让用户知道的过程说明，例如已切换到备用模型配置。
+  onNotice?(text: string): void
   isCancelled(): boolean
 }
 

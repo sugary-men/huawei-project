@@ -3,12 +3,16 @@ import { SourceCitation, KnowledgeRepository, QueryEmbedder } from '../models/Ra
 import { MemoryKnowledgeRepository } from './KnowledgeService'
 import { RagService } from './RagService'
 import { AgentApiSettings } from '../config/ApiConfig'
+import { LlmCandidate } from '../models/ProviderModels'
+import { LlmClient } from './LlmClient'
 import { OpenAiCompatibleGateway } from './OpenAiCompatibleGateway'
 import { common } from '@kit.AbilityKit'
 import { HarmonyVoiceAdapter } from './HarmonyVoiceAdapter'
 import { HarmonyScheduleAdapter } from './HarmonyScheduleAdapter'
 import { SchedulePlatform } from '../models/ScheduleModels'
 import { LibraryService } from './LibraryService'
+import { StudyStore } from './StudyStore'
+import { StudyModuleAdapter } from './StudyModuleAdapter'
 
 // 可运行的离线摘录模式，不冒充已经接入真实大模型。
 export class ExtractiveGateway implements AgentGateway {
@@ -56,7 +60,23 @@ export class IntegrationService {
   static agent: AgentGateway = new OpenAiCompatibleGateway({ baseUrl: '', model: '', apiKey: '' })
   static agentSettings: AgentApiSettings = { baseUrl: '', model: '', apiKey: '' }
   static forms: ModuleAdapter = new UnavailableModule('表单')
+
+  // M2 表单工具的官方注入点：实现 ModuleAdapter 后调用一次即可，工具层与页面无需改动。
+  static initializeForms(adapter: ModuleAdapter): void {
+    if (adapter === undefined || adapter === null || typeof adapter.execute !== 'function') {
+      throw new Error('表单适配器必须实现 execute(action, input): Promise<ModuleResult>。')
+    }
+    IntegrationService.forms = adapter
+  }
+
   static study: ModuleAdapter = new UnavailableModule('学习课程')
+  static studyStore: StudyStore | undefined = undefined
+  static initializeStudy(context: common.Context): void {
+    if (IntegrationService.studyStore !== undefined) return
+    const store = new StudyStore(context.filesDir)
+    IntegrationService.studyStore = store
+    IntegrationService.study = new StudyModuleAdapter(store)
+  }
   static hardware: ModuleAdapter = new UnavailableModule('自律魔方')
   static voice: VoiceAdapter = new UnavailableVoice()
   static schedule: SchedulePlatform | undefined = undefined
@@ -68,7 +88,13 @@ export class IntegrationService {
   }
   static rag(): RagService { return new RagService(IntegrationService.knowledge, IntegrationService.embedder) }
   static configureAgent(settings: AgentApiSettings): void {
-    IntegrationService.agentSettings = { baseUrl: settings.baseUrl.trim(), model: settings.model.trim(), apiKey: settings.apiKey.trim() }
-    IntegrationService.agent = new OpenAiCompatibleGateway(IntegrationService.agentSettings)
+    IntegrationService.configureAgentChain(LlmClient.candidatesOf(settings))
+  }
+  // 主配置在前、备用配置在后；请求失败时由 LlmClient 按顺序降级。
+  static configureAgentChain(candidates: LlmCandidate[]): void {
+    const primary = candidates.length > 0 ? candidates[0] : undefined
+    IntegrationService.agentSettings = primary === undefined ? { baseUrl: '', model: '', apiKey: '' }
+      : { baseUrl: primary.baseUrl.trim(), model: primary.model.trim(), apiKey: primary.apiKey.trim() }
+    IntegrationService.agent = new LlmClient(candidates)
   }
 }

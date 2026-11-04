@@ -19,6 +19,13 @@ export class LocalAgentConfigService {
     return result
   }
 
+  // 旧配置没有该字段，按自动判断处理；未知取值视为损坏，不静默改写。
+  static providerKind(value?: string): string {
+    if (value === undefined || value === '') return ''
+    if (value === 'openai' || value === 'anthropic') return value
+    throw new Error('服务商类型不正确。')
+  }
+
   private static validate(value: AgentProfileArchive): AgentProfileArchive {
     if (!value || value.version !== 1 || typeof value.activeId !== 'string' || !Array.isArray(value.items) || value.items.length > LocalAgentConfigService.maxProfiles) throw new Error('已保存的模型配置读取失败，原配置已保留。')
     const ids = new Set<string>()
@@ -26,7 +33,8 @@ export class LocalAgentConfigService {
       if (!item || typeof item.id !== 'string' || !item.id || item.id.length > 80 || ids.has(item.id) || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 60) throw new Error('已保存的模型配置格式不正确，原配置已保留。')
       ids.add(item.id)
       const settings = LocalAgentConfigService.settings(item)
-      return { id: item.id, name: item.name.trim(), baseUrl: settings.baseUrl, model: settings.model, apiKey: settings.apiKey }
+      return { id: item.id, name: item.name.trim(), baseUrl: settings.baseUrl, model: settings.model, apiKey: settings.apiKey,
+        provider: LocalAgentConfigService.providerKind(item.provider) }
     })
     if (value.activeId && !ids.has(value.activeId)) throw new Error('当前模型配置不存在，原配置已保留。')
     return { version: 1, activeId: value.activeId, items: items }
@@ -65,19 +73,26 @@ export class LocalAgentConfigService {
     return archive.items.map((item: AgentApiProfile): AgentProfileSummary => ({ id: item.id, name: item.name, model: item.model }))
   }
 
+  static activeProfile(archive: AgentProfileArchive): AgentApiProfile | undefined {
+    return archive.items.find((item: AgentApiProfile) => item.id === archive.activeId)
+  }
+
   static active(archive: AgentProfileArchive): AgentApiSettings {
-    const profile = archive.items.find((item: AgentApiProfile) => item.id === archive.activeId)
+    const profile = LocalAgentConfigService.activeProfile(archive)
     return profile ? { baseUrl: profile.baseUrl, model: profile.model, apiKey: profile.apiKey } : LocalAgentConfigService.blank()
   }
 
-  static save(context: common.Context, id: string, name: string, settings: AgentApiSettings, activate: boolean): AgentProfileArchive {
+  static save(context: common.Context, id: string, name: string, settings: AgentApiSettings, activate: boolean,
+    provider: string = ''): AgentProfileArchive {
     const archive = LocalAgentConfigService.readProfiles(context) || LocalAgentConfigService.empty()
     const normalized = LocalAgentConfigService.settings(settings)
+    const kind = LocalAgentConfigService.providerKind(provider)
     const title = name.trim() || normalized.model.slice(0, 60)
     if (title.length > 60) throw new Error('配置名称最多60字。')
     if (id && !archive.items.some((item: AgentApiProfile) => item.id === id)) throw new Error('该配置已被删除，请重新选择。')
     if (!id && archive.items.length >= LocalAgentConfigService.maxProfiles) throw new Error('最多保存20组模型配置，请先删除不再使用的配置。')
-    const profile: AgentApiProfile = { id: id || util.generateRandomUUID(), name: title, baseUrl: normalized.baseUrl, model: normalized.model, apiKey: normalized.apiKey }
+    const profile: AgentApiProfile = { id: id || util.generateRandomUUID(), name: title, baseUrl: normalized.baseUrl,
+      model: normalized.model, apiKey: normalized.apiKey, provider: kind }
     const index = archive.items.findIndex((item: AgentApiProfile) => item.id === profile.id)
     if (index < 0) archive.items.push(profile)
     else archive.items[index] = profile

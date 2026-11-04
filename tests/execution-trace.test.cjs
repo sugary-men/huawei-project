@@ -3,18 +3,34 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require(process.argv[2] || 'typescript');
-const exportsObject = {};
+const root = path.join(__dirname, '../entry/src/main/ets');
+const cache = new Map();
 let now = 100000;
 class Clock extends Date { static now() { return now; } }
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/ExecutionTraceService.ets'), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
-}).outputText, { exports: exportsObject, Date: Clock });
-const trace = exportsObject.ExecutionTraceService;
+function load(file) {
+  const absolute = path.resolve(root, file + '.ets');
+  if (cache.has(absolute)) return cache.get(absolute);
+  const result = {};
+  cache.set(absolute, result);
+  const compiled = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  vm.runInNewContext(compiled, { exports: result, Date: Clock, require: name => {
+    if (name === '@kit.ArkTS') return { util: { generateRandomUUID: () => 'uuid-test' } };
+    if (name === '@kit.CoreFileKit') return { fileIo: {} };
+    if (!name.startsWith('.')) throw Error('Unexpected runtime dependency: ' + name);
+    return load(path.relative(root, path.resolve(path.dirname(absolute), name)));
+  } });
+  return result;
+}
+const trace = load('services/ExecutionTraceService').ExecutionTraceService;
 const tool = (name, args) => ({ id: 'wire-id', name, arguments: JSON.stringify(args) });
 const secrets = ['private-key-for-test-123456', 'https://private.example/api'];
 const call = tool('update_task_panel', { title: 'plan', artifacts: [{id:'new', title:'New plan', content:'hidden body'}], apiKey: secrets[0], command: 'rm imaginary-file' });
 let pending = trace.tool('tool-1', call, secrets);
 assert.equal(pending.status, 'running');
+assert.equal(pending.title, '更新任务面板与产物', 'tool titles come from the shared registry, not a second hardcoded map');
+assert.equal(trace.tool('t2', tool('manage_memo', { action: 'list' })).title, '管理备忘录');
+assert.equal(trace.tool('t3', tool('unknown_tool', {})).title, '工具请求', 'unregistered names degrade to a neutral label');
 assert.ok(!pending.input.includes('hidden body'));
 assert.ok(!JSON.stringify(pending).includes(secrets[0]));
 assert.ok(!JSON.stringify(pending).includes('rm imaginary-file'), 'requested text must never become proof of a command');

@@ -7,9 +7,12 @@ import { KnowledgeChunk, RetrievalOptions, RetrievalResult, SourceCitation } fro
 import { IntegrationService } from '../services/IntegrationService'
 import { RagConfig } from '../config/RagConfig'
 import { demoKnowledgeIndex, MemoryKnowledgeRepository } from '../services/KnowledgeService'
-import { ChatService } from '../services/ChatService'
-import { AgentGateway, StreamSink, ModuleAdapter, ModuleItem, ModuleResult, VoiceObserver } from '../models/IntegrationModels'
-import { ApiConfig, AgentProfileArchive, AgentProfileSummary } from '../config/ApiConfig'
+import { AgentOrchestrator } from '../services/AgentOrchestrator'
+import { AgentCandidates } from '../services/AgentCandidates'
+import { StudyToolService } from '../services/StudyToolService'
+import { AgentTurnInput, AgentTurnObserver, AgentTurnResult, AgentTurnState } from '../models/AgentTurnModels'
+import { ModuleAdapter, ModuleItem, ModuleResult, VoiceObserver } from '../models/IntegrationModels'
+import { AgentProfileArchive, AgentProfileSummary } from '../config/ApiConfig'
 import { common } from '@kit.AbilityKit'
 import { LocalAgentConfigService } from '../services/LocalAgentConfigService'
 import { AgentAnswer } from '../components/AgentAnswer'
@@ -26,6 +29,9 @@ import { InteractiveContent } from '../components/InteractiveContent'
 import { InteractionChange, InteractionRecord } from '../models/InteractionModels'
 import { InteractionService } from '../services/InteractionService'
 import { ScheduleService } from '../services/ScheduleService'
+import { ToolRouter } from '../services/ToolRouter'
+import { ToolContext } from '../models/ToolModels'
+import { ScheduleResult } from '../models/ScheduleModels'
 import { TaskCenterPage } from '../components/TaskCenterPage'
 import { LibraryPage } from '../components/LibraryPage'
 import { AgentTaskManager } from '../services/AgentTaskManager'
@@ -44,18 +50,22 @@ function panelLayoutWidth(value: number) {
   .width(value)
 }
 
-class ChatStreamSink implements StreamSink {
-  private cancelled: () => boolean
-  private receive: (delta: string) => void
-  private progress: (phase: string) => void
-  constructor(cancelled: () => boolean, receive: (delta: string) => void, progress: (phase: string) => void) {
-    this.cancelled = cancelled
-    this.receive = receive
-    this.progress = progress
+class ChatTurnObserver implements AgentTurnObserver {
+  private phase: (state: string, detail: string) => void
+  private delta: (content: string) => void
+  private retrieved: (result: RetrievalResult) => void
+  private notice: (text: string) => void
+  constructor(phase: (state: string, detail: string) => void, delta: (content: string) => void,
+    retrieved: (result: RetrievalResult) => void, notice: (text: string) => void) {
+    this.phase = phase
+    this.delta = delta
+    this.retrieved = retrieved
+    this.notice = notice
   }
-  isCancelled(): boolean { return this.cancelled() }
-  onDelta(delta: string): void { this.receive(delta) }
-  onProgress(phase: string): void { this.progress(phase) }
+  onPhase(state: string, detail: string): void { this.phase(state, detail) }
+  onDelta(content: string): void { this.delta(content) }
+  onRetrieved(result: RetrievalResult): void { this.retrieved(result) }
+  onNotice(text: string): void { this.notice(text) }
 }
 
 class ChatVoiceObserver implements VoiceObserver {
@@ -151,12 +161,11 @@ struct Index {
   @State apiActiveModel: string = ''
   @State apiProfilesLoading: boolean = true
   private apiLoadSerial: number = 0
-  private requestSerial: number = 0
   private searchSerial: number = 0
   private voiceSerial: number = 0
   private speechSerial: number = 0
   private actionSerial: number = 0
-  private activeGateway: AgentGateway | undefined = undefined
+  private turn: AgentOrchestrator | undefined = undefined
   private readonly chatScroller: Scroller = new Scroller()
   private readonly workspaceScroller: Scroller = new Scroller()
   private minScore: number = 0.20
@@ -185,6 +194,7 @@ struct Index {
     } catch (_error) { this.storageNotice = '部分旧附件未迁入资料库，原对话文件仍保留。' }
     IntegrationService.initializeVoice(this.getUIContext().getHostContext() as common.UIAbilityContext)
     IntegrationService.initializeSchedule(this.getUIContext().getHostContext() as common.UIAbilityContext)
+    IntegrationService.initializeStudy(this.getUIContext().getHostContext() as common.UIAbilityContext)
     this.refreshKnowledge()
     const savedSidebar = SessionService.sidebar()
     const sidebar = SidebarService.normalize(savedSidebar)
@@ -256,7 +266,7 @@ struct Index {
 
   private applyApiProfiles(archive: AgentProfileArchive): void {
     const settings = LocalAgentConfigService.active(archive)
-    IntegrationService.configureAgent(settings)
+    IntegrationService.configureAgentChain(AgentCandidates.build(archive))
     this.apiProfiles = LocalAgentConfigService.summaries(archive)
     this.apiActiveId = archive.activeId
     this.apiActiveModel = settings.model
@@ -452,13 +462,14 @@ struct Index {
   }
 
   private stopReply(): void {
-    this.requestSerial++
-    if (!this.thinking) return
-    this.activeGateway?.cancel()
-    this.activeGateway = undefined
+    const turn = this.turn
+    const wasThinking = this.thinking
+    this.turn = undefined
+    this.thinking = false
+    if (turn !== undefined) turn.stop('已停止生成。')
+    if (!wasThinking) return
     const last = this.messages.length - 1
     this.updateReply(last, this.messages[last].content || '已停止生成。', '已停止', 'stopped', this.messages[last].sources || [])
-    this.thinking = false
     SessionService.saveMessages(this.activeSession, this.messages)
   }
 
@@ -638,68 +649,57 @@ struct Index {
     this.changeInteraction(`message-${index}`, 'message', `对话回复 ${index + 1}`, body, change)
   }
 
-  private async executeWorkspaceTool(call: AgentToolCall, token: number, sessionId: string): Promise<string> {
-    if (token !== this.requestSerial || sessionId !== this.activeSession) return JSON.stringify({ ok: false, status: 'cancelled', message: '会话已切换或生成已停止。' })
+  private async executeWorkspaceTool(call: AgentToolCall, sessionId: string): Promise<string> {
     const uiContext = this.getUIContext()
-    try {
-      if (call.name === 'manage_agent_task') {
-        const active = (): boolean => token === this.requestSerial && sessionId === this.activeSession
-        return await AgentTaskManager.execute(this.getUIContext().getHostContext() as common.UIAbilityContext, call, active,
-          async (title: string, detail: string): Promise<boolean> => {
-            if (!active()) return false
-            try {
-              const choice = await uiContext.getPromptAction().showDialog({ title: title, message: detail,
-                buttons: [{ text: '取消', color: '#777777' }, { text: '确认', color: '#202020' }] })
-              return active() && choice.index === 1
-            } catch (_error) { return false }
-          })
-      }
-      if (ScheduleService.handles(call.name)) {
-        const platform = IntegrationService.schedule
-        if (platform === undefined) return JSON.stringify({ ok: false, message: '系统日程服务尚未初始化。' })
-        const active = (): boolean => token === this.requestSerial && sessionId === this.activeSession
-        const result = await ScheduleService.execute(call, platform, active, async (title: string, detail: string): Promise<boolean> => {
-          if (!active()) return false
-          try {
-            const choice = await uiContext.getPromptAction().showDialog({ title: title, message: detail,
-              buttons: [{ text: '取消', color: '#777777' }, { text: '确认', color: '#202020' }] })
-            return active() && choice.index === 1
-          } catch (_error) { return false }
-        })
-        // A completed native operation stays a real receipt even if the user changes conversation afterwards.
-        if (active()) uiContext.runScopedTask(() => { this.moduleNotice = result.message })
-        return JSON.stringify(result)
-      }
-      const result = WorkspaceService.applyTool(call.name, call.arguments, this.activeFeature, this.workspace, this.features)
-      if (result.action !== undefined) {
-        const adapter = result.featureId === 'forms' ? IntegrationService.forms : result.featureId === 'study'
-          ? IntegrationService.study : IntegrationService.hardware
-        const moduleResult = await adapter.execute(result.action, result.input || '')
-        if (token !== this.requestSerial || sessionId !== this.activeSession) return JSON.stringify({ ok: false, status: 'cancelled', message: '操作结果已过期，不再更新当前会话。' })
-        uiContext.runScopedTask(() => { this.moduleNotice = moduleResult.message; this.moduleItems = moduleResult.ok ? moduleResult.items : [] })
-        if (!moduleResult.ok) return JSON.stringify({ ok: false, message: moduleResult.message })
-        const id = `module-${result.featureId}-${result.action}`
-        const artifacts = result.state.artifacts.filter((item: WorkspaceArtifact) => item.id !== id)
-        if (artifacts.length < 8) artifacts.push({ id: id, title: `工具结果 · ${result.action}`,
-          content: `${moduleResult.message}\n\n${moduleResult.items.map((item: ModuleItem) => `### ${item.title}\n${item.detail}`).join('\n\n')}`.slice(0, 12000) })
-        result.state = WorkspaceService.update(result.state, { summary: moduleResult.message.slice(0, 3000), artifacts: artifacts })
-        result.message = moduleResult.message
-      }
-      if (token !== this.requestSerial || sessionId !== this.activeSession) return JSON.stringify({ ok: false, status: 'cancelled', message: '生成已停止。' })
-      if (call.name !== 'read_workspace') {
-        uiContext.runScopedTask(() => {
-          this.activeFeature = result.featureId
-          this.workspace = result.state
-          this.isTaskPanelVisible = true
-          this.persistSession()
-          if (call.name === 'switch_workspace') this.revealWorkspace()
-        })
-        if (SessionService.storageNotice) return JSON.stringify({ ok: false, message: `面板已更新，但保存失败：${SessionService.storageNotice}` })
-      }
-      return JSON.stringify({ ok: true, message: result.message, workspace: WorkspaceService.snapshot(result.featureId, result.state, this.features) })
-    } catch (error) {
-      return JSON.stringify({ ok: false, message: (error as Error).message || '工作区操作失败。' })
+    const active = (): boolean => this.turn !== undefined && this.turn.isActive() && sessionId === this.activeSession
+    const confirm = async (title: string, detail: string): Promise<boolean> => {
+      if (!active()) return false
+      try {
+        const choice = await uiContext.getPromptAction().showDialog({ title: title, message: detail,
+          buttons: [{ text: '取消', color: '#777777' }, { text: '确认', color: '#202020' }] })
+        return active() && choice.index === 1
+      } catch (_error) { return false }
     }
+    const platform = IntegrationService.schedule
+    const context: ToolContext = {
+      featureId: this.activeFeature, workspace: this.workspace, features: this.features, isActive: active, confirm: confirm,
+      schedule: (inner: AgentToolCall, isActive: () => boolean, ask: (title: string, detail: string) => Promise<boolean>): Promise<string> => {
+        if (platform === undefined) return Promise.resolve(JSON.stringify({ ok: false, message: '系统日程服务尚未初始化。' }))
+        return ScheduleService.execute(inner, platform, isActive, ask).then((result: ScheduleResult): string => JSON.stringify(result))
+      },
+      agentTask: (inner: AgentToolCall, isActive: () => boolean, ask: (title: string, detail: string) => Promise<boolean>): Promise<string> =>
+        AgentTaskManager.execute(uiContext.getHostContext() as common.UIAbilityContext, inner, isActive, ask),
+      module: (featureId: string, action: string, input: string): Promise<ModuleResult> => {
+        const adapter = featureId === 'forms' ? IntegrationService.forms : featureId === 'study'
+          ? IntegrationService.study : IntegrationService.hardware
+        return adapter.execute(action, input)
+      },
+      study: (inner: AgentToolCall, isActive: () => boolean, ask: (title: string, detail: string) => Promise<boolean>): Promise<string> =>
+        StudyToolService.execute(inner, IntegrationService.studyStore, isActive, ask)
+    }
+    const execution = await ToolRouter.execute(call, context)
+    // 页面只负责把工具结果落到界面：系统回执提示、面板状态持久化与工作区切换后的定位。
+    if (execution.moduleNotice !== undefined && active()) {
+      const notice = execution.moduleNotice
+      const items = execution.moduleItems
+      uiContext.runScopedTask(() => {
+        this.moduleNotice = notice
+        if (items !== undefined) this.moduleItems = items
+      })
+    }
+    if (execution.ok && execution.workspace !== undefined) {
+      if (!active()) return JSON.stringify({ ok: false, status: 'cancelled', message: '生成已停止。' })
+      const result = execution.workspace
+      uiContext.runScopedTask(() => {
+        this.activeFeature = result.featureId
+        this.workspace = result.state
+        this.isTaskPanelVisible = true
+        this.persistSession()
+        if (call.name === 'switch_workspace') this.revealWorkspace()
+      })
+      if (SessionService.storageNotice) return JSON.stringify({ ok: false, message: `面板已更新，但保存失败：${SessionService.storageNotice}` })
+    }
+    return execution.output
   }
 
   private chooseFeature(feature: FeatureDefinition): void {
@@ -954,14 +954,12 @@ struct Index {
       this.activeSession = SessionService.create(this.activeFeature, '新对话', []).id
     }
     this.isWelcomePage = false
-    const token = ++this.requestSerial
     const uiContext = this.getUIContext()
     const featureId = this.activeFeature
     const sessionId = this.activeSession
     const workspace = WorkspaceService.copy(this.workspace)
     const history = this.messages.slice()
     const gateway = IntegrationService.agent
-    this.activeGateway = gateway
     const attachedContext = this.selectedContext.slice()
     const attachments = reviewContext ? [] : this.draftAttachments.slice()
     const executionId = util.generateRandomUUID()
@@ -983,91 +981,106 @@ struct Index {
     // Wait for the new bubbles to be laid out before revealing the pending reply.
     setTimeout(() => {
       uiContext.runScopedTask(() => {
-        if (token === this.requestSerial) this.chatScroller.scrollEdge(Edge.Bottom)
+        if (this.turn !== undefined) this.chatScroller.scrollEdge(Edge.Bottom)
       })
     }, 50)
     let content = ''
     let sources: SourceCitation[] = []
-    let waitingForSystem = false
     let toolOrdinal = 0
-    let responseDeadline = Date.now() + ApiConfig.requestTimeoutMs + 3000
-    const timeout = setInterval(() => {
-      if (token !== this.requestSerial) { clearInterval(timeout); return }
-      // OS authorization and the user's review are not model network latency.
-      if (waitingForSystem) { responseDeadline = Date.now() + ApiConfig.requestTimeoutMs + 3000; return }
-      if (Date.now() < responseDeadline) return
-      clearInterval(timeout)
-      uiContext.runScopedTask(() => {
-        if (token !== this.requestSerial) return
-        gateway.cancel()
-        this.requestSerial++
-        this.activeGateway = undefined
-        this.thinking = false
-        const timeoutMessage = `等待 ${gateway.name} 返回超过 ${ApiConfig.requestTimeoutMs / 1000} 秒，请检查设备网络和模型服务后重试。`
-        this.updateReply(replyIndex, content || timeoutMessage, '响应超时', 'error', sources)
-        this.notice = timeoutMessage
-        this.persistSession()
-      })
-    }, 1000)
-    const sink: StreamSink = new ChatStreamSink((): boolean => token !== this.requestSerial, (delta: string): void => {
-      uiContext.runScopedTask(() => {
-        if (token !== this.requestSerial) return
-        content = (content + delta).slice(0, 16000)
-        this.updateReply(replyIndex, content, `${gateway.name} · 正在流式生成`, 'streaming', sources)
-      })
-    }, (phase: string): void => {
-      uiContext.runScopedTask(() => {
-        if (token !== this.requestSerial) return
-        this.updateReply(replyIndex, content, `${gateway.name} · 正在分析`, content.trim() ? 'streaming' : 'loading', sources, phase)
-      })
-    })
-    ChatService.reply(message, featureId, history, this.retrievalOptions(), IntegrationService.rag(), gateway, sink,
+    let turn: AgentOrchestrator | undefined = undefined
+    // 页面只订阅阶段并渲染；取消、超时与工具等待由编排器统一判定。
+    const observer: AgentTurnObserver = new ChatTurnObserver(
+      (phase: string, detail: string): void => {
+        uiContext.runScopedTask(() => {
+          if (turn === undefined || this.turn !== turn || sessionId !== this.activeSession) return
+          if (phase === AgentTurnState.connecting) {
+            this.updateReply(replyIndex, '', `${gateway.name} · ${sources.length} 条参考资料`, 'loading', sources, phase)
+            return
+          }
+          if (phase === AgentTurnState.answering) {
+            this.updateReply(replyIndex, content, `${gateway.name} · 正在流式生成`, 'streaming', sources, phase)
+            return
+          }
+          if (phase === AgentTurnState.tool) {
+            this.updateReply(replyIndex, content, `${gateway.name} · ${detail}`, content ? 'streaming' : 'loading', sources, phase)
+            return
+          }
+          if (phase === AgentTurnState.analyzing) {
+            this.updateReply(replyIndex, content, `${gateway.name} · 正在分析`, content.trim() ? 'streaming' : 'loading', sources, phase)
+            return
+          }
+          if (phase === AgentTurnState.failed) {
+            this.updateReply(replyIndex, content || detail, '响应超时', 'error', sources)
+            this.notice = detail
+          }
+        })
+      },
+      (next: string): void => {
+        content = next
+        uiContext.runScopedTask(() => {
+          if (turn === undefined || this.turn !== turn || sessionId !== this.activeSession) return
+          this.updateReply(replyIndex, content, `${gateway.name} · 正在流式生成`, 'streaming', sources)
+        })
+      },
       (result: RetrievalResult): void => {
         uiContext.runScopedTask(() => {
-          if (token !== this.requestSerial) return
+          if (turn === undefined || this.turn !== turn || sessionId !== this.activeSession) return
           sources = result.sources
           this.notice = result.notice
           this.updateReply(replyIndex, '', `${gateway.name} · ${sources.length} 条参考资料`, 'loading', sources, 'connecting')
           this.recordExecution(sessionId, executionId, ExecutionTraceService.retrieval('retrieval', startedAt, sources, secrets))
         })
-      }, attachedContext, attachments, workspace, (call: AgentToolCall): Promise<string> => {
-        waitingForSystem = ScheduleService.handles(call.name) || call.name === 'manage_agent_task'
-        const record = ExecutionTraceService.tool(`tool-${++toolOrdinal}`, call, secrets)
-        const before = WorkspaceService.copy(this.workspace).artifacts
-        this.recordExecution(sessionId, executionId, record)
-        return this.executeWorkspaceTool(call, token, sessionId).then((output: string): string => {
-          this.recordExecution(sessionId, executionId, ExecutionTraceService.finish(record, call, output, before, secrets))
-          return output
-        }).catch((error: Error): string => {
-          const output = JSON.stringify({ ok: false, message: error.message || '工具操作失败。' })
-          this.recordExecution(sessionId, executionId, ExecutionTraceService.finish(record, call, output, before, secrets))
-          return output
-        }).finally(() => {
-          if (waitingForSystem) responseDeadline = Date.now() + ApiConfig.requestTimeoutMs + 3000
-          waitingForSystem = false
-        })
-      }, this.features, reviewContext).then(() => {
+      },
+      (text: string): void => {
+        // 主配置失败切换备用时如实提示，不写进回答正文。
         uiContext.runScopedTask(() => {
-          if (token === this.requestSerial) this.updateReply(replyIndex, content || '服务未返回内容，请重试。', gateway.name, content ? 'complete' : 'error', sources)
-        })
-      }).catch((error: Error) => {
-        uiContext.runScopedTask(() => {
-          if (token === this.requestSerial) {
-            const reason = error.message || '连接模型服务失败，请检查配置和网络。'
-            this.updateReply(replyIndex, content || `生成失败：${reason}`, '生成失败', 'error', sources)
-            this.notice = reason
-          }
-        })
-      }).finally(() => {
-        clearInterval(timeout)
-        uiContext.runScopedTask(() => {
-          if (token === this.requestSerial) {
-            this.thinking = false
-            this.activeGateway = undefined
-            this.persistSession()
-          }
+          if (turn === undefined || this.turn !== turn || sessionId !== this.activeSession) return
+          this.notice = text
         })
       })
+    turn = new AgentOrchestrator(gateway, IntegrationService.rag(), observer, (call: AgentToolCall): Promise<string> => {
+      const record = ExecutionTraceService.tool(`tool-${++toolOrdinal}`, call, secrets)
+      const before = WorkspaceService.copy(this.workspace).artifacts
+      this.recordExecution(sessionId, executionId, record)
+      return this.executeWorkspaceTool(call, sessionId).then((output: string): string => {
+        this.recordExecution(sessionId, executionId, ExecutionTraceService.finish(record, call, output, before, secrets))
+        return output
+      }).catch((error: Error): string => {
+        const output = JSON.stringify({ ok: false, message: error.message || '工具操作失败。' })
+        this.recordExecution(sessionId, executionId, ExecutionTraceService.finish(record, call, output, before, secrets))
+        return output
+      })
+    })
+    this.turn = turn
+    const input: AgentTurnInput = { prompt: message, featureId: featureId, history: history, retrievalOptions: this.retrievalOptions(),
+      attachments: attachments, attachedSources: attachedContext, workspace: workspace, features: this.features, reviewContext: reviewContext }
+    turn.run(input).then((result: AgentTurnResult): void => {
+      uiContext.runScopedTask(() => {
+        if (turn === undefined || this.turn !== turn) return
+        this.turn = undefined
+        this.thinking = false
+        if (sessionId !== this.activeSession) return
+        // 超时或停止已经渲染过终态，这里只补保存，避免同一回合写两次不同结论。
+        if (!result.notified) {
+          const complete = result.state === AgentTurnState.complete
+          const text = result.content.length > 0 ? result.content
+            : result.empty ? '服务未返回内容，请重试。' : result.timeout ? result.reason : `生成失败：${result.reason}`
+          this.updateReply(replyIndex, text, complete || result.empty ? gateway.name : result.timeout ? '响应超时' : '生成失败',
+            complete ? 'complete' : 'error', sources)
+          if (!complete && !result.empty) this.notice = result.reason
+        }
+        this.persistSession()
+      })
+    }).catch((error: Error): void => {
+      uiContext.runScopedTask(() => {
+        if (turn === undefined || this.turn !== turn) return
+        this.turn = undefined
+        this.thinking = false
+        if (sessionId !== this.activeSession) return
+        this.notice = error.message || '回合执行失败，请重试。'
+        this.persistSession()
+      })
+    })
   }
 
   private advanceTask(): void {
@@ -1310,6 +1323,7 @@ struct Index {
         this.ModuleAction('辅助填写', 'fill')
       } else if (this.activeFeature === 'study') {
         this.ModuleAction('查看课程表', 'timetable')
+        this.ModuleAction('导入课表（粘贴到输入框）', 'import')
         this.ModuleAction('查看提醒', 'reminders')
         this.ModuleAction('生成学习计划', 'plan')
         this.ModuleAction('计划打卡', 'checkin')

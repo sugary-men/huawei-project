@@ -12,7 +12,23 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
   target: ts.ScriptTarget.ES2020 } }).outputText;
 const catalogExports = {};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/config/FeatureCatalog.ets'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: catalogExports });
-const traceSource = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/ExecutionTraceService.ets'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+const etsRoot = path.join(__dirname, '../entry/src/main/ets');
+const moduleCache = new Map();
+function loadEts(file) {
+  const absolute = path.resolve(etsRoot, file + '.ets');
+  if (moduleCache.has(absolute)) return moduleCache.get(absolute);
+  const result = {};
+  moduleCache.set(absolute, result);
+  const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  vm.runInNewContext(code, { exports: result, Date: TestDate, require: name => {
+    if (name === '@kit.ArkTS') return { util: { generateRandomUUID: () => 'uuid-test' } };
+    if (name === '@kit.CoreFileKit') return { fileIo: {} };
+    if (!name.startsWith('.')) throw Error('Unexpected runtime dependency: ' + name);
+    return loadEts(path.relative(etsRoot, path.resolve(path.dirname(absolute), name)));
+  } });
+  return result;
+}
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'campuspilot-history-'));
 const archivePath = path.join(directory, 'chat_sessions.json');
 let failRename = false;
@@ -29,8 +45,7 @@ const bridge = {
 };
 function boot() {
   const exports = {};
-  const traceExports = {};
-  vm.runInNewContext(traceSource, { exports: traceExports, Date: TestDate });
+  const traceExports = loadEts('services/ExecutionTraceService');
   vm.runInNewContext(compiled, { exports, setTimeout, clearTimeout, Date: TestDate,
     require: name => {
       if (name === './ExecutionTraceService') return traceExports;

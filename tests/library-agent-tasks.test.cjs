@@ -37,7 +37,8 @@ class FakeGateway {
   }
 }
 function load(file) {
-  if (file === 'services/OpenAiCompatibleGateway') return { OpenAiCompatibleGateway: FakeGateway };
+  if (file === 'services/LlmClient') return { LlmClient: FakeGateway };
+  if (file === 'services/IntegrationService') return { IntegrationService: { studyStore: undefined } };
   if (file === 'services/HarmonyScheduleAdapter') return { HarmonyScheduleAdapter: class { async perform() { return { ok: true, message: 'read only' }; } } };
   const absolute = path.resolve(root, file + '.ets');
   if (cache.has(absolute)) return cache.get(absolute);

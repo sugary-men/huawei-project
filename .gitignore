@@ -11,3 +11,6 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+# 阶段成果材料与真机验证产物，不随源码提交
+/deliverables
+/verification

@@ -3,6 +3,7 @@ import { ExecutionRecord, ExecutionTarget } from '../models/ExecutionModels'
 import { AgentToolCall, WorkspaceArtifact } from '../models/WorkspaceModels'
 import { ChatAttachment } from '../models/AttachmentModels'
 import { SourceCitation } from '../models/RagModels'
+import { ToolRegistry } from './ToolRegistry'
 
 interface TraceEntry { id?: string; title?: string; calendarId?: number; eventId?: number; reminderId?: number }
 interface TraceWorkspaceState { artifacts?: WorkspaceArtifact[] }
@@ -54,11 +55,6 @@ export class ExecutionTraceService {
   }
 
   static tool(id: string, call: AgentToolCall, secrets: string[] = []): ExecutionRecord {
-    const names: Record<string, string> = { 'read_workspace': '读取任务面板', 'update_task_panel': '更新任务面板与产物', 'switch_workspace': '切换工作区',
-      'run_workspace_action': '调用工作区服务', 'get_system_time': '读取设备时间', 'query_calendar_events': '查询系统日历',
-      'create_calendar_event': '创建日程', 'update_calendar_event': '修改日程', 'delete_calendar_event': '删除日程',
-      'create_system_reminder': '设置系统代理提醒', 'list_system_reminders': '查询系统代理提醒', 'cancel_system_reminder': '取消系统代理提醒',
-      'manage_memo': '管理备忘录', 'manage_agent_task': '管理Agent定时任务' }
     let input = ''
     try {
       const args = JSON.parse(call.arguments) as Record<string, Object>
@@ -67,7 +63,7 @@ export class ExecutionTraceService {
           typeof args[key] === 'string' || typeof args[key] === 'number').map((key: string) => `${key}: ${args[key]}`).join(' · ')
       }
     } catch (_error) {}
-    return { id: id, kind: 'tool', name: ExecutionTraceService.text(call.name, secrets, 100), title: names[call.name] || '工具请求', status: 'running',
+    return { id: id, kind: 'tool', name: ExecutionTraceService.text(call.name, secrets, 100), title: ToolRegistry.label(call.name), status: 'running',
       startedAt: Date.now(), input: ExecutionTraceService.text(input, secrets), detail: '正在执行，等待实际回执。', targets: [] }
   }
 
@@ -104,10 +100,13 @@ export class ExecutionTraceService {
         } catch (_error) {}
       }
     }
-    if (call.name === 'manage_memo' || call.name === 'manage_agent_task') {
+    if (call.name === 'manage_memo' || call.name === 'manage_agent_task' || call.name === 'manage_study') {
       let action = ''
       try { action = (JSON.parse(call.arguments) as Record<string, string>).action || '' } catch (_error) {}
-      add('file', call.name === 'manage_memo' ? 'local_memos.json' : 'agent_tasks.json', ['list', 'read', 'share'].includes(action) ? '读取' : '更新')
+      const file = call.name === 'manage_memo' ? 'local_memos.json'
+        : call.name === 'manage_agent_task' ? 'agent_tasks.json' : 'study_data.json'
+      const reads = call.name === 'manage_study' ? ['summary', 'timetable', 'list_tasks'] : ['list', 'read', 'share']
+      add('file', file, reads.includes(action) ? '读取' : '更新')
     }
     if (Array.isArray(receipt.entries)) receipt.entries.forEach((entry: TraceEntry) => {
       const kind = call.name.includes('calendar') ? 'calendar' : call.name.includes('reminder') ? 'reminder' : 'memo'
