@@ -5,9 +5,25 @@ const assert = require('node:assert/strict');
 const ts = require(process.argv[2] || 'typescript');
 const source = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/services/SidebarService.ets'), 'utf8');
 const themeSource = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/config/UiTheme.ets'), 'utf8');
+const tintSource = fs.readFileSync(path.join(__dirname, '../entry/src/main/ets/config/SvgTintCompat.js'), 'utf8');
+function loadTint(api) {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(tintSource, { compilerOptions: { module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020 } }).outputText, { exports, require: id => {
+    assert.equal(id, '@ohos.deviceInfo');
+    return { default: { sdkApiVersion: api } };
+  }, ColorFilter: class { constructor(matrix) { this.matrix = matrix; } } });
+  return exports;
+}
+for (const api of [22, 25, 26, 27]) {
+  let tint, svg2 = false;
+  loadTint(api).svgGlyph('#123456').applyNormalAttribute({ colorFilter(value) { tint = value; }, supportSvg2(value) { svg2 = value; } });
+  if (api >= 26) { assert.equal(tint, '#123456'); assert.equal(svg2, false); }
+  else { assert.deepEqual(Array.from(tint.matrix), [0,0,0,18/255,0,0,0,0,52/255,0,0,0,0,86/255,0,0,0,0,1,0]); assert.equal(svg2, true); }
+}
 const themeExports = {};
 vm.runInNewContext(ts.transpileModule(themeSource, { compilerOptions: { module: ts.ModuleKind.CommonJS,
-  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: themeExports });
+  target: ts.ScriptTarget.ES2020 } }).outputText, { exports: themeExports, require: id => { assert.equal(id, './SvgTintCompat'); return loadTint(22); } });
 const exported = {};
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS,
   target: ts.ScriptTarget.ES2020 } }).outputText, { exports: exported, require: id => {

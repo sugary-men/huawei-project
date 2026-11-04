@@ -21,7 +21,7 @@ export struct ExecutionTimeline {
   }
   private targetKind(target: ExecutionTarget): string {
     return target.kind === 'artifact' ? '会话产物' : target.kind === 'file' ? '文件' : target.kind === 'source' ? '资料'
-      : target.kind === 'calendar' ? '日历' : target.kind === 'reminder' ? '提醒' : target.kind === 'memo' ? '备忘录' : target.kind === 'task' ? '定时任务' : '工作区'
+      : target.kind === 'calendar' ? '日历' : target.kind === 'reminder' ? '提醒' : target.kind === 'memo' ? '备忘录' : target.kind === 'task' ? '定时任务' : '项目'
   }
   build() {
     Column({ space: 10 * this.fontScale }) {

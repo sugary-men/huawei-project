@@ -141,9 +141,9 @@ export struct AgentTaskPage {
             Column({ space: 9 }) {
               Stack() {
                 Image($r('app.media.ic_clock')).width(28 * this.fontScale).height(28 * this.fontScale)
-                  .colorFilter(UiTheme.iconIvory)
+                  .attributeModifier(UiTheme.glyph(UiTheme.accentStrong))
               }.width(52 * this.fontScale).height(52 * this.fontScale)
-                .backgroundColor(UiTheme.accentStrong).borderRadius(14)
+                .backgroundColor(UiTheme.accentSoft).borderRadius(14)
               Text('把重复的整理交给 Agent').fontSize(19 * this.fontScale).fontColor(UiTheme.text)
               Text('例如每天早晨整理日程，或每周汇总资料中的复习重点。').fontSize(13 * this.fontScale).fontColor(UiTheme.secondary)
             }.width('100%').padding(45 * this.fontScale).transition(UiMotion.fade())

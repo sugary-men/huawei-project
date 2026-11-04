@@ -27,6 +27,10 @@ export interface ChatSession extends SessionSummary {
   progress: number
 }
 
+interface HistoryQuery { query?: string; sessionId?: string; index?: number; offset?: number }
+interface HistoryHit { sessionId: string; title: string; updatedAt: number; index: number; excerpt: string }
+interface HistoryText { index: number; role: string; content: string; createdAt?: number }
+
 interface SessionArchive {
   version: number
   activeSessionId: string
@@ -37,7 +41,7 @@ interface SessionArchive {
 }
 
 export class SessionService {
-  private static archive: SessionArchive = { version: 1, activeSessionId: '', sessions: [] }
+  private static archive: SessionArchive = { version: 1, activeSessionId: '', sessions: [], workspaces: [], workspaceCatalogVersion: 3 }
   private static path: string = ''
   private static dirty: boolean = false
   private static storageBlocked: boolean = false
@@ -62,13 +66,19 @@ export class SessionService {
         ? '本地历史记录读取失败，原文件已保留。' : '已从本地备份恢复历史对话。'
     }
     if (loaded === undefined) { SessionService.storageBlocked = true; return }
-    if ((loaded.workspaceCatalogVersion || 1) < 2) {
-      loaded.workspaceCatalogVersion = 2
-      if (Array.isArray(loaded.workspaces) && !loaded.workspaces.some((item: FeatureDefinition) => item.id === 'privacy')) {
-        const privacy = FEATURE_CATALOG.find((item: FeatureDefinition) => item.id === 'privacy')
-        if (privacy !== undefined) loaded.workspaces.push(JSON.parse(JSON.stringify(privacy)) as FeatureDefinition)
-        SessionService.dirty = true
-      }
+    if ((loaded.workspaceCatalogVersion || 1) < 3) {
+      // Remove only unused starter folders. Keep custom projects and the original
+      // destinations of recycled conversations so restoring them still works.
+      const used = new Set<string>()
+      loaded.sessions.forEach((session: ChatSession) => {
+        used.add(session.featureId)
+        if (session.originFeatureId) used.add(session.originFeatureId)
+      })
+      const catalog = new Set<string>(FEATURE_CATALOG.map((item: FeatureDefinition) => item.id))
+      loaded.workspaces = (loaded.workspaces || FEATURE_CATALOG).filter((item: FeatureDefinition) =>
+        item && (!catalog.has(item.id) || used.has(item.id)))
+      loaded.workspaceCatalogVersion = 3
+      SessionService.dirty = true
     }
     SessionService.archive = loaded
     if (SessionService.dirty) SessionService.schedule(false)
@@ -121,11 +131,59 @@ export class SessionService {
         deletedAt: session.deletedAt, originFeatureId: session.originFeatureId, originFeatureName: session.originFeatureName }))
   }
 
+  static historyResult(name: string, args: string, current: string): string {
+    const q = JSON.parse(args) as HistoryQuery
+    if (!q || typeof q !== 'object') throw new Error('历史查询参数无效。')
+    const sessions = SessionService.archive.sessions.filter((s: ChatSession) => s.id !== current && s.featureId !== 'trash' && !s.deletedAt)
+    if (name === 'search_session_history') {
+      if (q.query !== undefined && (typeof q.query !== 'string' || q.query.length > 120)) throw new Error('关键词最多120字。')
+      const needle = (q.query || '').trim().toLocaleLowerCase()
+      const hits: HistoryHit[] = []
+      sessions.sort((a: ChatSession, b: ChatSession) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id))
+      for (const session of sessions) {
+        let index = session.messages.length - 1
+        let pos = -1
+        if (needle) {
+          for (; index >= 0; index--) {
+            pos = session.messages[index].content.toLocaleLowerCase().indexOf(needle)
+            if (pos >= 0) break
+          }
+          if (pos < 0 && !session.title.toLocaleLowerCase().includes(needle)) continue
+        }
+        index = Math.max(0, index)
+        const start = Math.max(0, pos - 50)
+        hits.push({ sessionId: session.id, title: session.title, updatedAt: session.updatedAt, index: index,
+          excerpt: session.messages[index]?.content.slice(start, start + 200) || '' })
+        if (hits.length === 8) break
+      }
+      return JSON.stringify({ ok: true, hits: hits })
+    }
+    if (name !== 'read_session_history') throw new Error('未知历史查询。')
+    const session = sessions.find((s: ChatSession) => s.id === q.sessionId)
+    if (!session) throw new Error('找不到可读取的其他会话。')
+    let index = q.index === undefined ? 0 : q.index
+    let offset = q.offset === undefined ? 0 : q.offset
+    if (!Number.isInteger(index) || index < 0 || index > session.messages.length ||
+      !Number.isInteger(offset) || offset < 0 || offset > (session.messages[index]?.content.length || 0)) throw new Error('消息位置无效。')
+    const messages: HistoryText[] = []
+    let remaining = 4000
+    while (index < session.messages.length && remaining > 0 && messages.length < 8) {
+      const m = session.messages[index]
+      const content = m.content.slice(offset, offset + remaining)
+      messages.push({ index: index, role: m.role, content: content, createdAt: m.createdAt })
+      remaining -= content.length
+      offset += content.length
+      if (offset >= m.content.length) { index++; offset = 0 }
+    }
+    const next: HistoryQuery | null = index < session.messages.length ? { index: index, offset: offset } : null
+    return JSON.stringify({ ok: true, title: session.title, messages: messages, next: next })
+  }
+
   static workspaces(): FeatureDefinition[] {
     const saved = SessionService.archive.workspaces
     const items = Array.isArray(saved) ? saved.filter((item: FeatureDefinition) => item !== null &&
       typeof item.id === 'string' && typeof item.name === 'string' && item.id !== 'home' && item.id !== 'trash')
-      : FEATURE_CATALOG.filter((item: FeatureDefinition) => item.id !== 'home')
+      : []
     const result: FeatureDefinition[] = [FEATURE_CATALOG[0]]
     const seen = new Set<string>(['home', 'trash'])
     items.forEach((item: FeatureDefinition) => {
@@ -143,8 +201,8 @@ export class SessionService {
     const title = name.trim()
     if (!title || title.length > 40 || description.length > 160 || prompt.length > 3000) throw new Error('请输入1–40字的分区名称，并缩短说明或提示词。')
     const current = SessionService.workspaces()
-    if (current.length >= 30) throw new Error('最多保留30个工作区。')
-    if (current.some((item: FeatureDefinition) => item.name.toLocaleLowerCase() === title.toLocaleLowerCase())) throw new Error('已有同名工作区。')
+    if (current.length >= 30) throw new Error('最多保留30个项目。')
+    if (current.some((item: FeatureDefinition) => item.name.toLocaleLowerCase() === title.toLocaleLowerCase())) throw new Error('已有同名项目。')
     const feature: FeatureDefinition = { id: `workspace-${util.generateRandomUUID()}`, name: title, description: description.trim(),
       category: '自定义', icon: '▤', prompt: prompt.trim() }
     const next = SessionService.copyArchive()

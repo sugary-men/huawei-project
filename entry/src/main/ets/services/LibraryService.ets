@@ -212,8 +212,14 @@ export class LibraryService implements KnowledgeRepository {
   citations(id: string): SourceCitation[] {
     const document = this.documents().find((d: LibraryDocument) => d.id === id)
     if (document === undefined) throw new Error('资料不存在。')
-    return this.chunks(document).slice(0, 4).map((c: KnowledgeChunk, i: number): SourceCitation => ({ number: i + 1,
-      chunkId: c.id, sourceId: c.sourceId, title: c.title, location: c.location, course: c.course, excerpt: c.content, score: 1 }))
+    const excerpt = document.chunks === undefined ? document.text.trim() :
+      document.chunks.map((c: KnowledgeChunk) => `${c.location}：${c.content}`).join('\n\n')
+    if (!excerpt) throw new Error('这份资料没有文字，请先补充图片描述或作为附件发送。')
+    if (excerpt.length > 12000) throw new Error('整份资料超过 12000 字，请搜索并加入需要的片段。')
+    const sourceId = document.chunks?.[0]?.sourceId || document.id
+    return [{ number: 1, chunkId: `document:${document.id}:${LibraryService.fingerprint(excerpt)}`,
+      sourceId: sourceId, title: document.title, location: document.truncated ? '已导入的部分正文' : '全文',
+      course: document.course, excerpt: excerpt, score: 1 }]
   }
 
   attachment(id: string): ChatAttachment {

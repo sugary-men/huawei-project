@@ -87,6 +87,7 @@ const image = { ...source, id: 'image-one', name: '图片.jpg', kind: 'image', t
 files.set(image.path, 'jpeg'); library.register([image]);
 assert.equal(library.snapshot().chunks.length, 0);
 assert.throws(() => library.toggle('file:image-one'), /图片/);
+assert.throws(() => library.citations('file:image-one'), /没有文字/);
 assert.equal(library.attachment('file:image-one').kind, 'image');
 library.saveImageDescription('file:image-one', '图片显示一张二叉树遍历示意图，根节点标记为一。');
 const imageChunk = library.snapshot().chunks.find(c => c.sourceId === 'file:image-one');
@@ -123,6 +124,8 @@ assert.ok(new LibraryService('/app').documents().length > 0, 'recover backup wit
 library.saveText('粘贴资料', '白鹭栈桥是联调验证词。');
 const pasted = library.documents().find(d => d.origin === '文本资料');
 const oldCitation = library.citations(pasted.id)[0];
+library.saveText('粘贴资料', '前文。'.repeat(1800) + '末段校验词', pasted.id);
+assert.ok(library.citations(pasted.id)[0].excerpt.endsWith('末段校验词'), 'explicit context includes text beyond the fourth search chunk');
 library.saveText('新标题', '修改后的白鹭栈桥正文。', pasted.id);
 assert.equal(library.documents().find(d => d.id === pasted.id).title, '新标题');
 assert.notEqual(library.citations(pasted.id)[0].chunkId, oldCitation.chunkId, 'edited content has a new citation version');

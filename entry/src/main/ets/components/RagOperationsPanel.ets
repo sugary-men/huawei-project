@@ -121,7 +121,7 @@ export struct RagOperationsPanel {
         Stack() {
           Image($r('app.media.ic_chevron_right'))
             .width(12 * this.fontScale).height(12 * this.fontScale)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
         }.width(22 * this.fontScale).height(22 * this.fontScale)
           .backgroundColor(UiTheme.accentStrong).borderRadius(5)
       }.width('100%')

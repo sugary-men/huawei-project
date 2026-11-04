@@ -47,9 +47,11 @@ function boot() {
 const message = (role, content, status = 'complete') => ({ role, content, status, meta: 'test' });
 try {
   let service = boot();
+  assert.deepEqual(Array.from(service.workspaces(), p => p.id), ['home', 'trash']);
+  const scheduleId = service.addWorkspace('日程').id;
   const first = service.create('home', '新对话', []);
   now += 1000;
-  const second = service.create('schedule', '新对话', []);
+  const second = service.create(scheduleId, '新对话', []);
   assert.notEqual(first.id, second.id, 'same-title chats must have independent identities');
   const messages = Array.from({ length: 126 }, (_, i) => message(i % 2 ? 'agent' : 'user', `内容 ${i}`));
   messages[125].status = 'streaming';
@@ -100,13 +102,21 @@ try {
   assert.equal(service.get(first.id).messages[125].thinkingStartedAt, messages[125].thinkingStartedAt);
   assert.ok(service.get(first.id).messages[125].thinkingDurationMs >= 0, 'restored duration must stop at the last saved snapshot');
   assert.match(service.get(second.id).messages[1].content, /上次生成已中断/);
-  assert.equal(service.get(second.id).featureId, 'schedule');
+  assert.equal(service.get(second.id).featureId, scheduleId);
   assert.equal(service.list().find(s => s.id === first.id).title, '内容 0');
   const order = service.list().map(s => s.id).join(',');
+  const hits = JSON.parse(service.historyResult('search_session_history', '{"query":"内容 120"}', second.id)).hits;
+  assert.equal(hits[0].sessionId, first.id);
+  assert.equal(hits[0].index, 120);
+  const page = JSON.parse(service.historyResult('read_session_history', JSON.stringify({sessionId:first.id, index:120}), second.id));
+  assert.equal(page.messages[0].content, '内容 120');
+  assert.equal(page.next, null);
+  assert.throws(() => service.historyResult('read_session_history', JSON.stringify({sessionId:first.id}), first.id));
+  assert.equal(JSON.parse(service.historyResult('search_session_history', '{"query":"内容 120"}', first.id)).hits.length, 0);
   const firstUpdatedAt = service.get(first.id).updatedAt;
   now += 60000;
-  service.saveWorkspace(first.id, 'study', service.get(first.id).workspace);
-  assert.equal(service.get(first.id).featureId, 'study', 'agent workspace switch must persist on the same conversation');
+  service.saveWorkspace(first.id, scheduleId, service.get(first.id).workspace);
+  assert.equal(service.get(first.id).featureId, scheduleId, 'agent workspace switch must persist on the same conversation');
   assert.equal(service.get(first.id).updatedAt, firstUpdatedAt);
   service.activate(second.id);
   service.saveMessages(first.id, service.loadMessages(first.id));
@@ -143,8 +153,12 @@ try {
   assert.equal(service.current(), undefined, 'deleting the last conversation must clear the active id');
   service = boot();
   assert.equal(service.list().length, 0);
-  assert.equal(service.workspaces().length, 11, 'old archives must migrate to defaults plus protected trash');
-  assert.ok(service.workspaces().some(item => item.id === 'privacy'), 'existing archives must receive the new privacy workspace');
+  const legacy = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
+  legacy.workspaceCatalogVersion = 2;
+  legacy.workspaces.push({id:'privacy',name:'隐私与档案'});
+  fs.writeFileSync(archivePath, JSON.stringify(legacy));
+  service = boot();
+  assert.deepEqual(Array.from(service.workspaces(), p => p.id), ['home', scheduleId, 'trash'], 'discard unused starter folders but retain empty custom projects');
   assert.equal(service.deleteWorkspace('home'), false);
   assert.equal(service.deleteWorkspace('trash'), false);
   assert.throws(() => service.create('trash', 'invalid', []));
@@ -160,6 +174,8 @@ try {
   service.saveMessages(a.id, [withFile]);
   service.saveWorkspace(a.id, custom.id, { ...panel, goal: '论文计划' });
   service.saveDetails(a.id, [citation], 2);
+  const read = JSON.parse(service.historyResult('read_session_history', JSON.stringify({sessionId:a.id}), b.id));
+  assert.equal(read.messages[0].attachments, undefined);
   const beforeTrash = service.get(a.id);
   const backupBeforeFailure = fs.readFileSync(`${archivePath}.bak`, 'utf8');
   failRename = true;
@@ -171,6 +187,8 @@ try {
   assert.equal(service.deleteWorkspace(custom.id), true);
   service = boot();
   assert.ok(!service.workspaces().some(w => w.id === custom.id), 'removed workspaces must stay removed after restart');
+  assert.equal(JSON.parse(service.historyResult('search_session_history', '{"query":"请保留附件"}', '')).hits.length, 0);
+  assert.throws(() => service.historyResult('read_session_history', JSON.stringify({sessionId:a.id}), ''));
   for (const id of [a.id, b.id]) {
     assert.equal(service.get(id).featureId, 'trash');
     assert.equal(service.get(id).originFeatureId, custom.id);

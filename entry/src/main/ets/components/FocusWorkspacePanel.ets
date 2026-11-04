@@ -493,7 +493,7 @@ export struct FocusWorkspacePanel {
         Stack() {
           Image($r('app.media.ic_chevron_right'))
             .width(11 * this.fontScale).height(11 * this.fontScale)
-            .rotate({ angle: 90 }).colorFilter(UiTheme.iconIvory)
+            .rotate({ angle: 90 }).attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
         }.width(18 * this.fontScale).height(18 * this.fontScale)
           .backgroundColor(UiTheme.accentStrong).borderRadius(5)
       }.height(32 * this.fontScale).padding({ left: 10, right: 9 })
@@ -538,7 +538,7 @@ export struct FocusWorkspacePanel {
             if (category.id === this.selectedCategoryId) {
               Image($r('app.media.ic_more_horizontal'))
                 .width(12 * this.fontScale).height(12 * this.fontScale)
-                .colorFilter(UiTheme.iconOnAccent)
+                .attributeModifier(UiTheme.glyph(UiTheme.iconOnAccent))
                 .bindMenu([{ value: '删除此类别', action: () => this.deleteCategory(category) }])
             }
           }.width('100%').height(30 * this.fontScale).padding({ left: 8, right: 7 })

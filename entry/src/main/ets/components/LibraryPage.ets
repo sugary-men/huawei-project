@@ -338,13 +338,13 @@ export struct LibraryPage {
       Row({ space: 7 * this.fontScale }) {
         Image($r('app.media.ic_library'))
           .width(14 * this.fontScale).height(14 * this.fontScale)
-          .colorFilter(UiTheme.iconOnAccent)
+          .attributeModifier(UiTheme.glyph(UiTheme.iconOnAccent))
         Text(this.currentBase()?.name || '选择知识库').fontSize(10 * this.fontScale)
           .fontColor(UiTheme.onAccent).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
         Image($r('app.media.ic_chevron_right'))
           .width(12 * this.fontScale).height(12 * this.fontScale)
-          .rotate({ angle: 90 }).colorFilter(UiTheme.iconOnAccent)
+          .rotate({ angle: 90 }).attributeModifier(UiTheme.glyph(UiTheme.iconOnAccent))
       }.width('100%')
     }.width(this.contentWidth() >= 700 ? 180 * this.fontScale : '100%')
       .height(36 * this.fontScale).padding({ left: 12, right: 10 })
@@ -504,7 +504,7 @@ export struct LibraryPage {
             Image((this.selectedDocument() as LibraryDocument).kind === 'image' ? $r('app.media.ic_image') :
               (this.selectedDocument() as LibraryDocument).kind === 'index' ? $r('app.media.ic_library') : $r('app.media.ic_folder'))
               .width(17 * this.fontScale).height(17 * this.fontScale)
-              .objectFit(ImageFit.Contain).colorFilter(UiTheme.iconIvory)
+              .objectFit(ImageFit.Contain).attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
           }.width(30 * this.fontScale).height(30 * this.fontScale)
             .backgroundColor(UiTheme.accentStrong).borderRadius(7)
           Column({ space: 3 * this.fontScale }) {

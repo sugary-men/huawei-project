@@ -1,3 +1,5 @@
+import { svgGlyph } from './SvgTintCompat'
+
 export interface AppThemeOption {
   id: string
   name: string
@@ -181,10 +183,12 @@ export class UiTheme {
   static readonly iconNavIvory: string = '#FFFFF0'
   private static selectedThemeId: string = UiTheme.defaultThemeId
 
+  static glyph(color: string): AttributeModifier<ImageAttribute> { return svgGlyph(color) }
+
   static themes(): AppThemeOption[] {
     return [
       { id: 'classic', name: '经典青灰', detail: '当前默认配色', swatches: ['#486A78', '#EAF3F5', '#F4F8F9'] },
-      { id: 'mono', name: '黑白灰', detail: '参考仓库的简约中性色', swatches: ['#5B5B5B', '#EDEDED', '#F5F5F5'] },
+      { id: 'mono', name: '黑白灰', detail: '简约中性色', swatches: ['#5B5B5B', '#EDEDED', '#F5F5F5'] },
       { id: 'mist', name: '海盐蓝', detail: '清透冷静的蓝灰色', swatches: ['#4F7083', '#EAF2F6', '#F3F6FA'] },
       { id: 'pine', name: '青岚绿', detail: '柔和自然的青绿色', swatches: ['#4D7268', '#EAF3EF', '#F4F8F6'] },
       { id: 'dusk', name: '雾紫灰', detail: '低饱和的灰紫调', swatches: ['#75657F', '#F1ECF4', '#F7F5F9'] }

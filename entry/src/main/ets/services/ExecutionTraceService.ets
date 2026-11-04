@@ -54,8 +54,8 @@ export class ExecutionTraceService {
   }
 
   static tool(id: string, call: AgentToolCall, secrets: string[] = []): ExecutionRecord {
-    const names: Record<string, string> = { 'read_workspace': '读取任务面板', 'update_task_panel': '更新任务面板与产物', 'switch_workspace': '切换工作区',
-      'run_workspace_action': '调用工作区服务', 'get_system_time': '读取设备时间', 'query_calendar_events': '查询系统日历',
+    const names: Record<string, string> = { 'search_session_history': '搜索其他会话', 'read_session_history': '读取历史消息', 'read_workspace': '读取任务面板', 'update_task_panel': '更新任务面板与产物', 'switch_workspace': '切换项目',
+      'run_workspace_action': '调用项目服务', 'get_system_time': '读取设备时间', 'query_calendar_events': '查询系统日历',
       'create_calendar_event': '创建日程', 'update_calendar_event': '修改日程', 'delete_calendar_event': '删除日程',
       'create_system_reminder': '设置系统代理提醒', 'list_system_reminders': '查询系统代理提醒', 'cancel_system_reminder': '取消系统代理提醒',
       'manage_memo': '管理备忘录', 'manage_agent_task': '管理Agent定时任务' }

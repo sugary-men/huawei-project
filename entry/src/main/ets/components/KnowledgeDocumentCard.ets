@@ -112,7 +112,7 @@ export struct KnowledgeDocumentCard {
           Image(this.typeIcon())
             .width(17 * this.fontScale).height(17 * this.fontScale)
             .objectFit(ImageFit.Contain)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
         }.width(32 * this.fontScale).height(32 * this.fontScale)
           .backgroundColor(this.selected ? UiTheme.accent : UiTheme.accentStrong)
           .borderRadius(8)
@@ -147,7 +147,7 @@ export struct KnowledgeDocumentCard {
         Stack() {
           Image($r('app.media.ic_chevron_right'))
             .width(12 * this.fontScale).height(12 * this.fontScale)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
         }.width(20 * this.fontScale).height(20 * this.fontScale)
           .backgroundColor(UiTheme.accentStrong).borderRadius(5)
       }.width('100%').height(20 * this.fontScale).alignItems(VerticalAlign.Center)

@@ -75,6 +75,11 @@ class ChatVoiceObserver implements VoiceObserver {
   onError(message: string): void { this.error(message) }
 }
 
+interface ContextDocumentOption {
+  id: string
+  title: string
+}
+
 @Entry
 @Component
 struct Index {
@@ -134,6 +139,7 @@ struct Index {
   @State artifactId: string = ''
   @State artifactContent: string = ''
   @State messages: AgentMessage[] = []
+  @State contextDocuments: ContextDocumentOption[] = []
   @State knowledgeQuery: string = ''
   @State contextPickerVisible: boolean = false
   @State selectedContext: SourceCitation[] = []
@@ -372,8 +378,14 @@ struct Index {
   }
 
   private toggleContextSource(source: SourceCitation): void {
-    try { IntegrationService.library?.registerContext(source) } catch (_error) {}
     const exists = this.selectedContext.some((item: SourceCitation) => item.chunkId === source.chunkId)
+    if (!exists) {
+      if (this.selectedContext.length >= 12) {
+        this.getUIContext().getPromptAction().showToast({ message: '当前上下文已满，请先移除部分资料。' })
+        return
+      }
+      try { IntegrationService.library?.registerContext(source) } catch (_error) {}
+    }
     this.selectedContext = exists
       ? this.selectedContext.filter((item: SourceCitation) => item.chunkId !== source.chunkId)
       : [...this.selectedContext, source]
@@ -381,6 +393,10 @@ struct Index {
   }
 
   private toggleContextPicker(): void {
+    if (!this.contextPickerVisible) {
+      this.contextDocuments = IntegrationService.library?.documents().map((d): ContextDocumentOption => ({ id: d.id, title: d.title })) || []
+      this.refreshKnowledge()
+    }
     this.contextPickerVisible = !this.contextPickerVisible
   }
 
@@ -721,6 +737,9 @@ struct Index {
     if (token !== this.requestSerial || sessionId !== this.activeSession) return JSON.stringify({ ok: false, status: 'cancelled', message: '会话已切换或生成已停止。' })
     const uiContext = this.getUIContext()
     try {
+      if (call.name === 'search_session_history' || call.name === 'read_session_history') {
+        return SessionService.historyResult(call.name, call.arguments, sessionId)
+      }
       if (call.name === 'manage_agent_task') {
         const active = (): boolean => token === this.requestSerial && sessionId === this.activeSession
         return await AgentTaskManager.execute(this.getUIContext().getHostContext() as common.UIAbilityContext, call, active,
@@ -787,7 +806,7 @@ struct Index {
       }
       return JSON.stringify({ ok: true, message: result.message, workspace: WorkspaceService.snapshot(result.featureId, result.state, this.features) })
     } catch (error) {
-      return JSON.stringify({ ok: false, message: (error as Error).message || '工作区操作失败。' })
+      return JSON.stringify({ ok: false, message: (error as Error).message || '项目操作失败。' })
     }
   }
 
@@ -959,9 +978,9 @@ struct Index {
     if (feature === undefined) return
     const count = this.sessions.filter((item: SessionSummary) => item.featureId === id).length
     try {
-      const result = await this.getUIContext().getPromptAction().showDialog({ title: `删除工作区「${feature.name}」`,
-        message: `其中 ${count} 个会话将全部移入回收站，消息、资料和附件会保留。恢复时，已删除工作区的会话会回到智能助理。`,
-        buttons: [{ text: '取消', color: '#666666' }, { text: '删除工作区', color: '#666666' }] })
+      const result = await this.getUIContext().getPromptAction().showDialog({ title: `删除项目「${feature.name}」`,
+        message: `其中 ${count} 个会话将全部移入回收站，消息、资料和附件会保留。恢复时，已删除项目的会话会回到智能助理。`,
+        buttons: [{ text: '取消', color: '#666666' }, { text: '删除项目', color: '#666666' }] })
       if (result.index !== 1) return
     } catch (_error) { return }
     this.stopReply()
@@ -1370,6 +1389,13 @@ struct Index {
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
         Button('刷新').height(44).fontSize(12 * this.fontScale).fontColor(UiTheme.primary).backgroundColor(UiTheme.raised).interactive().onClick(() => this.refreshKnowledge())
       }.width('100%')
+      if (this.contextDocuments.length > 0) {
+        Text('选择整份资料，也可以在下方检索单个片段').fontSize(12 * this.fontScale).fontColor(UiTheme.secondary).width('100%')
+        ForEach(this.contextDocuments, (doc: ContextDocumentOption) => {
+          Button(doc.title).fontSize(13 * this.fontScale).fontColor(UiTheme.text).backgroundColor(UiTheme.raised)
+            .width('100%').accessibilityText(`加入上下文：${doc.title}`).onClick(() => this.useLibraryDocument(doc.id, false))
+        }, (doc: ContextDocumentOption) => doc.id)
+      }
       if (this.knowledgeRevision.includes('demo-1')) {
         Text('离线演示资料，不代表学校官方资料。').fontSize(12 * this.fontScale).fontColor('#666666').width('100%').padding(10).backgroundColor(UiTheme.raised).borderRadius(9).transition(TransitionEffect.OPACITY.animation({ duration: UiMotion.fast }))
       }
@@ -1495,7 +1521,7 @@ struct Index {
           .fontSize(9 * this.fontScale).fontColor('#777777').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
       }.layoutWeight(1).height(44 * this.fontScale).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Start)
         .id(`sidebar-chat-${nested ? 'workspace' : 'recent'}-${session.id}`)
-        .accessibilityText(`${nested ? '工作区对话' : '最近对话'}：${session.title}，${this.workspaceProfile(session.featureId).name}，${this.sessionTime(session.updatedAt)}`)
+        .accessibilityText(`${nested ? '项目对话' : '最近对话'}：${session.title}，${this.workspaceProfile(session.featureId).name}，${this.sessionTime(session.updatedAt)}`)
         .interactive().onClick(() => {
           this.sidebarSelection = `chat-${nested ? 'workspace' : 'recent'}-${session.id}`
           this.openSession(session.id)
@@ -1503,7 +1529,7 @@ struct Index {
       if (this.sidebarSelection === `chat-${nested ? 'workspace' : 'recent'}-${session.id}`) {
       Button({ type: ButtonType.Normal }) {
         Image($r('app.media.ic_more_horizontal')).width(18 * this.fontScale).height(18 * this.fontScale)
-          .colorFilter(UiTheme.iconIvory)
+          .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
       }.width(28 * this.fontScale).height(36 * this.fontScale).padding(0).borderRadius(6 * this.fontScale).backgroundColor(Color.Transparent)
         .accessibilityText(`会话操作：${session.title}`)
         .id(`sidebar-chat-menu-${nested ? 'workspace' : 'recent'}-${session.id}`)
@@ -1524,24 +1550,24 @@ struct Index {
       Row({ space: 4 * this.fontScale }) {
         Button({ type: ButtonType.Normal }) {
           Image($r('app.media.ic_chevron_right')).width(14 * this.fontScale).height(14 * this.fontScale)
-            .rotate({ angle: group.expanded ? 90 : 0 }).colorFilter(UiTheme.iconIvory)
+            .rotate({ angle: group.expanded ? 90 : 0 }).attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
         }.width(20 * this.fontScale).height(34 * this.fontScale).padding(0).backgroundColor(Color.Transparent)
           .id(`sidebar-folder-toggle-${group.feature.id}`)
           .enabled(this.sidebarQuery.trim().length === 0)
-          .accessibilityText(`${group.expanded ? '收起' : '展开'}工作区：${group.feature.name}`)
+          .accessibilityText(`${group.expanded ? '收起' : '展开'}项目：${group.feature.name}`)
           .interactive().onClick(() => {
             this.sidebarSelection = `workspace-${group.feature.id}`
             this.toggleWorkspaceGroup(group.feature.id)
           })
         Row({ space: 8 * this.fontScale }) {
           Image($r('app.media.ic_folder')).width(17 * this.fontScale).height(17 * this.fontScale)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
           Text(group.feature.name).fontSize(12 * this.fontScale)
             .fontColor(this.activeFeature === group.feature.id ? UiTheme.darkSelectionText : UiTheme.darkUnselectedText)
             .fontWeight(this.activeFeature === group.feature.id ? FontWeight.Medium : FontWeight.Regular).layoutWeight(1)
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           if (group.totalCount > 0) { Text(`${group.totalCount}`).fontSize(10 * this.fontScale).fontColor('#747474') }
-        }.layoutWeight(1).height(34 * this.fontScale).id(`sidebar-folder-${group.feature.id}`).accessibilityText(`打开工作区：${group.feature.name}`)
+        }.layoutWeight(1).height(34 * this.fontScale).id(`sidebar-folder-${group.feature.id}`).accessibilityText(`打开项目：${group.feature.name}`)
           .interactive().onClick(() => {
             this.sidebarSelection = `workspace-${group.feature.id}`
             this.chooseFeature(group.feature)
@@ -1549,16 +1575,16 @@ struct Index {
         if (this.sidebarSelection === `workspace-${group.feature.id}`) {
           Button({ type: ButtonType.Normal }) {
             Image($r('app.media.ic_more_horizontal')).width(18 * this.fontScale).height(18 * this.fontScale)
-              .colorFilter(UiTheme.iconIvory)
+              .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
           }
             .width(28 * this.fontScale).height(34 * this.fontScale).padding(0).borderRadius(6 * this.fontScale).backgroundColor(Color.Transparent)
-            .id(`sidebar-workspace-menu-${group.feature.id}`).accessibilityText(`管理工作区：${group.feature.name}`)
+            .id(`sidebar-workspace-menu-${group.feature.id}`).accessibilityText(`管理项目：${group.feature.name}`)
             .interactive().bindMenu(group.feature.id === 'trash'
               ? [{ value: group.expanded ? '收起会话' : '展开会话', action: () => this.toggleWorkspaceGroup(group.feature.id) }]
               : group.feature.id === 'home'
                 ? [{ value: '新建对话', action: () => this.createChat(group.feature.id) }]
                 : [{ value: '新建对话', action: () => this.createChat(group.feature.id) },
-                  { value: '删除工作区', action: () => this.confirmDeleteWorkspace(group.feature.id) }])
+                  { value: '删除项目', action: () => this.confirmDeleteWorkspace(group.feature.id) }])
         }
       }.width('100%').padding({ right: 4 * this.fontScale })
         .backgroundColor(this.sidebarSelection === `workspace-${group.feature.id}` ?
@@ -1569,7 +1595,7 @@ struct Index {
           this.SidebarConversation(session, true)
         }, (session: SessionSummary) => `workspace-${session.featureId}-${session.id}-${session.title}-${session.updatedAt}`)
         if (group.totalCount === 0) {
-          Text(group.feature.id === 'trash' ? '回收站为空' : '暂无对话，选中工作区后从 ⋯ 新建').fontSize(10 * this.fontScale).fontColor(UiTheme.darkMutedText).width('100%')
+          Text(group.feature.id === 'trash' ? '回收站为空' : '暂无对话，选中项目后从 ⋯ 新建').fontSize(10 * this.fontScale).fontColor(UiTheme.darkMutedText).width('100%')
             .padding({ left: 42 * this.fontScale, top: 7 * this.fontScale, bottom: 9 * this.fontScale })
         }
         if (group.totalCount > SidebarService.workspacePreviewCount && this.sidebarQuery.trim().length === 0) {
@@ -1592,7 +1618,7 @@ struct Index {
             .interactive().onClick(() => this.openHome())
           Button({ type: ButtonType.Normal }) {
             Image($r('app.media.ic_sidebar')).width(19 * this.fontScale).height(19 * this.fontScale)
-              .colorFilter(UiTheme.iconIvory)
+              .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
           }
             .width(32 * this.fontScale).height(34 * this.fontScale).padding(0).backgroundColor(Color.Transparent).id('sidebar-toggle').accessibilityText('收起左侧边栏')
             .interactive().onClick(() => this.toggleLeftPanel())
@@ -1600,14 +1626,14 @@ struct Index {
         Row({ space: 4 * this.fontScale }) {
           Row({ space: 10 * this.fontScale }) {
             Image($r('app.media.ic_compose')).width(18 * this.fontScale).height(18 * this.fontScale)
-              .colorFilter(UiTheme.iconIvory)
+              .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
             Text('对话').fontSize(13 * this.fontScale).fontColor(UiTheme.darkSelectionText)
           }.layoutWeight(1).height(38 * this.fontScale).id('sidebar-conversations').accessibilityText('选中对话入口')
             .interactive().onClick(() => this.sidebarSelection = 'section-conversations')
           if (this.sidebarSelection === 'section-conversations') {
             Button({ type: ButtonType.Normal }) {
               Image($r('app.media.ic_more_horizontal')).width(18 * this.fontScale).height(18 * this.fontScale)
-                .colorFilter(UiTheme.iconIvory)
+                .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
             }
               .width(28 * this.fontScale).height(34 * this.fontScale).padding(0).borderRadius(6 * this.fontScale).backgroundColor(Color.Transparent)
               .id('sidebar-conversations-menu').accessibilityText('对话操作')
@@ -1618,7 +1644,7 @@ struct Index {
             UiTheme.darkSelectionBackground : UiTheme.darkSidebarSection)
         Row({ space: 8 * this.fontScale }) {
           Image($r('app.media.ic_search')).width(17 * this.fontScale).height(17 * this.fontScale)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
           TextInput({ text: this.sidebarQuery, placeholder: '搜索对话' }).fontSize(12 * this.fontScale).placeholderFont({ size: 12 * this.fontScale }).layoutWeight(1).height(34 * this.fontScale).fontSize(12 * this.fontScale)
             .id('sidebar-search')
             .fontColor(UiTheme.darkSelectionText).placeholderColor(UiTheme.darkMutedText).backgroundColor(Color.Transparent).padding(0)
@@ -1632,29 +1658,29 @@ struct Index {
           Column({ space: 3 * this.fontScale }) {
             Row() {
               Row({ space: 7 * this.fontScale }) {
-                Text('工作区').fontSize(11 * this.fontScale).fontColor(UiTheme.darkMutedText)
+                Text('项目').fontSize(11 * this.fontScale).fontColor(UiTheme.darkMutedText)
                 Image($r('app.media.ic_chevron_right')).width(13 * this.fontScale).height(13 * this.fontScale)
                   .rotate({ angle: this.sideExpanded || this.sidebarQuery.trim().length > 0 ? 90 : 0 })
-                  .colorFilter(UiTheme.iconIvory)
+                  .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
               }.layoutWeight(1).height(30 * this.fontScale).enabled(this.sidebarQuery.trim().length === 0)
                 .id('sidebar-workspaces-toggle')
-                .accessibilityText(this.sideExpanded ? '收起工作区分组' : '展开工作区分组').interactive().onClick(() => {
+                .accessibilityText(this.sideExpanded ? '收起项目分组' : '展开项目分组').interactive().onClick(() => {
                   this.sidebarSelection = 'section-workspaces'
                   this.toggleWorkspace()
                 })
               if (this.sidebarSelection === 'section-workspaces') {
                 Button({ type: ButtonType.Normal }) {
                   Image($r('app.media.ic_more_horizontal')).width(18 * this.fontScale).height(18 * this.fontScale)
-                    .colorFilter(UiTheme.iconIvory)
+                    .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
                 }
                   .width(28 * this.fontScale).height(30 * this.fontScale).padding(0).borderRadius(6 * this.fontScale).backgroundColor(Color.Transparent)
-                  .id('sidebar-workspaces-menu').accessibilityText('工作区操作')
-                  .interactive().bindMenu([{ value: '新建工作区', action: () => this.startWorkspaceEditor() }])
+                  .id('sidebar-workspaces-menu').accessibilityText('项目操作')
+                  .interactive().bindMenu([{ value: '新建项目', action: () => this.startWorkspaceEditor() }])
               }
             }.width('100%').padding({ left: 10 * this.fontScale, right: 4 * this.fontScale })
             if (this.sideExpanded || this.sidebarQuery.trim().length > 0) {
               ForEach(this.sidebarView.workspaces.filter((group: SidebarWorkspaceGroup) =>
-                group.feature.id !== 'focus'), (group: SidebarWorkspaceGroup) => {
+                group.feature.id !== 'focus' && group.feature.id !== 'trash'), (group: SidebarWorkspaceGroup) => {
                 this.SidebarWorkspace(group)
               }, (group: SidebarWorkspaceGroup) => `${group.feature.id}-${group.expanded}-${group.showAll}-${group.totalCount}-${group.sessions.map((session: SessionSummary) => `${session.id}-${session.title}-${session.updatedAt}`).join('|')}`)
             }
@@ -1662,7 +1688,7 @@ struct Index {
               Text(this.sidebarQuery.trim() ? '最近对话 · 搜索结果' : '最近对话').fontSize(11 * this.fontScale).fontColor(UiTheme.darkMutedText).layoutWeight(1)
               Image($r('app.media.ic_chevron_right')).width(13 * this.fontScale).height(13 * this.fontScale)
                 .rotate({ angle: this.recentsExpanded || this.sidebarQuery.trim().length > 0 ? 90 : 0 })
-                .colorFilter(UiTheme.iconIvory)
+                .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
             }.width('100%').height(28 * this.fontScale).padding({ left: 10 * this.fontScale, right: 9 * this.fontScale }).margin({ top: 14 * this.fontScale })
               .id('sidebar-recents-toggle')
               .enabled(this.sidebarQuery.trim().length === 0).accessibilityText(this.recentsExpanded ? '收起最近对话' : '展开最近对话')
@@ -1681,6 +1707,7 @@ struct Index {
                   .interactive().onClick(() => { this.showAllRecent = !this.showAllRecent; this.persistSidebar() })
               }
             }
+            this.TrashEntry()
           }.width('100%').alignItems(HorizontalAlign.Start).padding({ bottom: 14 * this.fontScale, right: 12 * this.fontScale })
         }.layoutWeight(1).width('100%').align(Alignment.TopStart).scrollBar(BarState.Auto).scrollBarWidth(3).scrollBarColor(UiTheme.darkScrollbar)
         Row({ space: 7 * this.fontScale }) {
@@ -1696,10 +1723,26 @@ struct Index {
   }
 
   @Builder
+  TrashEntry() {
+    Button({ type: ButtonType.Normal }) {
+      Row({ space: 8 * this.fontScale }) {
+        Text('回收站').fontSize(11 * this.fontScale).fontColor(UiTheme.darkSelectionText).layoutWeight(1)
+        Text('♲').fontSize(15 * this.fontScale).fontColor(UiTheme.darkUnselectedText)
+      }.width('100%')
+    }.width('100%').height(34 * this.fontScale).padding({ left: 10, right: 9 })
+      .borderRadius(7).backgroundColor(this.activeFeature === 'trash' ? UiTheme.darkSelectionBackground : Color.Transparent)
+      .id('sidebar-trash').accessibilityText('打开回收站').interactive().onClick(() => {
+        const trash = this.features.find((feature: FeatureDefinition) => feature.id === 'trash')
+        if (trash !== undefined) this.chooseFeature(trash)
+        this.closeNavigationDrawer()
+      })
+  }
+
+  @Builder
   SettingsEntry() {
     Button({ type: ButtonType.Normal }) {
       Image($r('app.media.ic_settings')).width(20 * this.fontScale).height(20 * this.fontScale)
-        .colorFilter(UiTheme.iconIvory)
+        .attributeModifier(UiTheme.glyph(UiTheme.secondary))
     }.width('100%').height(44 * Math.max(1, this.fontScale)).padding(0)
       .backgroundColor(Color.Transparent).borderRadius(7 * this.fontScale).id('appearance-settings').accessibilityText('设置')
       .interactive().onClick(() => this.appearanceSettingsVisible = true)
@@ -1780,7 +1823,7 @@ struct Index {
         Column({ space: 7 * this.fontScale }) {
           Text('文字预览').fontSize(11 * this.fontScale).fontColor(UiTheme.muted)
           Text('今天准备做些什么？').fontSize(18 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-          Text('对话、工作区和表单的字号会一起调整。').fontSize(13 * this.fontScale)
+          Text('对话、项目和表单的字号会一起调整。').fontSize(13 * this.fontScale)
             .lineHeight(20 * this.fontScale).fontColor(UiTheme.secondary)
         }.alignItems(HorizontalAlign.Start).width('100%').padding(14)
           .backgroundColor(UiTheme.softSurface).borderRadius(8)
@@ -1793,19 +1836,19 @@ struct Index {
   WorkspaceEditor() {
     Column({ space: 14 * this.fontScale }) {
       Row() {
-        Text('新建工作区').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).layoutWeight(1)
+        Text('新建项目').fontSize(21 * this.fontScale).fontWeight(FontWeight.Medium).layoutWeight(1)
         Button('取消').height(40 * this.fontScale).fontSize(13 * this.fontScale).fontColor('#777777').backgroundColor(UiTheme.raised)
           .interactive().onClick(() => this.workspaceEditorVisible = false)
       }.width('100%')
-      Text('智能助理会根据名称、说明和提示词，把适合的对话归入已有工作区。').fontSize(13 * this.fontScale).fontColor('#777777').width('100%')
-      TextInput({ text: this.workspaceName, placeholder: '工作区名称（必填）' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).height(46 * this.fontScale).maxLength(40).id('workspace-name')
+      Text('智能助理会根据名称、说明和提示词，把适合的对话归入已有项目。').fontSize(13 * this.fontScale).fontColor('#777777').width('100%')
+      TextInput({ text: this.workspaceName, placeholder: '项目名称（必填）' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).height(46 * this.fontScale).maxLength(40).id('workspace-name')
         .caretColor(UiTheme.primary).selectedBackgroundColor('#DDDDDD').inputFeedback().onChange((value: string) => this.workspaceName = value)
       TextInput({ text: this.workspaceDescription, placeholder: '适合处理什么内容' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).height(46 * this.fontScale).maxLength(160).id('workspace-description')
         .caretColor(UiTheme.primary).selectedBackgroundColor('#DDDDDD').inputFeedback().onChange((value: string) => this.workspaceDescription = value)
       TextArea({ text: this.workspacePrompt, placeholder: 'Agent 的角色与工作方式（可选）' }).fontSize(13 * this.fontScale).placeholderFont({ size: 13 * this.fontScale }).layoutWeight(1).width('100%')
         .maxLength(3000).id('workspace-prompt').caretColor(UiTheme.primary).selectedBackgroundColor('#DDDDDD').inputFeedback().onChange((value: string) => this.workspacePrompt = value)
       if (this.workspaceEditorNotice) { Text(this.workspaceEditorNotice).fontSize(12 * this.fontScale).fontColor('#666666').width('100%') }
-      Button('创建工作区').width('100%').height(46 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.surface)
+      Button('创建项目').width('100%').height(46 * this.fontScale).backgroundColor(UiTheme.primary).fontColor(UiTheme.surface)
         .id('workspace-save').enabled(this.workspaceName.trim().length > 0).interactive().onClick(() => this.saveNewWorkspace())
     }.padding(24 * this.fontScale).width('100%').height('100%').backgroundColor(UiTheme.background)
   }
@@ -1836,7 +1879,7 @@ struct Index {
   TrashContent() {
     Column({ space: 12 }) {
       Text('回收站').fontSize(25 * this.fontScale).fontWeight(FontWeight.Medium).fontColor(UiTheme.text)
-      Text('会话及附件保存在本机。恢复到原工作区；原工作区已删除时，恢复到智能助理。')
+      Text('会话及附件保存在本机。恢复到原项目；原项目已删除时，恢复到智能助理。')
         .fontSize(13 * this.fontScale).fontColor(UiTheme.muted).lineHeight(21 * this.fontScale)
       if (this.sessions.filter((session: SessionSummary) => session.featureId === 'trash').length === 0) {
         Text('回收站为空').fontSize(15 * this.fontScale).fontColor('#999999').padding({ top: 36, bottom: 36 })
@@ -2021,6 +2064,7 @@ struct Index {
         if (retained.length + incoming.length > 12) throw new Error('当前上下文较多，请先移除部分资料后再添加。')
         this.selectedContext = retained.concat(incoming)
       }
+      this.contextPickerVisible = false
       this.appSection = 'chat'; this.notice = attachment ? '已加入附件，发送消息后使用。' : '已加入当前对话上下文，发送消息后使用。'
       this.persistSession()
     } catch (error) {
@@ -2047,9 +2091,9 @@ struct Index {
   RailItem(label: string, section: string, icon: Resource) {
     Button({ type: ButtonType.Normal }) {
       Image(icon).width(22 * this.fontScale).height(22 * this.fontScale)
-        .colorFilter(this.appSection === section ? UiTheme.iconNavIvory : UiTheme.iconIvoryMuted)
+        .attributeModifier(UiTheme.glyph(this.appSection === section ? UiTheme.accentStrong : UiTheme.secondary))
     }.width('100%').height(44 * Math.max(1, this.fontScale)).padding(0).borderRadius(9 * this.fontScale)
-      .backgroundColor(this.appSection === section ? UiTheme.darkRailSelectionBackground : Color.Transparent)
+      .backgroundColor(this.appSection === section ? UiTheme.selection : Color.Transparent)
       .id(`nav-${section}`).accessibilityText(label)
       .interactive().onClick(() => {
         if (section === 'chat') this.openHome()
@@ -2063,7 +2107,7 @@ struct Index {
     Button({ type: ButtonType.Normal }) {
       Row({ space: 12 * this.fontScale }) {
         Image(icon).width(20 * this.fontScale).height(20 * this.fontScale)
-          .colorFilter(this.appSection === section ? UiTheme.iconNavIvory : UiTheme.iconIvoryMuted)
+          .attributeModifier(UiTheme.glyph(this.appSection === section ? UiTheme.iconNavIvory : UiTheme.iconIvoryMuted))
         Text(label).fontSize(13 * this.fontScale)
           .fontColor(this.appSection === section ? UiTheme.darkSelectionText : UiTheme.darkUnselectedText)
           .fontWeight(this.appSection === section ? FontWeight.Medium : FontWeight.Regular)
@@ -2104,7 +2148,7 @@ struct Index {
         Scroll() {
           Column({ space: 5 * this.fontScale }) {
             Row() {
-              Text('工作区').fontSize(11 * this.fontScale).fontColor(UiTheme.darkMutedText).layoutWeight(1)
+              Text('项目').fontSize(11 * this.fontScale).fontColor(UiTheme.darkMutedText).layoutWeight(1)
               Button('＋ 新建').height(29 * this.fontScale).fontSize(9 * this.fontScale)
                 .backgroundColor(UiTheme.darkControl).fontColor(UiTheme.darkSelectionText)
                 .onClick(() => this.startWorkspaceEditor())
@@ -2114,7 +2158,7 @@ struct Index {
               Button({ type: ButtonType.Normal }) {
                 Row({ space: 9 * this.fontScale }) {
                   Image($r('app.media.ic_folder')).width(16 * this.fontScale).height(16 * this.fontScale)
-                    .colorFilter(UiTheme.iconIvory)
+                    .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
                   Text(group.feature.name).fontSize(12 * this.fontScale)
                     .fontColor(this.activeFeature === group.feature.id ? UiTheme.darkSelectionText : UiTheme.darkUnselectedText)
                     .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
@@ -2131,25 +2175,14 @@ struct Index {
                   this.closeNavigationDrawer()
                 })
             }, (group: SidebarWorkspaceGroup) => `drawer-group-${group.feature.id}-${group.totalCount}`)
-            Button({ type: ButtonType.Normal }) {
-              Row({ space: 9 * this.fontScale }) {
-                Text('♲').fontSize(15 * this.fontScale).fontColor(UiTheme.darkUnselectedText)
-                Text('回收站').fontSize(12 * this.fontScale).fontColor(UiTheme.darkUnselectedText)
-              }.width('100%').height('100%')
-            }.width('100%').height(36 * this.fontScale).padding({ left: 10, right: 9 })
-              .borderRadius(8)
-              .onClick(() => {
-                const trash = this.features.find((feature: FeatureDefinition) => feature.id === 'trash')
-                if (trash !== undefined) this.chooseFeature(trash)
-                this.closeNavigationDrawer()
-              })
+            this.TrashEntry()
           }.width('100%').alignItems(HorizontalAlign.Start)
         }.layoutWeight(1).width('100%').scrollBar(BarState.Auto)
           .scrollBarWidth(3).scrollBarColor(UiTheme.darkScrollbar)
         Button({ type: ButtonType.Normal }) {
           Row({ space: 10 * this.fontScale }) {
             Image($r('app.media.ic_settings')).width(19 * this.fontScale).height(19 * this.fontScale)
-              .colorFilter(UiTheme.iconIvory)
+              .attributeModifier(UiTheme.glyph(UiTheme.iconIvory))
             Text('设置').fontSize(12 * this.fontScale).fontColor(UiTheme.darkSelectionText)
           }.width('100%').height('100%')
         }.width('100%').height(40 * this.fontScale).padding({ left: 10, right: 8 })
@@ -2181,7 +2214,7 @@ struct Index {
       if (this.appSection === 'chat' && !this.isLeftPanelVisible) {
         Button({ type: ButtonType.Normal }) {
           Image($r('app.media.ic_sidebar')).width(20 * this.fontScale).height(20 * this.fontScale)
-            .colorFilter(UiTheme.iconIvory)
+            .attributeModifier(UiTheme.glyph(UiTheme.secondary))
         }
           .width('100%').height(37 * this.fontScale).backgroundColor(Color.Transparent).id('sidebar-expand')
           .accessibilityText('展开会话侧栏').interactive().onClick(() => this.toggleLeftPanel())
@@ -2189,7 +2222,7 @@ struct Index {
       Blank()
       this.SettingsEntry()
     }.width(this.globalRailWidth()).height('100%').padding({ left: 6, right: 6, top: 19 * this.fontScale, bottom: 14 * this.fontScale })
-      .backgroundColor(UiTheme.darkRail).border({ width: { right: 1 }, color: UiTheme.darkDivider }).id('global-navigation')
+      .backgroundColor(UiTheme.raised).border({ width: { right: 1 }, color: UiTheme.border }).id('global-navigation')
   }
 
   @Builder
@@ -2197,7 +2230,7 @@ struct Index {
     Button({ type: ButtonType.Normal }) {
       Image($r('app.media.ic_sidebar'))
         .width(22).height(22)
-        .objectFit(ImageFit.Contain).colorFilter(UiTheme.iconOnAccent)
+        .objectFit(ImageFit.Contain).attributeModifier(UiTheme.glyph(UiTheme.iconOnAccent))
     }.width(this.navigationBallSize()).height(this.navigationBallSize()).padding(0)
       .borderRadius(this.navigationBallSize() / 2).backgroundColor(UiTheme.accent)
       .border({ width: 1, color: UiTheme.accentStrong })
@@ -2311,16 +2344,16 @@ struct Index {
             if (this.compactScreen()) {
               Stack() {
                 Image($r('app.media.ic_focus_cube')).width(15 * this.fontScale).height(15 * this.fontScale)
-                  .colorFilter(UiTheme.iconIvory)
+                  .attributeModifier(UiTheme.glyph(UiTheme.accentStrong))
               }.width(26 * this.fontScale).height(26 * this.fontScale)
-                .backgroundColor(UiTheme.accentStrong).borderRadius(6)
+                .backgroundColor(UiTheme.accentSoft).borderRadius(6)
             } else {
               Row({ space: 6 * this.fontScale }) {
                 Stack() {
                   Image($r('app.media.ic_focus_cube')).width(13 * this.fontScale).height(13 * this.fontScale)
-                    .colorFilter(UiTheme.iconIvory)
+                    .attributeModifier(UiTheme.glyph(UiTheme.accentStrong))
                 }.width(24 * this.fontScale).height(24 * this.fontScale)
-                  .backgroundColor(UiTheme.accentStrong).borderRadius(6)
+                  .backgroundColor(UiTheme.accentSoft).borderRadius(6)
                 Text('自律魔方').fontSize(11 * this.fontScale).fontColor(UiTheme.secondary)
               }
             }
@@ -2336,6 +2369,10 @@ struct Index {
             .backgroundColor(UiTheme.raised).borderRadius(8 * this.fontScale)
             .accessibilityText(this.contextPickerVisible ? '关闭课程资料选择' : '为当前对话添加课程资料')
             .interactive().onClick(() => this.toggleContextPicker())
+            .bindSheet($$this.contextPickerVisible, this.ContextSheet(), {
+              height: '80%', width: this.viewportWidth > 720 ? 680 : '94%',
+              preferType: SheetType.CENTER, showClose: false, dragBar: false,
+              onDisappear: () => { this.contextPickerVisible = false; this.searchSerial++; this.searchBusy = false } })
           if (!this.isWelcomePage) {
             Text(this.isTaskPanelVisible ? '☷' : '☰').id('task-panel-toggle').accessibilityText(this.isTaskPanelVisible ? '收起任务面板' : '展开任务面板').fontSize(18 * this.fontScale).fontColor(UiTheme.secondary).margin({ left: 12 * this.fontScale }).padding(7 * this.fontScale).interactive().onClick(() => this.toggleTaskPanel())
           }
@@ -2454,13 +2491,13 @@ struct Index {
               .fontSize(11 * this.fontScale).fontColor(this.recording ? '#666666' : '#777777').width('100%')
           }
           if (this.selectedContext.length > 0) {
-            Row({ space: 5 * this.fontScale }) {
-              Text(`当前上下文 · ${this.selectedContext.length} 条资料`).fontSize(11 * this.fontScale).fontColor(UiTheme.primary).layoutWeight(1)
+            Scroll() { Row({ space: 5 * this.fontScale }) {
+              Text(`当前上下文 · ${this.selectedContext.length} 条资料`).fontSize(11 * this.fontScale).fontColor(UiTheme.primary)
               ForEach(this.selectedContext, (source: SourceCitation) => {
-                Button(`［${source.number}］${source.course} ×`).fontSize(10 * this.fontScale).height(38 * this.fontScale).fontColor(UiTheme.primary)
+                Button(`${source.title} ×`).fontSize(10 * this.fontScale).height(38 * this.fontScale).fontColor(UiTheme.primary)
                   .backgroundColor(UiTheme.raised).interactive().onClick(() => this.toggleContextSource(source))
               }, (source: SourceCitation) => source.chunkId)
-            }.width('100%')
+            } }.scrollable(ScrollDirection.Horizontal).width('100%').scrollBar(BarState.Auto)
           }
           Column({ space: 4 * this.fontScale }) {
             TextArea({ text: this.inputText, placeholder: this.chatPlaceholder() })
@@ -2480,9 +2517,9 @@ struct Index {
               else if (this.voiceBusy) { LoadingProgress().width(18 * this.fontScale).height(18 * this.fontScale).color(UiTheme.iconIvory) }
               else {
                 Image($r('app.media.ic_microphone')).width(18 * this.fontScale).height(18 * this.fontScale)
-                  .colorFilter(UiTheme.iconIvory)
+                  .attributeModifier(UiTheme.glyph(UiTheme.accentStrong))
               }
-            }.width(32 * this.fontScale).height(36 * this.fontScale).backgroundColor(UiTheme.accentStrong).borderRadius(6 * this.fontScale)
+            }.width(32 * this.fontScale).height(36 * this.fontScale).backgroundColor(this.recording || this.voiceBusy ? UiTheme.accentStrong : UiTheme.accentSoft).borderRadius(6 * this.fontScale)
               .accessibilityText(this.recording ? '结束录音' : '麦克风语音识别').interactive().onClick(() => this.toggleVoice())
             Row() {
             ModelSelector({ profiles: this.apiProfiles, activeId: this.apiActiveId, activeModel: this.apiActiveModel,
@@ -2552,10 +2589,6 @@ struct Index {
         }
         if (this.viewportWidth >= 900) this.navigationDrawerVisible = false
       })
-      .bindSheet($$this.contextPickerVisible, this.ContextSheet(), {
-        height: '80%', width: this.viewportWidth > 720 ? 680 : '94%',
-        preferType: SheetType.CENTER, showClose: false, dragBar: false,
-        onDisappear: () => { this.contextPickerVisible = false; this.searchSerial++; this.searchBusy = false } })
       .bindSheet($$this.focusDialogVisible, this.FocusDialogSheet(), {
         height: '78%', width: this.viewportWidth > 720 ? 620 : '94%',
         preferType: SheetType.CENTER, showClose: false, dragBar: false,

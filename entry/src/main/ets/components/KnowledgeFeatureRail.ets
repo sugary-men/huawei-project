@@ -31,7 +31,7 @@ export struct KnowledgeFeatureRail {
         Row({ space: 6 * this.fontScale }) {
           Stack() {
             Image(item.icon).width(15 * this.fontScale).height(15 * this.fontScale)
-              .objectFit(ImageFit.Contain).colorFilter(this.selected === item.value ? UiTheme.iconNavIvory : UiTheme.iconIvory)
+              .objectFit(ImageFit.Contain).attributeModifier(UiTheme.glyph(this.selected === item.value ? UiTheme.iconNavIvory : UiTheme.iconIvory))
           }.width(24 * this.fontScale).height(24 * this.fontScale)
             .backgroundColor(this.selected === item.value ? UiTheme.accentStrong : UiTheme.primary)
             .borderRadius(6)
@@ -44,7 +44,7 @@ export struct KnowledgeFeatureRail {
         Column({ space: 4 * this.fontScale }) {
           Stack() {
             Image(item.icon).width(18 * this.fontScale).height(18 * this.fontScale)
-              .objectFit(ImageFit.Contain).colorFilter(this.selected === item.value ? UiTheme.iconNavIvory : UiTheme.iconIvory)
+              .objectFit(ImageFit.Contain).attributeModifier(UiTheme.glyph(this.selected === item.value ? UiTheme.iconNavIvory : UiTheme.iconIvory))
           }.width(30 * this.fontScale).height(30 * this.fontScale)
             .backgroundColor(this.selected === item.value ? UiTheme.accentStrong : UiTheme.primary)
             .borderRadius(7)
@@ -62,14 +62,14 @@ export struct KnowledgeFeatureRail {
       .backgroundColor(this.selected === item.value ? UiTheme.accentPale : UiTheme.surface)
       .border({ width: 1, color: this.selected === item.value ? UiTheme.accentBorder : UiTheme.softBorder })
       .borderRadius(8).accessibilityText(item.label)
-      .enabled(this.selected !== item.value)
+      .accessibilitySelected(this.selected === item.value)
       .hoverEffect(HoverEffect.Highlight)
       .stateStyles({
         normal: { .opacity(1).scale({ x: 1, y: 1 }) },
         pressed: { .opacity(0.72).scale({ x: 0.96, y: 0.96 }) }
       })
       .animation({ duration: UiMotion.duration(UiMotion.press), curve: UiMotion.enterCurve })
-      .onClick(() => this.onSelect(item.value))
+      .onClick(() => { if (this.selected !== item.value) this.onSelect(item.value) })
   }
 
   @Builder
